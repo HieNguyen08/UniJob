@@ -1,0 +1,26 @@
+node_modules/
+unijob-web/node_modules/
+unijob-web/dist/
+.env.local
+*.local
+!.env.local.example
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+unijob-web/.docker/
+
+# Logs
+*.log
+npm-debug.log*

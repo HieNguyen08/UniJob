@@ -1,0 +1,9 @@
+services:
+  unijob-web:
+    build:
+      context: ./unijob-web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    container_name: unijob-web

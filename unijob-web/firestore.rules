@@ -1,0 +1,67 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: Check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // Users cannot delete their profiles
+    }
+
+    // Jobs collection
+    match /jobs/{jobId} {
+      allow read: if true; // Public read for job listings
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.postedBy == request.auth.uid || // Owner can update
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicants', 'assignedTo', 'status']) // Others can apply
+      );
+      allow delete: if isAuthenticated() && resource.data.postedBy == request.auth.uid;
+    }
+
+    // Applications collection
+    match /applications/{applicationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // Ratings collection
+    match /ratings/{ratingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if false; // Ratings cannot be modified
+      allow delete: if false;
+    }
+
+    // Job Completions collection
+    match /jobCompletions/{completionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // Work History collection
+    match /workHistory/{historyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}

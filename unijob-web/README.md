@@ -1,4 +1,4 @@
-﻿# 🎓 UniJob — Campus Task Marketplace
+﻿# UniJob -- Campus Task Marketplace
 
 > Nền tảng thương mại điện tử nội bộ kết nối công việc ngắn hạn dành cho sinh viên, giảng viên và CLB trong trường đại học.
 
@@ -7,7 +7,7 @@
 
 ---
 
-## 📸 Preview
+## Preview
 
 | Trang chủ | Tìm việc | Đăng việc |
 |-----------|----------|-----------|
@@ -15,7 +15,7 @@
 
 ---
 
-## 🚀 Cách 1: Chạy trực tiếp (Khuyến nghị cho dev)
+## Cach 1: Chay truc tiep (Khuyen nghi cho dev)
 
 ### Yêu cầu
 - **Node.js** >= 18.x — [Tải tại đây](https://nodejs.org/)
@@ -53,7 +53,7 @@ npm run lint       # Kiểm tra code style
 
 ---
 
-## 🐳 Cách 2: Chạy bằng Docker
+## Cach 2: Chay bang Docker
 
 ### Yêu cầu
 - **Docker** >= 20.x — [Tải tại đây](https://docs.docker.com/get-docker/)
@@ -100,7 +100,7 @@ docker stop unijob           # Nếu dùng Docker thuần
 
 ---
 
-## ⚙️ Cấu hình Firebase
+## Cau hinh Firebase
 
 1. Truy cập [Firebase Console](https://console.firebase.google.com)
 2. Tạo project mới (hoặc dùng project có sẵn)
@@ -117,13 +117,13 @@ VITE_FIREBASE_APP_ID=1:123456789:web:abc123
 ```
 
 5. Enable các service:
-   - **Authentication** → Sign-in method → Google ✅
+   - **Authentication** -> Sign-in method -> Google (enable)
    - **Cloud Firestore** → Create database
    - **Storage** → Get started
 
 ---
 
-## 📁 Cấu trúc dự án
+## Cau truc du an
 
 ```
 unijob-web/
@@ -145,7 +145,7 @@ unijob-web/
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Công nghệ | Mục đích |
 |-------|-----------|----------|
@@ -161,18 +161,18 @@ unijob-web/
 
 ---
 
-## 👥 Team
+## Team
 
-| Thành viên | Vai trò | Trách nhiệm chính |
+| Thanh vien | Vai tro | Trach nhiem chinh |
 |------------|---------|-------------------|
-| Nguyễn Minh Hiếu | 🔧 Tech Lead / Full-stack | Kiến trúc, setup, review code, deploy, Firebase config |
-| Thái Bảo Long | 🎨 Frontend Developer 1 | Job List, Job Detail, Create Job, Anonymous, Polish UI |
-| Ngô Quang Anh | 🎨 Frontend Developer 2 | Dashboard, Profile, Rating UI, Responsive |
-| Diệp Vũ Minh | ⚙️ Backend/Firebase Dev | Firestore services, Security Rules, data seeding |
-| Lộc | 🎨📝 Frontend Dev 3 + Docs | Home page, Urgent mode, Notification UI, báo cáo, video |
+| Nguyen Minh Hieu | Tech Lead / Full-stack | Kien truc, setup, review code, deploy, Firebase config |
+| Thai Bao Long | Frontend Developer 1 | Job List, Job Detail, Create Job, Anonymous, Polish UI |
+| Ngo Quang Anh | Frontend Developer 2 | Dashboard, Profile, Rating UI, Responsive |
+| Diep Vu Minh | Backend/Firebase Dev | Firestore services, Security Rules, data seeding |
+| Loc | Frontend Dev 3 + Docs | Home page, Urgent mode, Notification UI, bao cao, video |
 
 ---
 
-## 📝 License
+## License
 
 Dự án phục vụ mục đích học tập — Môn Electronic Commerce CO3027, HK252

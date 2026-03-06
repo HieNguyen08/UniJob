@@ -163,13 +163,13 @@ unijob-web/
 
 ## 👥 Team
 
-| Thành viên | Vai trò |
-|------------|---------|
-| Nguyễn Minh Hiếu | ... |
-| Thái Bảo Long | ... |
-| Ngô Quang Anh | ... |
-| Diệp Vũ Minh | ... |
-| Lộc | ... |
+| Thành viên | Vai trò | Trách nhiệm chính |
+|------------|---------|-------------------|
+| Nguyễn Minh Hiếu | 🔧 Tech Lead / Full-stack | Kiến trúc, setup, review code, deploy, Firebase config |
+| Thái Bảo Long | 🎨 Frontend Developer 1 | Job List, Job Detail, Create Job, Urgent, Anonymous |
+| Ngô Quang Anh | 🎨 Frontend Developer 2 | Dashboard, Profile, Rating UI, Responsive |
+| Diệp Vũ Minh | ⚙️ Backend/Firebase Dev | Firestore services, Security Rules, data seeding |
+| Lộc | 📝 UI/UX + Documentation | Figma design, báo cáo, video demo, Business docs |
 
 ---
 

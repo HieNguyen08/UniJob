@@ -68,7 +68,7 @@
 | **1.2** | Business Model Canvas | 0.5 | ✅ Đã có (TMDT_Business Canvas.png) |
 | **1.3** | Pricing model, Revenue model | 1.0 | ❌ Chưa làm |
 | **1.4** | Development plan, estimated cost | 1.0 | ❌ Chưa làm |
-| **2.1** | UI/UX Design (Figma) | 1.5 | 🔄 Đang làm (nhiều trang Done) |
+| **2.1** | UI/UX Design (Figma) | 1.5 | ✅ Đã hoàn thành |
 | **2.2** | Visual Design principles | 0.5 | ❌ Chưa làm |
 | **3.1** | Deploy website/app demo | - | ❌ Chưa làm |
 | **3.2** | Demo code | 2.0 | ❌ Chưa làm |
@@ -303,17 +303,30 @@ UniJob/
 
 ## 📌 6. PHÂN CÔNG NHÓM & VAI TRÒ
 
+> ⚠️ **Figma đã hoàn thành** → Lộc chuyển sang tham gia code frontend + documentation
+
 ### 6.1 Thành viên & Vai trò
 
 | # | Thành viên | Vai trò chính | Trách nhiệm |
 |---|------------|--------------|-------------|
 | 1 | **Nguyễn Minh Hiếu** | 🔧 **Tech Lead / Full-stack** | Kiến trúc hệ thống, setup dự án, review code, Firebase config, tích hợp hệ thống |
-| 2 | **Thái Bảo Long** | 🎨 **Frontend Developer 1** | Phát triển các trang chính (Job List, Job Detail, Create Job), UI components |
-| 3 | **Ngô Quang Anh** | 🎨 **Frontend Developer 2** | Phát triển trang Dashboard, Profile, Rating UI, responsive & animations |
-| 4 | **Diệp Vũ Minh** | ⚙️ **Backend/Firebase Developer** | Firestore services, Security Rules, Cloud Functions, data seeding, testing |
-| 5 | **Lộc** | 📝 **UI/UX + Documentation** | Figma design, báo cáo (report), video demo, Visual Design principles, Business docs |
+| 2 | **Thái Bảo Long** | 🎨 **Frontend Developer 1** | Job Listing, Job Detail, Create Job UI, kết nối Firestore |
+| 3 | **Ngô Quang Anh** | 🎨 **Frontend Developer 2** | Dashboard, Profile, Rating UI, responsive & animations |
+| 4 | **Diệp Vũ Minh** | ⚙️ **Backend/Firebase Developer** | Firestore services, Security Rules, Cloud Functions, data seeding |
+| 5 | **Lộc** | 🎨📝 **Frontend Developer 3 + Documentation** | Home page, Urgent mode, Notification UI, báo cáo, video demo |
 
-### 6.2 Trách nhiệm Assignment Parts (Bài nộp)
+### 6.2 Phân bổ khối lượng (Workload Balance)
+
+```
+           Code Tasks    Doc Tasks    Tổng
+Hiếu  ▓▓▓▓▓▓▓▓░░░░  ▓▓░░░░░░░░░░   ~60% code / ~15% docs / ~25% review
+Long  ▓▓▓▓▓▓▓▓▓▓░░  ░░░░░░░░░░░░   ~85% code / ~15% testing
+Anh   ▓▓▓▓▓▓▓▓▓░░░  ▓░░░░░░░░░░░   ~75% code / ~10% docs / ~15% testing
+Minh  ▓▓▓▓▓▓▓▓▓▓░░  ▓░░░░░░░░░░░   ~80% code / ~10% docs / ~10% testing
+Lộc   ▓▓▓▓▓▓▓░░░░░  ▓▓▓▓▓░░░░░░░   ~55% code / ~35% docs / ~10% video
+```
+
+### 6.3 Trách nhiệm Assignment Parts (Bài nộp)
 
 | Part | Nội dung | Điểm | Người phụ trách | Hỗ trợ |
 |------|----------|------|-----------------|--------|
@@ -321,15 +334,15 @@ UniJob/
 | **1.2** | Business Model Canvas | 0.5 | Lộc | Minh |
 | **1.3** | Pricing model, Revenue model | 1.0 | Lộc + Minh | Hiếu |
 | **1.4** | Development plan, Estimated cost | 1.0 | Hiếu + Lộc | — |
-| **2.1** | UI/UX Design (Figma) | 1.5 | Lộc + Long | Anh |
-| **2.2** | Visual Design principles | 0.5 | Lộc | — |
+| **2.1** | UI/UX Design (Figma) | 1.5 | ✅ **ĐÃ HOÀN THÀNH** | — |
+| **2.2** | Visual Design principles | 0.5 | Lộc | Anh |
 | **3.1** | Deploy website/app demo | — | Hiếu | Minh |
-| **3.2** | Demo code (source code + demo chức năng) | 2.0 | **Cả team** | — |
+| **3.2** | Demo code (source code + demo chức năng) | 2.0 | **Cả team** (5 người đều code) | — |
 | **4.1** | Video giới thiệu sản phẩm | 1.0 | Lộc + Anh | — |
 | **4.2** | Report format | 1.0 | Lộc | Hiếu |
-| **5** | Advanced features (4th wave e-commerce) | 1.0 | Hiếu + Minh | Long |
+| **5** | Advanced features (4th wave e-commerce) | 1.0 | Hiếu + Minh | Lộc |
 
-### 6.3 Git Branch Strategy & Ownership
+### 6.4 Git Branch Strategy & Ownership
 
 ```
 main                          ← Production (chỉ Hiếu merge)
@@ -342,8 +355,10 @@ main                          ← Production (chỉ Hiếu merge)
 │   ├── feature/profile       ← Anh: Profile cá nhân
 │   ├── feature/dashboard     ← Anh: Dashboard quản lý
 │   ├── feature/rating        ← Anh + Minh: Hệ thống đánh giá
-│   ├── feature/urgent        ← Long: Việc khẩn cấp
+│   ├── feature/home          ← Lộc: Home page (real data, featured jobs)
+│   ├── feature/urgent        ← Lộc: Việc khẩn cấp UI + countdown
 │   ├── feature/anonymous     ← Long: Đăng job ẩn danh
+│   ├── feature/notification  ← Lộc: Notification UI components
 │   ├── feature/job-limit     ← Minh: Giới hạn số job
 │   ├── feature/job-suggest   ← Minh: Đề xuất job theo khoa
 │   ├── feature/completion    ← Minh: Xác nhận hoàn thành 2 bước
@@ -382,8 +397,8 @@ main                          ← Production (chỉ Hiếu merge)
 | **Job CRUD** - Form đăng job, sửa job, xóa job (kết nối Firestore) | Long | feature/job-crud | P0 | ⬜ |
 | **Profile** - Trang cá nhân, chỉnh sửa thông tin, avatar | Anh | feature/profile | P0 | ⬜ |
 | **Firestore indexes** + cấu trúc collection theo schema | Minh | feature/security | P0 | ⬜ |
-| Hoàn thiện Figma cho tất cả trang còn lại | Lộc | — | P0 | ⬜ |
-| Bắt đầu viết Part 1 báo cáo (Identify, BMC, Pricing) | Lộc | docs/report | P1 | ⬜ |
+| **Home page** - Kết nối real data (featured jobs, stats, categories) | Lộc | feature/home | P0 | ⬜ |
+| Bắt đầu viết Part 1 báo cáo (Identify, BMC) song song | Lộc | docs/report | P1 | ⬜ |
 
 #### 🔴 Tuần 2 (16/03 - 22/03): Core Pages
 
@@ -392,7 +407,7 @@ main                          ← Production (chỉ Hiếu merge)
 | **Job Listing** - Danh sách + Filter + Search + Pagination (real data) | Long | feature/job-listing | P0 | ⬜ |
 | **Job Detail** - Trang chi tiết + nút ứng tuyển + quản lý ứng viên | Long | feature/job-detail | P0 | ⬜ |
 | **Dashboard** - Tab job đã đăng / đã ứng tuyển (real data) | Anh | feature/dashboard | P0 | ⬜ |
-| **Layout polish** - Responsive mobile, loading states, error handling | Anh | feature/dashboard | P1 | ⬜ |
+| **Layout polish** - Responsive mobile, loading states, error handling | Lộc | develop | P1 | ⬜ |
 | Firestore basic Security Rules (auth required, owner check) | Minh | feature/security | P0 | ⬜ |
 | User service: getUserById, updateProfile, canAcceptMoreJobs | Minh | feature/job-limit | P0 | ⬜ |
 | Review code & merge PRs vào develop | Hiếu | develop | P0 | ⬜ |
@@ -406,13 +421,13 @@ main                          ← Production (chỉ Hiếu merge)
 
 | Task | Assignee | Branch | Ưu tiên | Status |
 |------|----------|--------|---------|--------|
-| **Việc khẩn cấp** - Urgent mode UI + countdown timer + filter | Long | feature/urgent | P1 | ⬜ |
+| **Việc khẩn cấp** - Urgent mode UI + countdown timer + filter | Lộc | feature/urgent | P1 | ⬜ |
 | **Đăng job ẩn danh** - Toggle ẩn danh, hiển thị "Ẩn danh" thay tên | Long | feature/anonymous | P1 | ⬜ |
 | **Rating system** - UI đánh giá sao + comment sau hoàn thành job | Anh | feature/rating | P1 | ⬜ |
 | **Xác nhận hoàn thành 2 bước** - Worker confirm + Poster confirm | Minh | feature/completion | P1 | ⬜ |
 | **Giới hạn số job đang nhận** - Logic check + hiển thị cảnh báo | Minh | feature/job-limit | P1 | ⬜ |
 | Rating service: submitRating, tính avg, cập nhật user score | Minh | feature/rating | P1 | ⬜ |
-| Viết Part 1.4 (Development plan + Estimated cost) | Lộc + Hiếu | docs/report | P1 | ⬜ |
+| **Notification UI** - Toast + dropdown thông báo job mới, ứng tuyển | Lộc | feature/notification | P1 | ⬜ |
 | Integration test auth flow + job flow end-to-end | Hiếu | develop | P0 | ⬜ |
 
 #### 🟡 Tuần 4 (30/03 - 01/04): Advanced Business
@@ -423,8 +438,8 @@ main                          ← Production (chỉ Hiếu merge)
 | **Chính sách huỷ & phạt uy tín** - Logic trừ điểm, UI xác nhận huỷ | Minh | feature/cancel-policy | P2 | ⬜ |
 | **Lịch sử hợp tác** - UI danh sách partner, gợi ý partner cũ | Anh | feature/work-history | P2 | ⬜ |
 | Polish UI: animations, transitions, empty states, skeleton loading | Long | develop | P1 | ⬜ |
+| Viết Part 1.4 (Dev plan + Cost) + Part 2.2 (Visual Design) | Lộc | docs/report | P1 | ⬜ |
 | Merge tất cả features Phase 2 → develop | Hiếu | develop | P0 | ⬜ |
-| Viết Part 2.2 (Visual Design principles) | Lộc | docs/report | P1 | ⬜ |
 
 > **📅 Milestone Tuần 4:** Tất cả 13 chức năng hoạt động — Rating, Urgent, Anonymous, Job limit, Suggest, Cancel, Work history
 
@@ -438,7 +453,7 @@ main                          ← Production (chỉ Hiếu merge)
 | **AI Job Matching** - Algorithm gợi ý dựa trên skills + history | Hiếu | feature/ai-suggest | P2 | ⬜ |
 | **Firestore Security Rules** hoàn chỉnh (production-ready) | Minh | feature/security | P1 | ⬜ |
 | **Real-time notifications** - Firestore onSnapshot cho job mới | Minh | feature/security | P2 | ⬜ |
-| **Testing toàn bộ flow** - Test tất cả chức năng, fix bugs | Long + Anh | develop | P0 | ⬜ |
+| **Testing toàn bộ flow** - Test tất cả chức năng, fix bugs | Long + Lộc | develop | P0 | ⬜ |
 | **Performance** - Lazy loading, code splitting, image optimization | Long | develop | P2 | ⬜ |
 | **Responsive final check** - Test trên mobile, tablet, desktop | Anh | develop | P1 | ⬜ |
 | Viết Part 5 (Advanced features documentation) | Hiếu + Lộc | docs/report | P1 | ⬜ |
@@ -464,37 +479,37 @@ main                          ← Production (chỉ Hiếu merge)
 
 ## 📌 8. TỔNG HỢP CÔNG VIỆC THEO THÀNH VIÊN
 
-### 👤 Nguyễn Minh Hiếu (Tech Lead)
+### 👤 Nguyễn Minh Hiếu (Tech Lead) — ~10 tasks
 | Tuần | Công việc chính | Công việc phụ |
 |------|----------------|---------------|
 | 1 | Firebase Console setup, Authentication | Code review |
 | 2 | Code review, merge PRs vào develop | Hỗ trợ debug |
-| 3 | Integration test auth + job flow | Hỗ trợ Part 1.4 báo cáo |
+| 3 | Integration test auth + job flow E2E | — |
 | 4 | Merge Phase 2 features | — |
 | 5 | CV PDF export, AI Job Matching | Part 5 advanced docs |
 | 6 | Deploy Firebase Hosting, review report | Final testing |
 
-### 👤 Thái Bảo Long (Frontend Dev 1)
+### 👤 Thái Bảo Long (Frontend Dev 1) — ~8 tasks
 | Tuần | Công việc chính | Công việc phụ |
 |------|----------------|---------------|
 | 1 | Job CRUD — form đăng/sửa/xóa job | — |
 | 2 | Job Listing + Job Detail (real data) | — |
-| 3 | Urgent mode UI + Anonymous toggle | — |
-| 4 | Polish UI, animations, transitions | — |
-| 5 | Testing toàn bộ flow, fix bugs, performance | — |
+| 3 | Đăng job ẩn danh (Anonymous toggle) | — |
+| 4 | Polish UI, animations, transitions, skeleton | — |
+| 5 | Testing toàn bộ flow, performance optimization | — |
 | 6 | Nhập demo data | Final testing |
 
-### 👤 Ngô Quang Anh (Frontend Dev 2)
+### 👤 Ngô Quang Anh (Frontend Dev 2) — ~8 tasks
 | Tuần | Công việc chính | Công việc phụ |
 |------|----------------|---------------|
 | 1 | Profile page (chỉnh sửa, avatar) | — |
-| 2 | Dashboard (job đã đăng/ứng tuyển) + responsive | — |
+| 2 | Dashboard (job đã đăng/ứng tuyển) | — |
 | 3 | Rating system UI (đánh giá sao + comment) | — |
 | 4 | Lịch sử hợp tác UI | — |
-| 5 | Testing, fix bugs, responsive final check | — |
+| 5 | Responsive final check (mobile/tablet/desktop) | — |
 | 6 | Quay video demo | Final testing |
 
-### 👤 Diệp Vũ Minh (Backend/Firebase Dev)
+### 👤 Diệp Vũ Minh (Backend/Firebase Dev) — ~10 tasks
 | Tuần | Công việc chính | Công việc phụ |
 |------|----------------|---------------|
 | 1 | Firestore indexes + collection structure | — |
@@ -504,15 +519,15 @@ main                          ← Production (chỉ Hiếu merge)
 | 5 | Security Rules hoàn chỉnh + Realtime notifications | — |
 | 6 | Seed data script + nhập demo data | Final testing |
 
-### 👤 Lộc (UI/UX + Docs)
+### 👤 Lộc (Frontend Dev 3 + Docs) — ~10 tasks
 | Tuần | Công việc chính | Công việc phụ |
 |------|----------------|---------------|
-| 1 | Hoàn thiện Figma + bắt đầu Part 1 báo cáo | — |
-| 2 | Part 1.3 (Pricing + Revenue model) | — |
-| 3 | Part 1.4 (Dev plan + Cost) | — |
-| 4 | Part 2.2 (Visual Design principles) | — |
-| 5 | Part 5 (Advanced features docs) | — |
-| 6 | Hoàn thành toàn bộ report + quay video demo | Review format |
+| 1 | 🎨 **Home page** (real data, featured jobs, stats) | Part 1 báo cáo (bắt đầu) |
+| 2 | 🎨 **Layout polish** (responsive, loading, error states) | Part 1.3 (Pricing + Revenue) |
+| 3 | 🎨 **Urgent mode UI** (countdown timer + filter) + **Notification UI** | — |
+| 4 | 📝 Part 1.4 (Dev plan + Cost) + Part 2.2 (Visual Design) | — |
+| 5 | 🧪 Testing + fix bugs + 📝 Part 5 (Advanced docs) | — |
+| 6 | 📝 Hoàn thành report + 🎥 Quay video demo | Review format |
 
 ---
 
@@ -691,6 +706,7 @@ main          ← Production (deploy)
 | 05/03/2026 | Khởi tạo Review.md - Tổng hợp concept, plan tech stack, timeline | AI Assistant |
 | 05/03/2026 | **Phase 0 hoàn tất** - Init project, cài dependencies, setup Tailwind + Firebase config, tạo folder structure, types, services, stores, layout, pages, routing. Build thành công, dev server chạy OK tại `http://localhost:5173` | AI Assistant |
 | 06/03/2026 | **Phân công nhóm 5 người** - Thêm Section 6-9: vai trò, phân công theo phase/tuần, git branch ownership, quy tắc nhóm, deadline nội bộ (M1-M6) | AI Assistant |
+| 06/03/2026 | **Chia lại khối lượng** - Figma đã xong → Lộc chuyển thành Frontend Dev 3 + Docs, nhận code: Home page, Urgent mode, Notification UI, Layout polish. Giảm tải cho Long (bớt Urgent). Cân bằng ~8-10 tasks/người | AI Assistant |
 | | | |
 
 ---

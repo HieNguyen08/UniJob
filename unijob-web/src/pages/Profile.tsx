@@ -1,11 +1,13 @@
 import { useAuthStore } from '@/store/authStore';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { updateUserProfile } from '@/services/user.service';
 import { FACULTIES } from '@/lib/constants';
-import { Star, Briefcase, Mail, Phone, BookOpen, Award, Save, Edit3 } from 'lucide-react';
+import { Star, Briefcase, Mail, Phone, BookOpen, Award, Save, Edit3, FileDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Profile() {
+  const navigate = useNavigate();
   const { userProfile, refreshProfile } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
@@ -96,6 +98,15 @@ export default function Profile() {
               <p className="text-xs text-[var(--color-muted-foreground)]">Giới hạn</p>
             </div>
           </div>
+
+          {/* CV Passport Button */}
+          <button
+            onClick={() => navigate('/cv-export')}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+          >
+            <FileDown className="h-4 w-4" />
+            Xuất chứng nhận CV Passport
+          </button>
         </div>
 
         {/* Details */}

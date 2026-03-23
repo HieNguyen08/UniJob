@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { getJobsByUser } from '@/services/job.service';
 import { getApplicationsByUser } from '@/services/job.service';
 import type { Job, Application } from '@/types';
-import { Briefcase, Send, Clock, CheckCircle, XCircle, PlusCircle, Eye } from 'lucide-react';
+import { Briefcase, Send, Clock, CheckCircle, PlusCircle, Eye } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { JOB_CATEGORIES } from '@/lib/constants';
 

@@ -35,7 +35,18 @@ export const useJobStore = create<JobState>((set, get) => ({
     set({ isLoading: true });
 
     try {
-      const jobs = await getJobs(filters);
+      let jobs = await getJobs(filters);
+
+      // Client-side search filtering (Firestore doesn't support full-text search)
+      if (filters.searchQuery) {
+        const query = filters.searchQuery.toLowerCase();
+        jobs = jobs.filter(
+          (job) =>
+            job.title.toLowerCase().includes(query) ||
+            job.description.toLowerCase().includes(query)
+        );
+      }
+
       set({
         jobs: reset ? jobs : [...get().jobs, ...jobs],
         isLoading: false,

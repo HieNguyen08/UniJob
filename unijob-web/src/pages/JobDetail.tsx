@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { getJobById } from '@/services/job.service';
+import { getJobById, applyForJob } from '@/services/job.service';
 import type { Job } from '@/types';
 import { JOB_CATEGORIES } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
@@ -29,6 +29,7 @@ export default function JobDetail() {
   const [loading, setLoading] = useState(true);
   const [applyMessage, setApplyMessage] = useState('');
   const [showApplyForm, setShowApplyForm] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -39,14 +40,38 @@ export default function JobDetail() {
     }
   }, [id]);
 
+  const hasApplied = userProfile?.uid ? job?.applicants?.includes(userProfile.uid) : false;
+
   const handleApply = async () => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !userProfile) {
       navigate('/login');
       return;
     }
-    // TODO: Implement actual apply logic
-    toast.success('Đã ứng tuyển thành công!');
-    setShowApplyForm(false);
+    if (hasApplied) {
+      toast.error('Bạn đã ứng tuyển công việc này rồi!');
+      return;
+    }
+    setApplying(true);
+    try {
+      await applyForJob(
+        id!,
+        userProfile.uid,
+        userProfile.displayName,
+        userProfile.photoURL || '',
+        applyMessage
+      );
+      setJob((prev) =>
+        prev ? { ...prev, applicants: [...(prev.applicants || []), userProfile.uid] } : prev
+      );
+      toast.success('Đã ứng tuyển thành công!');
+      setShowApplyForm(false);
+      setApplyMessage('');
+    } catch (error) {
+      console.error('Apply error:', error);
+      toast.error('Lỗi khi ứng tuyển, vui lòng thử lại');
+    } finally {
+      setApplying(false);
+    }
   };
 
   if (loading) {
@@ -145,7 +170,9 @@ export default function JobDetail() {
           {!isOwner && job.status === 'open' && (
             <div className="mt-6 rounded-2xl border border-[var(--color-border)] bg-white p-6">
               <h2 className="mb-4 text-lg font-semibold">Ứng tuyển</h2>
-              {showApplyForm ? (
+              {hasApplied ? (
+                <p className="text-sm text-green-600 font-medium">Bạn đã ứng tuyển công việc này.</p>
+              ) : showApplyForm ? (
                 <div>
                   <textarea
                     value={applyMessage}
@@ -157,13 +184,15 @@ export default function JobDetail() {
                   <div className="flex gap-3">
                     <button
                       onClick={handleApply}
-                      className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                      disabled={applying}
+                      className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Send className="h-4 w-4" />
-                      Gửi ứng tuyển
+                      {applying ? 'Đang gửi...' : 'Gửi ứng tuyển'}
                     </button>
                     <button
                       onClick={() => setShowApplyForm(false)}
+                      disabled={applying}
                       className="rounded-xl border border-[var(--color-border)] px-6 py-2.5 text-sm hover:bg-[var(--color-secondary)]"
                     >
                       Hủy

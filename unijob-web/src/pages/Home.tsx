@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { Briefcase, Search, Shield, Star, Zap, ArrowRight, Users, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
+import SuggestedJobs from '@/components/job/SuggestedJobs';
 
 export default function Home() {
   const { isAuthenticated } = useAuthStore();
@@ -133,6 +134,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* AI Suggested Jobs (authenticated only) */}
+      <SuggestedJobs />
 
       {/* CTA */}
       <section className="py-16">

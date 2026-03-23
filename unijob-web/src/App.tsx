@@ -14,6 +14,7 @@ import JobDetail from '@/pages/JobDetail';
 import CreateJob from '@/pages/CreateJob';
 import Profile from '@/pages/Profile';
 import Dashboard from '@/pages/Dashboard';
+import CVExport from '@/pages/CVExport';
 import NotFound from '@/pages/NotFound';
 
 const queryClient = new QueryClient({
@@ -55,6 +56,7 @@ function AppRoutes() {
         <Route path="/create-job" element={<CreateJob />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/cv-export" element={<CVExport />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

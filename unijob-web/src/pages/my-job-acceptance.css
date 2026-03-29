@@ -1,0 +1,409 @@
+.accept-page {
+  min-height: 100vh;
+  background: #f1f5f9;
+  padding: 26px 14px;
+}
+
+.accept-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.accept-page-title {
+  margin: 0 0 14px;
+  color: #0f172a;
+  font-size: 2.05rem;
+  letter-spacing: -0.01em;
+}
+
+.accept-back-link {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.accept-back-link:hover {
+  color: #334155;
+}
+
+.accept-card {
+  border: 1px solid #dbe3ec;
+  border-radius: 16px;
+  background: #fff;
+  padding: 24px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.accept-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.accept-job-title {
+  margin: 0;
+  color: #1e293b;
+  font-size: 1.95rem;
+}
+
+.accept-job-id {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 1rem;
+}
+
+.accept-pill {
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #ffedd5;
+  color: #ea580c;
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.accept-timeline-wrap {
+  position: relative;
+  margin-top: 20px;
+}
+
+.accept-timeline-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 18px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #47b979 0%, #47b979 50%, #f97316 70%, #dbe3ec 70%);
+}
+
+.accept-steps {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  text-align: center;
+}
+
+.accept-step {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.accept-step p {
+  margin: 8px 0 4px;
+  font-weight: 600;
+}
+
+.accept-step small {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.accept-step-icon {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.accept-step.done .accept-step-icon {
+  background: #47b979;
+  color: #fff;
+}
+
+.accept-step.active .accept-step-icon {
+  background: #f97316;
+  color: #fff;
+}
+
+.accept-step.active p,
+.accept-step.active small {
+  color: #ea580c;
+}
+
+.accept-step.muted .accept-step-icon {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.accept-result-wrap {
+  margin-top: 18px;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.accept-section-title {
+  margin: 0;
+  color: #334155;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.accept-user-row {
+  margin-top: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.accept-user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #47b979;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.accept-user-name {
+  margin: 0;
+  color: #1e293b;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.accept-user-msg {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.accept-user-time {
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.accept-file-box {
+  margin-top: 12px;
+  border: 1px solid #dbe3ec;
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.accept-file-name {
+  margin: 0;
+  color: #334155;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.accept-file-size {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.accept-download-btn {
+  border: 1px solid #dbe3ec;
+  background: #fff;
+  color: #64748b;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.accept-download-btn:hover {
+  background: #f8fafc;
+}
+
+.accept-warning-box {
+  margin-top: 16px;
+  border: 1px solid #fde047;
+  background: #fffef3;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.accept-warning-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #a16207;
+}
+
+.accept-warning-title-row h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.accept-warning-box > p {
+  margin: 6px 0 0;
+  color: #737373;
+  font-size: 0.9rem;
+}
+
+.accept-warning-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 12px;
+}
+
+.accept-confirm-btn {
+  flex: 1;
+  border: 0;
+  border-radius: 10px;
+  background: #47b979;
+  color: #fff;
+  padding: 11px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.accept-confirm-btn:hover {
+  background: #3aa86a;
+}
+
+.accept-report-btn {
+  border: 2px solid #ef4444;
+  border-radius: 10px;
+  background: #fff;
+  color: #ef4444;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.accept-report-btn:hover {
+  background: #fef2f2;
+}
+
+.accept-warning-note {
+  margin: 10px 0 0;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.accept-footer {
+  margin-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 14px;
+}
+
+.accept-footer-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.accept-footer-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  text-align: center;
+}
+
+.accept-footer-grid p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.accept-footer-grid strong {
+  display: block;
+  margin-top: 4px;
+  color: #1f2937;
+  font-size: 1rem;
+}
+
+.accept-help-link {
+  margin-top: 14px;
+  border: 0;
+  background: transparent;
+  color: #22c55e;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.accept-help-link:hover {
+  color: #16a34a;
+}
+
+@media (max-width: 1024px) {
+  .accept-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .accept-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 16px;
+  }
+
+  .accept-warning-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 768px) {
+  .accept-card {
+    padding: 16px;
+  }
+
+  .accept-page-title {
+    font-size: 1.6rem;
+  }
+
+  .accept-back-link {
+    font-size: 0.88rem;
+  }
+
+  .accept-job-title {
+    font-size: 1.3rem;
+  }
+
+  .accept-steps {
+    grid-template-columns: 1fr;
+    text-align: left;
+  }
+
+  .accept-step-icon {
+    margin: 0;
+  }
+
+  .accept-user-row {
+    flex-wrap: wrap;
+  }
+
+  .accept-user-time {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .accept-footer-grid {
+    grid-template-columns: 1fr;
+  }
+}

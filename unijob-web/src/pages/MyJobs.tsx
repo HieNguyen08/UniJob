@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
@@ -10,6 +11,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
+import './my-jobs.css';
 
 type WorkTab = 'received' | 'posted';
 type WorkStatus = 'in-progress' | 'pending' | 'completed' | 'finding';
@@ -100,40 +102,30 @@ const postedJobs: PostedJob[] = [
 const statusConfig: Record<WorkStatus, { label: string; className: string }> = {
   'in-progress': {
     label: 'Đang thực hiện',
-    className: 'bg-blue-100 text-blue-600',
+    className: 'myjobs-badge-in-progress',
   },
   pending: {
     label: 'Chờ xác nhận',
-    className: 'bg-orange-100 text-orange-600',
+    className: 'myjobs-badge-pending',
   },
   completed: {
     label: 'Đã hoàn thành',
-    className: 'bg-green-100 text-green-600',
+    className: 'myjobs-badge-completed',
   },
   finding: {
     label: 'Đang tìm người',
-    className: 'bg-slate-100 text-slate-600',
+    className: 'myjobs-badge-finding',
   },
 };
 
-function StatCard({
-  icon,
-  value,
-  label,
-  accent,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  label: string;
-  accent: string;
-}) {
+function StatCard({ icon, value, label, accent }: { icon: ReactNode; value: string; label: string; accent: string }) {
   return (
-    <article className="rounded-2xl border border-[var(--color-border)] bg-white p-5">
-      <div className="flex items-center gap-3">
-        <div className={`rounded-xl p-3 ${accent}`}>{icon}</div>
+    <article className="myjobs-stat-card">
+      <div className="myjobs-stat-content">
+        <div className={`myjobs-stat-icon ${accent}`}>{icon}</div>
         <div>
-          <p className="text-4xl font-bold leading-none text-slate-800">{value}</p>
-          <p className="mt-1 text-sm text-slate-500">{label}</p>
+          <p className="myjobs-stat-value">{value}</p>
+          <p className="myjobs-stat-label">{label}</p>
         </div>
       </div>
     </article>
@@ -142,49 +134,49 @@ function StatCard({
 
 function ReportModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-5">
-          <h2 className="text-4xl font-bold text-slate-900">Báo cáo hoàn thành công việc</h2>
-          <button onClick={onClose} className="rounded-lg p-1 text-slate-500 hover:bg-slate-100">
+    <div className="myjobs-modal-backdrop">
+      <div className="myjobs-modal myjobs-modal-report">
+        <div className="myjobs-modal-header">
+          <h2 className="myjobs-modal-title">Báo cáo hoàn thành công việc</h2>
+          <button onClick={onClose} className="myjobs-icon-btn" type="button" aria-label="Close">
             <X className="h-6 w-6" />
           </button>
         </div>
 
-        <div className="space-y-5 px-6 py-5">
-          <section className="rounded-xl bg-slate-50 p-4">
-            <h3 className="text-2xl font-semibold text-slate-800">Thiết kế Slide Powerpoint thuyết trình</h3>
-            <p className="mt-1 text-base text-slate-500">Người đăng: Trần Thị B</p>
-            <p className="mt-1 font-semibold text-green-600">150.000đ</p>
-            <p className="text-base text-slate-500">Hạn chót: 20/02/2026</p>
+        <div className="myjobs-modal-body">
+          <section className="myjobs-info-card">
+            <h3 className="myjobs-info-title">Thiết kế Slide Powerpoint thuyết trình</h3>
+            <p className="myjobs-muted">Người đăng: Trần Thị B</p>
+            <p className="myjobs-price-green">150.000đ</p>
+            <p className="myjobs-muted">Hạn chót: 20/02/2026</p>
           </section>
 
           <section>
-            <label className="mb-2 block text-lg font-medium text-slate-700">Lời nhắn / Mô tả kết quả</label>
+            <label className="myjobs-label">Lời nhắn / Mô tả kết quả</label>
             <textarea
               rows={4}
               placeholder="VD: Em đã hoàn thành slide, link file gốc ở bên dưới..."
-              className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 outline-none focus:border-green-500"
+              className="myjobs-textarea"
             />
           </section>
 
           <section>
-            <p className="mb-2 text-lg font-medium text-slate-700">Minh chứng kết quả</p>
-            <div className="rounded-xl border-2 border-dashed border-[var(--color-border)] px-4 py-10 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+            <p className="myjobs-label">Minh chứng kết quả</p>
+            <div className="myjobs-upload-zone">
+              <div className="myjobs-upload-icon-wrap">
                 <Upload className="h-6 w-6" />
               </div>
-              <p className="text-lg font-medium text-slate-600">Kéo thả file hoặc nhấn để tải lên</p>
-              <p className="mt-1 text-sm text-slate-400">(Ảnh, PDF, Zip)</p>
+              <p className="myjobs-upload-title">Kéo thả file hoặc nhấn để tải lên</p>
+              <p className="myjobs-upload-subtitle">(Ảnh, PDF, Zip)</p>
             </div>
           </section>
         </div>
 
-        <div className="border-t border-[var(--color-border)] px-6 py-5">
-          <button className="w-full rounded-xl bg-green-500 py-3 text-lg font-semibold text-white hover:bg-green-600">
+        <div className="myjobs-modal-footer">
+          <button className="myjobs-btn myjobs-btn-primary" type="button">
             Gửi báo cáo & Hoàn tất
           </button>
-          <button onClick={onClose} className="mt-3 w-full py-2 text-lg font-medium text-slate-500 hover:text-slate-700">
+          <button onClick={onClose} className="myjobs-btn-link" type="button">
             Hủy bỏ
           </button>
         </div>
@@ -210,50 +202,51 @@ function CancelModal({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
-      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl">
-        <div className="border-b border-[var(--color-border)] px-8 py-6">
-          <h2 className="text-4xl font-bold text-slate-900">Xác nhận hủy công việc</h2>
-          <p className="mt-2 text-lg text-slate-600">Vui lòng cho biết lý do bạn muốn hủy công việc này.</p>
+    <div className="myjobs-modal-backdrop">
+      <div className="myjobs-modal myjobs-modal-cancel">
+        <div className="myjobs-modal-header">
+          <h2 className="myjobs-modal-title">Xác nhận hủy công việc</h2>
+          <p className="myjobs-modal-subtitle">Vui lòng cho biết lý do bạn muốn hủy công việc này.</p>
         </div>
 
-        <div className="space-y-5 px-8 py-6">
-          <section className="rounded-xl bg-slate-50 p-4">
-            <p className="text-lg text-slate-600">Công việc:</p>
-            <p className="text-3xl font-semibold text-slate-800">Thiết kế Slide Powerpoint thuyết trình</p>
+        <div className="myjobs-modal-body">
+          <section className="myjobs-info-card">
+            <p className="myjobs-muted">Công việc:</p>
+            <p className="myjobs-info-title">Thiết kế Slide Powerpoint thuyết trình</p>
           </section>
 
           <section>
-            <label className="mb-2 block text-xl font-semibold text-slate-800">Lý do hủy bỏ:</label>
-            <select className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 text-lg outline-none focus:border-red-400">
+            <label className="myjobs-label">Lý do hủy bỏ:</label>
+            <select className="myjobs-select">
               {reasons.map((reason) => (
                 <option key={reason}>{step === 1 && reason !== reasons[0] ? reasons[0] : reason}</option>
               ))}
             </select>
           </section>
 
-          <section className="rounded-xl border border-red-300 bg-red-50 p-5">
-            <div className="mb-2 flex items-center gap-2 text-red-700">
+          <section className="myjobs-alert">
+            <div className="myjobs-alert-title-wrap">
               <AlertCircle className="h-6 w-6" />
-              <h3 className="text-3xl font-bold">Cảnh báo vi phạm chính sách:</h3>
+              <h3 className="myjobs-alert-title">Cảnh báo vi phạm chính sách:</h3>
             </div>
-            <ul className="list-disc space-y-1 pl-6 text-xl text-red-700">
+            <ul className="myjobs-alert-list">
               <li>Hủy sát giờ (dưới 12 tiếng): -20 điểm uy tín.</li>
               <li>Tài khoản sẽ bị giới hạn đăng bài trong 3 ngày.</li>
             </ul>
           </section>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 border-t border-[var(--color-border)] px-8 py-5">
-          <button onClick={onClose} className="rounded-xl bg-green-500 py-3 text-2xl font-semibold text-white hover:bg-green-600">
+        <div className="myjobs-cancel-actions">
+          <button onClick={onClose} className="myjobs-btn myjobs-btn-primary" type="button">
             Quay lại (Không hủy)
           </button>
           <button
             onClick={onNext}
-            className={`rounded-xl border py-3 text-2xl font-semibold ${
+            type="button"
+            className={`myjobs-btn myjobs-btn-danger ${
               step === 1
-                ? 'border-red-200 text-red-300'
-                : 'border-red-500 bg-red-50 text-red-500 hover:bg-red-100'
+                ? 'myjobs-btn-danger-disabled'
+                : ''
             }`}
           >
             Xác nhận Hủy
@@ -276,33 +269,30 @@ export default function MyJobs() {
         value: '2',
         label: 'Đang thực hiện',
         icon: <Loader className="h-6 w-6 text-blue-500" />,
-        accent: 'bg-blue-50',
+        accent: 'myjobs-accent-blue',
       },
       {
         value: '1',
         label: 'Chờ xác nhận',
         icon: <Clock3 className="h-6 w-6 text-orange-500" />,
-        accent: 'bg-orange-50',
+        accent: 'myjobs-accent-orange',
       },
       {
         value: '15',
         label: 'Đã hoàn thành',
         icon: <CheckCircle2 className="h-6 w-6 text-green-500" />,
-        accent: 'bg-green-50',
+        accent: 'myjobs-accent-green',
       },
     ],
     []
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10">
-      <div className="mx-auto mb-4 max-w-6xl rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-2xl font-bold text-red-700">
-        hello world from my-jobs
-      </div>
-      <div className="mx-auto max-w-6xl rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm md:p-8">
-        <h1 className="text-5xl font-bold text-slate-900">Quản lý công việc</h1>
+    <div className="myjobs-page">
+      <div className="myjobs-container">
+        <h1 className="myjobs-title">Quản lý công việc</h1>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
+        <div className="myjobs-stats-grid">
           {stats.map((stat) => (
             <StatCard
               key={stat.label}
@@ -314,24 +304,26 @@ export default function MyJobs() {
           ))}
         </div>
 
-        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] pb-3">
-          <div className="flex items-center gap-6">
+        <div className="myjobs-tabs-row">
+          <div className="myjobs-tabs-left">
             <button
               onClick={() => setActiveTab('received')}
-              className={`border-b-2 pb-2 text-xl font-semibold ${
+              type="button"
+              className={`myjobs-tab-btn ${
                 activeTab === 'received'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-slate-400'
+                  ? 'myjobs-tab-btn-active'
+                  : 'myjobs-tab-btn-inactive'
               }`}
             >
               Việc tôi nhận
             </button>
             <button
               onClick={() => setActiveTab('posted')}
-              className={`border-b-2 pb-2 text-xl font-semibold ${
+              type="button"
+              className={`myjobs-tab-btn ${
                 activeTab === 'posted'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-slate-400'
+                  ? 'myjobs-tab-btn-active'
+                  : 'myjobs-tab-btn-inactive'
               }`}
             >
               Việc tôi đăng
@@ -339,43 +331,43 @@ export default function MyJobs() {
           </div>
 
           {activeTab === 'received' ? (
-            <div className="flex items-center gap-2 text-base text-slate-500">
+            <div className="myjobs-limit-wrap">
               <span>Giới hạn nhận việc: 2/3 job đang chạy</span>
-              <div className="h-3 w-32 rounded-full bg-slate-200">
-                <div className="h-3 w-2/3 rounded-full bg-green-500" />
+              <div className="myjobs-progress-track">
+                <div className="myjobs-progress-bar" />
               </div>
             </div>
           ) : (
-            <button className="inline-flex items-center gap-2 rounded-xl bg-green-500 px-4 py-2 text-base font-semibold text-white hover:bg-green-600">
+            <button className="myjobs-btn myjobs-btn-primary myjobs-post-btn" type="button">
               <Plus className="h-4 w-4" />
               Đăng công việc mới
             </button>
           )}
         </div>
 
-        <div className="mt-5 space-y-4">
+        <div className="myjobs-list">
           {activeTab === 'received'
             ? receivedJobs.map((job) => (
-                <article key={job.id} className="rounded-2xl border border-[var(--color-border)] p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                <article key={job.id} className="myjobs-item-card">
+                  <div className="myjobs-item-main">
                     <div>
-                      <h3 className="text-3xl font-bold text-slate-800">{job.title}</h3>
-                      <p className="mt-1 text-lg text-slate-500">Người đăng: {job.postedBy}</p>
+                      <h3 className="myjobs-item-title">{job.title}</h3>
+                      <p className="myjobs-item-sub">Người đăng: {job.postedBy}</p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 text-lg text-slate-500">
-                      <span className="inline-flex items-center gap-2">
+                    <div className="myjobs-item-meta">
+                      <span className="myjobs-inline-meta">
                         <Calendar className="h-5 w-5" />
                         {job.deadlineLabel}
                       </span>
-                      <span className="font-semibold text-slate-700">{job.paymentLabel}</span>
-                      <span className={`rounded-full px-4 py-1 font-semibold ${statusConfig[job.status].className}`}>
+                      <span className="myjobs-item-price">{job.paymentLabel}</span>
+                      <span className={`myjobs-badge ${statusConfig[job.status].className}`}>
                         {statusConfig[job.status].label}
                       </span>
                     </div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center justify-end gap-4">
+                  <div className="myjobs-item-actions">
                     {job.actionLabel && (
                       <button
                         onClick={() => {
@@ -384,10 +376,11 @@ export default function MyJobs() {
                             return;
                           }
                         }}
-                        className={`rounded-xl px-5 py-2 text-lg font-semibold ${
+                        type="button"
+                        className={`myjobs-action-link ${
                           job.id === 'r1'
-                            ? 'border border-green-500 text-green-500 hover:bg-green-50'
-                            : 'text-green-500 hover:bg-green-50'
+                            ? 'myjobs-action-outline'
+                            : ''
                         }`}
                       >
                         {job.actionLabel}
@@ -396,7 +389,8 @@ export default function MyJobs() {
                     {job.dangerActionLabel && (
                       <button
                         onClick={() => setCancelStep(1)}
-                        className="text-lg font-semibold text-red-500 hover:text-red-600"
+                        className="myjobs-action-danger"
+                        type="button"
                       >
                         {job.dangerActionLabel}
                       </button>
@@ -405,16 +399,16 @@ export default function MyJobs() {
                 </article>
               ))
             : postedJobs.map((job) => (
-                <article key={job.id} className="rounded-2xl border border-[var(--color-border)] p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
+                <article key={job.id} className="myjobs-item-card">
+                  <div className="myjobs-item-main">
                     <div>
-                      <h3 className="text-3xl font-bold text-slate-800">{job.title}</h3>
-                      <p className="mt-1 text-lg text-slate-500">{job.subtitle}</p>
+                      <h3 className="myjobs-item-title">{job.title}</h3>
+                      <p className="myjobs-item-sub">{job.subtitle}</p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4">
-                      <span className="text-2xl font-semibold text-slate-700">{job.paymentLabel}</span>
-                      <span className={`rounded-full px-4 py-1 text-lg font-semibold ${statusConfig[job.status].className}`}>
+                    <div className="myjobs-item-meta">
+                      <span className="myjobs-item-price">{job.paymentLabel}</span>
+                      <span className={`myjobs-badge ${statusConfig[job.status].className}`}>
                         {statusConfig[job.status].label}
                       </span>
                       <button
@@ -428,15 +422,16 @@ export default function MyJobs() {
                             return;
                           }
                         }}
-                        className={`relative rounded-xl px-5 py-2 text-lg font-semibold ${
+                        type="button"
+                        className={`myjobs-btn myjobs-item-primary ${
                           job.id === 'p2'
-                            ? 'border border-orange-500 text-orange-500 hover:bg-orange-50'
-                            : 'bg-green-500 text-white hover:bg-green-600'
+                            ? 'myjobs-btn-warning'
+                            : 'myjobs-btn-primary'
                         }`}
                       >
                         {job.primaryActionLabel}
                         {job.notificationCount ? (
-                          <span className="absolute -right-2 -top-2 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                          <span className="myjobs-noti-dot">
                             {job.notificationCount}
                           </span>
                         ) : null}
@@ -445,17 +440,18 @@ export default function MyJobs() {
                   </div>
 
                   {job.secondaryActionLabel ? (
-                    <div className="mt-2 text-right">
+                    <div className="myjobs-item-actions align-right">
                       <button
                         onClick={() => {
                           if (job.secondaryActionLabel === 'Hủy công việc') {
                             setCancelStep(1);
                           }
                         }}
-                        className={`text-lg font-semibold ${
+                        type="button"
+                        className={`myjobs-action-link ${
                           job.secondaryActionLabel === 'Hủy công việc'
-                            ? 'text-red-500 hover:text-red-600'
-                            : 'text-green-500 hover:text-green-600'
+                            ? 'myjobs-action-danger'
+                            : ''
                         }`}
                       >
                         {job.secondaryActionLabel}

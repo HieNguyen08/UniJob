@@ -367,6 +367,11 @@
   padding: 16px 24px;
 }
 
+.myjobs-modal-footer .myjobs-btn {
+  width: 100%;
+  display: block;
+}
+
 .myjobs-btn-link {
   margin-top: 8px;
   width: 100%;
@@ -376,6 +381,11 @@
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+.myjobs-btn-link:hover {
+  color: #ef4444;
+  background: #ffffff;
 }
 
 .myjobs-icon-btn {

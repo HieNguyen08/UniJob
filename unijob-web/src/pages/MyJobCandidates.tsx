@@ -1,5 +1,6 @@
 import { ChevronLeft, FileText, MessageCircle, Star, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import './my-job-candidates.css';
 
 type Candidate = {
   id: string;
@@ -48,69 +49,69 @@ export default function MyJobCandidates() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10">
-      <div className="mx-auto max-w-6xl rounded-2xl border border-[var(--color-border)] bg-white p-6 md:p-8">
+    <div className="candidates-page">
+      <div className="candidates-container">
         <button
           onClick={() => navigate('/my-jobs')}
-          className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-700"
+          className="candidates-back-link"
+          type="button"
         >
           <ChevronLeft className="h-4 w-4" />
           Quay lại danh sách việc
         </button>
 
-        <h1 className="mt-3 text-5xl font-bold text-slate-900">Danh sách ứng viên</h1>
+        <h1 className="candidates-title">Danh sách ứng viên</h1>
 
-        <section className="mt-6 rounded-2xl border border-[var(--color-border)] p-4">
-          <p className="text-xl text-slate-600">Công việc: <span className="font-semibold text-slate-800">Tìm người quay video TikTok sự kiện</span></p>
-          <div className="mt-2 flex items-center gap-3 text-lg">
-            <span className="font-bold text-green-500">500.000đ</span>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-500">Đang tìm người (3 ứng viên)</span>
+        <section className="candidates-job-card">
+          <p className="candidates-job-title">
+            Công việc: <span>Tìm người quay video TikTok sự kiện</span>
+          </p>
+          <div className="candidates-job-meta">
+            <span className="candidates-price">500.000đ</span>
+            <span className="candidates-status">Đang tìm người (3 ứng viên)</span>
           </div>
         </section>
 
-        <div className="mt-5 space-y-4">
+        <div className="candidates-list">
           {candidates.map((candidate) => (
-            <article key={candidate.id} className="rounded-2xl border border-[var(--color-border)] p-5">
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="flex gap-4">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <article key={candidate.id} className="candidate-card">
+              <div className="candidate-left">
+                <div className="candidate-avatar-wrap">
+                  <div className="candidate-avatar">
                     <UserRound className="h-10 w-10" />
                   </div>
-
-                  <div className="max-w-2xl">
-                    <h3 className="text-3xl font-bold text-slate-800">{candidate.name}</h3>
-                    <p className="mt-1 text-base text-slate-500">{candidate.faculty}</p>
-                    <div className="mt-2 inline-flex items-center gap-1 text-base">
-                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                      <span className="font-semibold text-slate-700">{candidate.scoreLabel}</span>
-                      <span className="text-slate-500">({candidate.ratingCount})</span>
-                    </div>
-
-                    <p className="mt-4 text-base leading-7 text-slate-600">
-                      <span className="font-semibold text-slate-700">Lời nhắn / Cover Letter:</span>{' '}
-                      {candidate.message}
-                    </p>
-                  </div>
                 </div>
-
-                <div className="flex min-w-44 flex-col gap-2">
-                  <button className="rounded-xl bg-green-500 px-4 py-2 text-lg font-semibold text-white hover:bg-green-600">
-                    Chấp nhận
-                  </button>
-                  <button className="rounded-xl border border-slate-300 px-4 py-2 text-lg font-semibold text-slate-500 hover:bg-slate-50">
-                    Từ chối
-                  </button>
-
-                  <button className="mt-2 inline-flex items-center gap-2 text-base text-green-500 hover:text-green-600">
-                    <FileText className="h-4 w-4" />
-                    Xem hồ sơ chi tiết
-                  </button>
-                  <button className="inline-flex items-center gap-2 text-base text-green-500 hover:text-green-600">
-                    <MessageCircle className="h-4 w-4" />
-                    Nhắn tin
-                  </button>
+                <h3 className="candidate-name">{candidate.name}</h3>
+                <p className="candidate-faculty">{candidate.faculty}</p>
+                <div className="candidate-rating">
+                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                  <span className="candidate-rating-score">{candidate.scoreLabel}</span>
+                  <span className="candidate-rating-count">({candidate.ratingCount})</span>
                 </div>
               </div>
+
+              <div className="candidate-message-col">
+                <p className="candidate-message-label">Lời nhắn / Cover Letter:</p>
+                <p className="candidate-message">{candidate.message}</p>
+              </div>
+
+              <div className="candidate-actions">
+                <button className="candidate-btn candidate-btn-accept" type="button">
+                  Chấp nhận
+                </button>
+                <button className="candidate-btn candidate-btn-reject" type="button">
+                  Từ chối
+                </button>
+
+                <button className="candidate-link" type="button">
+                  <FileText className="h-4 w-4" />
+                  Xem hồ sơ chi tiết
+                </button>
+                <button className="candidate-link" type="button">
+                  <MessageCircle className="h-4 w-4" />
+                  Nhắn tin
+                </button>
+                </div>
             </article>
           ))}
         </div>

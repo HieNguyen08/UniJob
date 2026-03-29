@@ -39,7 +39,7 @@ function AppRoutes() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-border)] border-t-[var(--color-primary)]" />
           <p className="text-sm text-[var(--color-muted-foreground)]">Đang tải...</p>
         </div>
       </div>

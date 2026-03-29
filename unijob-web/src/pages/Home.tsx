@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <div>
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[color:var(--color-primary)] via-[color:var(--color-primary)] to-[color:var(--color-primary)] text-white">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVHJhbnNmb3JtPSJyb3RhdGUoNDUpIj48cGF0aCBkPSJNLTEwIDMwaDYwdi0yMGgtNjB6IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDMpIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCBmaWxsPSJ1cmwoI2EpIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIi8+PC9zdmc+')] opacity-50" />
         <div className="relative mx-auto max-w-7xl px-4 py-20 md:py-32">
           <motion.div
@@ -28,14 +28,14 @@ export default function Home() {
               <br />
               <span className="text-yellow-300">ngay trong campus</span>
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-blue-100">
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">
               UniJob giúp sinh viên, giảng viên và CLB dễ dàng đăng & tìm kiếm công việc
               ngắn hạn trong trường — nhanh chóng, minh bạch và uy tín.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
                 to="/jobs"
-                className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-blue-700 shadow-lg transition-transform hover:scale-105"
+                className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-[var(--color-primary)] shadow-lg transition-transform hover:scale-105"
               >
                 <Search className="h-5 w-5" />
                 Tìm việc ngay
@@ -101,7 +101,7 @@ export default function Home() {
                 whileHover={{ y: -4 }}
                 className="rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
               >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-[var(--color-primary)]">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-secondary)] text-[var(--color-primary)]">
                   <feature.icon className="h-6 w-6" />
                 </div>
                 <h3 className="mb-2 text-lg font-semibold">{feature.title}</h3>

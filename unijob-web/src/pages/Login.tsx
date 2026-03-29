@@ -20,7 +20,7 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 px-4">
+    <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center bg-[var(--color-secondary)] px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -69,9 +69,9 @@ export default function Login() {
           </p>
         </div>
 
-        <div className="mt-6 rounded-xl bg-blue-50 p-4">
-          <h3 className="text-sm font-medium text-blue-800">💡 Lưu ý</h3>
-          <ul className="mt-2 space-y-1 text-xs text-blue-700">
+        <div className="mt-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-4">
+          <h3 className="text-sm font-medium text-[var(--color-foreground)]">💡 Lưu ý</h3>
+          <ul className="mt-2 space-y-1 text-xs text-[var(--color-muted-foreground)]">
             <li>• Sử dụng email do trường cung cấp</li>
             <li>• Thông tin cá nhân sẽ được bảo mật</li>
             <li>• Hoàn thành profile để bắt đầu nhận/đăng việc</li>

@@ -61,7 +61,7 @@ export default function Profile() {
               <img
                 src={userProfile.photoURL}
                 alt={userProfile.displayName}
-                className="mx-auto h-24 w-24 rounded-full border-4 border-blue-100"
+                className="mx-auto h-24 w-24 rounded-full border-4 border-[var(--color-border)]"
               />
             ) : (
               <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-[var(--color-primary)] text-3xl font-bold text-white">
@@ -102,7 +102,7 @@ export default function Profile() {
           {/* CV Passport Button */}
           <button
             onClick={() => navigate('/cv-export')}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-3 text-sm font-medium text-white transition-colors hover:opacity-90"
           >
             <FileDown className="h-4 w-4" />
             Xuất chứng nhận CV Passport
@@ -117,7 +117,7 @@ export default function Profile() {
               onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
               className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 isEditing
-                  ? 'bg-[var(--color-primary)] text-white hover:bg-blue-700'
+                  ? 'bg-[var(--color-primary)] text-white hover:opacity-90'
                   : 'border border-[var(--color-border)] hover:bg-[var(--color-secondary)]'
               }`}
             >
@@ -251,7 +251,7 @@ export default function Profile() {
                     userProfile.skills.map((skill) => (
                       <span
                         key={skill}
-                        className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs text-blue-700"
+                          className="rounded-full bg-[var(--color-secondary)] px-2.5 py-0.5 text-xs text-[var(--color-primary)]"
                       >
                         {skill}
                       </span>

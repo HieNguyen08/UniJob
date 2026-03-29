@@ -67,7 +67,7 @@ export default function Dashboard() {
         </div>
         <Link
           to="/create-job"
-          className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+          className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
         >
           <PlusCircle className="h-4 w-4" />
           Đăng việc mới
@@ -77,7 +77,7 @@ export default function Dashboard() {
       {/* Stats Cards */}
       <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
         <div className="rounded-xl border border-[var(--color-border)] bg-white p-4">
-          <Briefcase className="mb-2 h-5 w-5 text-blue-500" />
+          <Briefcase className="mb-2 h-5 w-5 text-[var(--color-primary)]" />
           <p className="text-2xl font-bold">{myJobs.length}</p>
           <p className="text-xs text-[var(--color-muted-foreground)]">Việc đã đăng</p>
         </div>
@@ -154,7 +154,7 @@ export default function Dashboard() {
               <Link
                 key={job.id}
                 to={`/jobs/${job.id}`}
-                className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-white p-4 transition-colors hover:border-blue-200 hover:bg-blue-50/30"
+                className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-white p-4 transition-colors hover:border-[var(--color-ring)] hover:bg-[var(--color-secondary)]"
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">

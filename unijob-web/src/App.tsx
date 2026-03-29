@@ -13,7 +13,9 @@ import JobList from '@/pages/JobList';
 import JobDetail from '@/pages/JobDetail';
 import CreateJob from '@/pages/CreateJob';
 import Profile from '@/pages/Profile';
-import Dashboard from '@/pages/Dashboard';
+import MyJobs from '@/pages/MyJobs';
+import MyJobCandidates from '@/pages/MyJobCandidates';
+import MyJobAcceptance from '@/pages/MyJobAcceptance';
 import CVExport from '@/pages/CVExport';
 import NotFound from '@/pages/NotFound';
 
@@ -55,7 +57,10 @@ function AppRoutes() {
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/create-job" element={<CreateJob />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<MyJobs />} />
+        <Route path="/my-jobs" element={<MyJobs />} />
+        <Route path="/my-jobs/candidates" element={<MyJobCandidates />} />
+        <Route path="/my-jobs/acceptance" element={<MyJobAcceptance />} />
         <Route path="/cv-export" element={<CVExport />} />
         <Route path="*" element={<NotFound />} />
       </Route>

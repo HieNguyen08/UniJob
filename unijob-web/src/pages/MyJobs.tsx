@@ -194,8 +194,9 @@ function CancelModal({
   onClose: () => void;
   onNext: () => void;
 }) {
+  const [selectedReason, setSelectedReason] = useState('');
+
   const reasons = [
-    'Chọn lý do hủy...',
     'Không thể hoàn thành đúng deadline',
     'Yêu cầu công việc thay đổi quá nhiều',
     'Lý do cá nhân khẩn cấp',
@@ -222,9 +223,14 @@ function CancelModal({
 
           <section>
             <label className="myjobs-label">Lý do hủy bỏ:</label>
-            <select className="myjobs-select">
+            <select
+              className="myjobs-select"
+              value={selectedReason}
+              onChange={(e) => setSelectedReason(e.target.value)}
+            >
+              <option value="">Chọn lý do hủy...</option>
               {reasons.map((reason) => (
-                <option key={reason}>{step === 1 && reason !== reasons[0] ? reasons[0] : reason}</option>
+                <option key={reason} value={reason}>{reason}</option>
               ))}
             </select>
           </section>
@@ -248,8 +254,9 @@ function CancelModal({
           <button
             onClick={onNext}
             type="button"
+            disabled={step === 1 ? !selectedReason : false}
             className={`myjobs-btn myjobs-btn-danger ${
-              step === 1
+              step === 1 && !selectedReason
                 ? 'myjobs-btn-danger-disabled'
                 : ''
             }`}

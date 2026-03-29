@@ -254,6 +254,7 @@
 
 .myjobs-action-danger {
   color: #ef4444;
+  cursor: pointer;
 }
 
 .myjobs-action-danger:hover {
@@ -514,9 +515,27 @@
   border: 1px solid #ef4444;
   background: #fef2f2;
   color: #ef4444;
+  transition: all 0.18s ease;
+}
+
+.myjobs-btn-danger:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
+}
+
+.myjobs-btn-danger:active {
+  transform: translateY(1px);
 }
 
 .myjobs-btn-danger-disabled {
+  border-color: #fecaca;
+  color: #fca5a5;
+  background: #fff;
+  cursor: not-allowed;
+}
+
+.myjobs-btn-danger-disabled:hover {
   border-color: #fecaca;
   color: #fca5a5;
   background: #fff;

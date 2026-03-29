@@ -237,6 +237,13 @@
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
+  border-radius: 10px;
+  padding: 6px 8px;
+  transition: all 0.18s ease;
+}
+
+.myjobs-action-link:hover {
+  background: #ecfdf5;
 }
 
 .myjobs-action-outline {
@@ -247,6 +254,11 @@
 
 .myjobs-action-danger {
   color: #ef4444;
+}
+
+.myjobs-action-danger:hover {
+  background: #fef2f2;
+  color: #dc2626;
 }
 
 .myjobs-btn {
@@ -322,6 +334,10 @@
 }
 
 .myjobs-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   padding: 20px 24px;
   border-bottom: 1px solid #dbe3ec;
 }
@@ -367,6 +383,21 @@
   color: #64748b;
   border-radius: 8px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  transition: all 0.18s ease;
+}
+
+.myjobs-icon-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.myjobs-icon-btn:active {
+  transform: scale(0.96);
 }
 
 .myjobs-info-card {

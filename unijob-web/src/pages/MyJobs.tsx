@@ -205,8 +205,13 @@ function CancelModal({
     <div className="myjobs-modal-backdrop">
       <div className="myjobs-modal myjobs-modal-cancel">
         <div className="myjobs-modal-header">
-          <h2 className="myjobs-modal-title">Xác nhận hủy công việc</h2>
-          <p className="myjobs-modal-subtitle">Vui lòng cho biết lý do bạn muốn hủy công việc này.</p>
+          <div>
+            <h2 className="myjobs-modal-title">Xác nhận hủy công việc</h2>
+            <p className="myjobs-modal-subtitle">Vui lòng cho biết lý do bạn muốn hủy công việc này.</p>
+          </div>
+          <button onClick={onClose} className="myjobs-icon-btn" type="button" aria-label="Close">
+            <X className="h-6 w-6" />
+          </button>
         </div>
 
         <div className="myjobs-modal-body">

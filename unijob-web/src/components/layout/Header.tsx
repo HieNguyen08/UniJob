@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 
 export default function Header() {
   const { isAuthenticated, userProfile, login, logout } = useAuthStore();
@@ -23,6 +24,18 @@ export default function Header() {
       navigate('/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setMobileMenuOpen(false);
+      toast.success('Đăng xuất thành công');
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      toast.error('Đăng xuất thất bại');
     }
   };
 
@@ -84,7 +97,7 @@ export default function Header() {
                 <span className="max-w-[120px] truncate">{userProfile.displayName}</span>
               </Link>
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-secondary)]"
               >
                 <LogOut className="h-4 w-4" />
@@ -145,10 +158,7 @@ export default function Header() {
                   Hồ sơ
                 </Link>
                 <button
-                  onClick={() => {
-                    logout();
-                    setMobileMenuOpen(false);
-                  }}
+                  onClick={handleLogout}
                   className="rounded-lg px-3 py-2 text-left text-sm font-medium text-red-500 hover:bg-red-50"
                 >
                   Đăng xuất

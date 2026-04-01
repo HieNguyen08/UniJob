@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
@@ -28,7 +28,7 @@ const queryClient = new QueryClient({
   },
 });
 
-function ProtectedRoute({ children }: { children: JSX.Element }) {
+function ProtectedRoute({ children }: { children: ReactElement }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -36,7 +36,7 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
   return children;
 }
 
-function PublicOnlyRoute({ children }: { children: JSX.Element }) {
+function PublicOnlyRoute({ children }: { children: ReactElement }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;

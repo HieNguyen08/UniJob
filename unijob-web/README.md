@@ -165,11 +165,11 @@ unijob-web/
 
 | Thanh vien | Vai tro | Trach nhiem chinh |
 |------------|---------|-------------------|
-| Nguyen Minh Hieu | Tech Lead / Full-stack | Kien truc, setup, review code, deploy, Firebase config |
-| Thai Bao Long | Frontend Developer 1 | Job List, Job Detail, Create Job, Anonymous, Polish UI |
-| Ngo Quang Anh | Frontend Developer 2 | Dashboard, Profile, Rating UI, Responsive |
-| Diep Vu Minh | Backend/Firebase Dev | Firestore services, Security Rules, data seeding |
-| Loc | Frontend Dev 3 + Docs | Home page, Urgent mode, Notification UI, bao cao, video |
+| Nguyen Minh Hieu | Tech Lead / Full-stack / Backend 1| Kien truc, setup, review code, deploy, Firebase config, Backend 50% - curent version in local this all i have done |
+| Thai Bao Long | Frontend Developer 1 | Code Frontend for flow Login-logout, user portfolio |
+| Ngo Quang Anh | Frontend Developer 2 | HomeScreen Flow |
+| Diep Vu Minh | Frontend Developer 3 | My Jobs Flow |
+| Nguyen Quoc Loc | Backend 2 | Backend 50% |
 
 ---
 

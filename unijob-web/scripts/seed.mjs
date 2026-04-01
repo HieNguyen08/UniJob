@@ -15,16 +15,28 @@ import {
   addDoc,
   Timestamp,
 } from 'firebase/firestore';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-// ── Firebase config (web API keys are public by design) ──────────────────────
+// ── Load Firebase config from .env.local ─────────────────────────────────────
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envFile = readFileSync(resolve(__dirname, '../.env.local'), 'utf8');
+const env = Object.fromEntries(
+  envFile
+    .split('\n')
+    .filter((l) => l && !l.startsWith('#') && l.includes('='))
+    .map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()])
+);
+
 const firebaseConfig = {
-  apiKey: 'AIzaSyArQQvnIIfvlf6duBkXZXUqw0SheO6OWsw',
-  authDomain: 'unijob-ad6eb.firebaseapp.com',
-  projectId: 'unijob-ad6eb',
-  storageBucket: 'unijob-ad6eb.firebasestorage.app',
-  messagingSenderId: '1076579354451',
-  appId: '1:1076579354451:web:b1bf13ffa95fd6878103a6',
-  measurementId: 'G-G7N7CJGTPN',
+  apiKey: env.VITE_FIREBASE_API_KEY,
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.VITE_FIREBASE_APP_ID,
+  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);

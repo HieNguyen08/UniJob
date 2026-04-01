@@ -13,6 +13,7 @@ const firebaseConfig = {
   messagingSenderId:
     import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '000000000000',
   appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:000000000000:web:devplaceholder',
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const missingFirebaseEnv = [

@@ -1,10 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Arimo:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* ===== CSS Variables ===== */
 @theme inline {
   --color-background: #ffffff;
   --color-foreground: #0a0a0a;
-  --color-primary: #2563eb;
+  --color-primary: #10B981;
   --color-primary-foreground: #ffffff;
   --color-secondary: #f1f5f9;
   --color-secondary-foreground: #0f172a;
@@ -15,7 +16,7 @@
   --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
   --color-border: #e2e8f0;
-  --color-ring: #2563eb;
+  --color-ring: #10B981;
   --color-card: #ffffff;
   --color-card-foreground: #0a0a0a;
   --color-success: #22c55e;
@@ -27,22 +28,60 @@
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
 
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Arimo', system-ui, -apple-system, sans-serif;
 }
 
 /* ===== Base Styles ===== */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
-body {
-  font-family: var(--font-sans);
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ===== JobList Range (scoped) ===== */
+.joblist-range {
+  accent-color: currentColor;
+}
+
+.joblist-range::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+}
+
+.joblist-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 9999px;
+  background: currentColor;
+  border: 2px solid var(--color-background);
+  box-shadow: 0 0 0 1px rgba(226, 232, 240, 0.9), 0 4px 10px rgba(15, 23, 42, 0.08);
+  margin-top: -5px;
+}
+
+.joblist-range::-moz-range-track {
+  height: 4px;
+  background: transparent;
+}
+
+.joblist-range::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  border-radius: 9999px;
+  background: currentColor;
+  border: 2px solid var(--color-background);
+  box-shadow: 0 0 0 1px rgba(226, 232, 240, 0.9), 0 4px 10px rgba(15, 23, 42, 0.08);
 }
 
 /* ===== Scrollbar ===== */

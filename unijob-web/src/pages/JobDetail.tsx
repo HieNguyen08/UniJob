@@ -185,7 +185,7 @@ export default function JobDetail() {
                     <button
                       onClick={handleApply}
                       disabled={applying}
-                      className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Send className="h-4 w-4" />
                       {applying ? 'Đang gửi...' : 'Gửi ứng tuyển'}

@@ -114,7 +114,7 @@ export default function CreateJob() {
             value={form.title}
             onChange={handleChange}
             placeholder="VD: Tìm gia sư Toán Cao cấp A1"
-            className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-blue-100"
+            className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[color:var(--color-ring)]"
             required
           />
         </div>
@@ -130,7 +130,7 @@ export default function CreateJob() {
             onChange={handleChange}
             placeholder="Mô tả công việc, yêu cầu, địa điểm, thời gian..."
             rows={5}
-            className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-blue-100"
+            className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[color:var(--color-ring)]"
             required
           />
         </div>
@@ -284,7 +284,7 @@ export default function CreateJob() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] py-3 font-medium text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Send className="h-5 w-5" />
           {isSubmitting ? 'Đang đăng...' : 'Đăng công việc'}

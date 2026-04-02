@@ -8,13 +8,59 @@ export interface CVExportOptions {
   showDetailedRatings: boolean;
 }
 
-/**
- * html2canvas cannot parse oklch() colors used by Tailwind v4.
- * Fix: before capturing, read each element's computed style (browser resolves
- * oklch → rgb) and write it as inline style so html2canvas only sees rgb.
- * Also remove oklch style tags in the cloned doc.
- * Inline styles are restored after capture.
- */
+// CSS properties to snapshot as inline styles before html2canvas runs.
+// html2canvas re-parses stylesheets (which contain oklch in Tailwind v4) and
+// fails. The fix: snapshot computed styles (browser resolves oklch → rgb),
+// write them as inline styles, then strip ALL stylesheets from the clone so
+// html2canvas never encounters oklch.
+const SNAPSHOT_PROPS: (keyof CSSStyleDeclaration)[] = [
+  'color', 'backgroundColor',
+  'borderColor', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
+  'borderWidth', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+  'borderStyle', 'borderRadius',
+  'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomLeftRadius', 'borderBottomRightRadius',
+  'fontSize', 'fontWeight', 'fontFamily', 'fontStyle', 'fontVariant',
+  'lineHeight', 'letterSpacing', 'textAlign', 'textTransform', 'textDecoration', 'whiteSpace',
+  'display', 'flexDirection', 'flexWrap', 'alignItems', 'justifyContent', 'gap',
+  'flex', 'flexGrow', 'flexShrink', 'flexBasis',
+  'gridTemplateColumns', 'gridColumn', 'gridRow',
+  'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+  'margin', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
+  'width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight',
+  'boxSizing', 'overflow', 'overflowX', 'overflowY',
+  'position', 'top', 'right', 'bottom', 'left', 'zIndex',
+  'opacity', 'boxShadow', 'transform',
+  'verticalAlign', 'objectFit', 'cursor',
+];
+
+function snapshotStyles(root: HTMLElement): Array<{ el: HTMLElement; savedStyle: string }> {
+  const all = [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))];
+  const saved: Array<{ el: HTMLElement; savedStyle: string }> = [];
+
+  for (const el of all) {
+    saved.push({ el, savedStyle: el.getAttribute('style') ?? '' });
+    const computed = window.getComputedStyle(el);
+    for (const prop of SNAPSHOT_PROPS) {
+      const val = computed[prop];
+      if (val && typeof val === 'string' && val !== '') {
+        (el.style as Record<string, unknown>)[prop as string] = val;
+      }
+    }
+  }
+
+  return saved;
+}
+
+function restoreStyles(saved: Array<{ el: HTMLElement; savedStyle: string }>) {
+  for (const { el, savedStyle } of saved) {
+    if (savedStyle) {
+      el.setAttribute('style', savedStyle);
+    } else {
+      el.removeAttribute('style');
+    }
+  }
+}
+
 export async function generateCVCertificate(
   element: HTMLElement,
   user: User,
@@ -22,33 +68,20 @@ export async function generateCVCertificate(
   _ratings: Rating[],
   _options: CVExportOptions = { showDetailedRatings: false }
 ): Promise<void> {
-  // 1. Apply computed colors as inline styles (resolves oklch → rgb)
-  const all = [element, ...Array.from(element.querySelectorAll<HTMLElement>('*'))];
-  const saved: Array<{ el: HTMLElement; style: string }> = [];
-
-  for (const el of all) {
-    const computed = window.getComputedStyle(el);
-    saved.push({ el, style: el.getAttribute('style') ?? '' });
-    el.style.color = computed.color;
-    el.style.backgroundColor = computed.backgroundColor;
-    el.style.borderColor = computed.borderColor;
-    el.style.borderTopColor = computed.borderTopColor;
-    el.style.borderRightColor = computed.borderRightColor;
-    el.style.borderBottomColor = computed.borderBottomColor;
-    el.style.borderLeftColor = computed.borderLeftColor;
-  }
+  // 1. Apply all computed styles as inline (resolves oklch → rgb)
+  const saved = snapshotStyles(element);
 
   try {
-    // 2. Capture — remove oklch style tags from clone so html2canvas CSS
-    //    parser never encounters them (inline styles already carry rgb values)
+    // 2. Capture — strip ALL stylesheets from the clone so html2canvas CSS
+    //    parser never encounters oklch. Inline styles carry all needed values.
     const canvas = await html2canvas(element, {
       scale: 2,
       useCORS: true,
+      allowTaint: true,
       backgroundColor: '#ffffff',
-      onclone: (clonedDoc) => {
-        clonedDoc.querySelectorAll('style').forEach((s) => {
-          if (s.textContent?.includes('oklch')) s.remove();
-        });
+      onclone: (_clonedDoc, clonedElement) => {
+        const doc = clonedElement.ownerDocument;
+        doc.querySelectorAll('style, link[rel="stylesheet"]').forEach((el) => el.remove());
       },
     });
 
@@ -62,12 +95,6 @@ export async function generateCVCertificate(
     pdf.save(`certificate_${safeName}.pdf`);
   } finally {
     // 3. Restore original inline styles
-    for (const { el, style } of saved) {
-      if (style) {
-        el.setAttribute('style', style);
-      } else {
-        el.removeAttribute('style');
-      }
-    }
+    restoreStyles(saved);
   }
 }

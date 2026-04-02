@@ -2,6 +2,7 @@ import type { Timestamp } from 'firebase/firestore';
 
 export type JobStatus = 'open' | 'in-progress' | 'completed' | 'cancelled';
 export type PaymentType = 'fixed' | 'hourly' | 'negotiable' | 'volunteer';
+export type JobLocation = 'online' | 'offline' | 'onsite';
 export type ApplicationStatus = 'pending' | 'accepted' | 'rejected';
 
 export interface Job {
@@ -10,6 +11,7 @@ export interface Job {
   description: string;
   category: string;
   faculty: string;
+  location?: JobLocation;
   isUrgent: boolean;
   isAnonymous: boolean;
   payment: number;

@@ -67,7 +67,7 @@ export default function JobList() {
     day: false,
     long: false,
   });
-  const [modeDraft, setModeDraft] = useState<'online' | 'offline' | ''>('online');
+  const [modeDraft, setModeDraft] = useState<'online' | 'offline' | ''>('');
   const [facultyDraft, setFacultyDraft] = useState<string>('');
 
   // Sidebar applied
@@ -240,9 +240,26 @@ export default function JobList() {
     setTimeApplied(timeDraft);
     setModeApplied(modeDraft);
 
+    // If we have client-side filters but no faculty (server-side) filter,
+    // fetch more items initially to ensure the user sees results.
+    const hasClientSideFilters =
+      minV !== MIN_SALARY ||
+      maxV !== MAX_SALARY ||
+      timeDraft.short ||
+      timeDraft.day ||
+      timeDraft.long ||
+      modeDraft !== '';
+
+    const fetchLimit = !facultyDraft && hasClientSideFilters ? 60 : undefined;
+
     setFilters({
       faculty: facultyDraft || undefined,
     });
+
+    // Directly trigger fetch with limit if needed
+    if (fetchLimit) {
+      fetchJobs(true, fetchLimit);
+    }
   };
 
   const handleClearAll = () => {
@@ -251,7 +268,7 @@ export default function JobList() {
     setSalaryMinDraft(50_000);
     setSalaryMaxDraft(500_000);
     setTimeDraft({ short: false, day: false, long: false });
-    setModeDraft('online');
+    setModeDraft('');
     setFacultyDraft('');
 
     setSalaryMin(MIN_SALARY);
@@ -260,6 +277,29 @@ export default function JobList() {
     setModeApplied('');
 
     resetFilters();
+  };
+
+  const handleRemoveChip = (key: string) => {
+    switch (key) {
+      case 'mode':
+        setModeDraft('');
+        setModeApplied('');
+        break;
+      case 'faculty':
+        setFacultyDraft('');
+        setFilters({ faculty: undefined });
+        break;
+      case 'salary':
+        setSalaryMinDraft(50_000);
+        setSalaryMaxDraft(500_000);
+        setSalaryMin(MIN_SALARY);
+        setSalaryMax(MAX_SALARY);
+        break;
+      case 'time':
+        setTimeDraft({ short: false, day: false, long: false });
+        setTimeApplied({ short: false, day: false, long: false });
+        break;
+    }
   };
 
   return (
@@ -367,29 +407,40 @@ export default function JobList() {
             {/* Mode */}
             <div className="border-b border-[var(--color-border)] py-4">
               <h3 className="mb-3 text-sm font-semibold">Hình thức</h3>
-              <div className="flex gap-2 rounded-xl bg-[var(--color-secondary)] p-1">
-                <button
-                  type="button"
-                  onClick={() => setModeDraft('online')}
-                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    modeDraft === 'online'
-                      ? 'bg-[var(--color-primary)] text-white'
-                      : 'text-[var(--color-muted-foreground)]'
-                  }`}
-                >
-                  Online
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModeDraft('offline')}
-                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    modeDraft === 'offline'
-                      ? 'bg-[var(--color-primary)] text-white'
-                      : 'text-[var(--color-muted-foreground)]'
-                  }`}
-                >
-                  Offline
-                </button>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2 rounded-xl bg-[var(--color-secondary)] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setModeDraft(modeDraft === 'online' ? '' : 'online')}
+                    className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      modeDraft === 'online'
+                        ? 'bg-[var(--color-primary)] text-white'
+                        : 'bg-white text-[var(--color-muted-foreground)] shadow-sm'
+                    }`}
+                  >
+                    Online
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModeDraft(modeDraft === 'offline' ? '' : 'offline')}
+                    className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      modeDraft === 'offline'
+                        ? 'bg-[var(--color-primary)] text-white'
+                        : 'bg-white text-[var(--color-muted-foreground)] shadow-sm'
+                    }`}
+                  >
+                    Offline
+                  </button>
+                </div>
+                {modeDraft !== '' && (
+                  <button
+                    type="button"
+                    onClick={() => setModeDraft('')}
+                    className="text-center text-xs text-[var(--color-primary)] hover:underline"
+                  >
+                    Tất cả hình thức
+                  </button>
+                )}
               </div>
             </div>
 
@@ -456,13 +507,15 @@ export default function JobList() {
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <span className="text-[var(--color-muted-foreground)]">Bộ lọc đang áp dụng:</span>
                 {appliedChips.map((chip) => (
-                  <span
+                  <button
+                    type="button"
                     key={chip.key}
-                    className="inline-flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-3 py-1 text-xs font-medium text-white"
+                    onClick={() => handleRemoveChip(chip.key)}
+                    className="inline-flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-3 py-1 text-xs font-medium text-white transition-opacity hover:opacity-90"
                   >
                     {chip.label}
                     <span className="text-white/80">×</span>
-                  </span>
+                  </button>
                 ))}
                 <button
                   type="button"

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(ls unijob-web/.env*)",
+      "Bash(ls firebase*)",
+      "Bash(ls .firebase*)",
+      "Bash(node scripts/seed.mjs)",
+      "Bash(npm --version)",
+      "Read(//c/Users/Acer/AppData/Local/Temp/claude/c--Users-Acer-Downloads-UniJob/8ff7c459-fa42-4177-a268-4e3fb1ad1b00/tasks/**)",
+      "Bash(firebase --version)",
+      "Bash(git add:*)",
+      "Bash(grep -E \"\\\\.\\(tsx|css\\)$\")",
+      "Bash(ls /c/Users/Acer/Downloads/UniJob/figma/**/*)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(taskkill //F //IM node.exe)"
+    ]
+  }
+}

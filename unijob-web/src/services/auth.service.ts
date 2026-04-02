@@ -69,7 +69,7 @@ export async function getCurrentUserProfile(uid: string): Promise<User | null> {
   const userRef = doc(db, 'users', uid);
   const userSnap = await getDoc(userRef);
   if (userSnap.exists()) {
-    return userSnap.data() as User;
+    return { uid: userSnap.id, ...userSnap.data() } as User;
   }
   return null;
 }

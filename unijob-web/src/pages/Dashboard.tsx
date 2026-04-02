@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { getJobsByUser } from '@/services/job.service';
+import { getJobsByUser, getJobById } from '@/services/job.service';
 import { getApplicationsByUser } from '@/services/job.service';
 import type { Job, Application } from '@/types';
 import { Briefcase, Send, Clock, CheckCircle, PlusCircle, Eye } from 'lucide-react';
@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('posted');
   const [myJobs, setMyJobs] = useState<Job[]>([]);
   const [myApplications, setMyApplications] = useState<Application[]>([]);
+  const [jobTitleMap, setJobTitleMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,9 +23,23 @@ export default function Dashboard() {
       Promise.all([
         getJobsByUser(userProfile.uid),
         getApplicationsByUser(userProfile.uid),
-      ]).then(([jobs, apps]) => {
+      ]).then(async ([jobs, apps]) => {
         setMyJobs(jobs);
         setMyApplications(apps);
+
+        // Resolve job titles for applications
+        const uniqueJobIds = [...new Set(apps.map((a) => a.jobId))];
+        const titleMap: Record<string, string> = {};
+        await Promise.all(
+          uniqueJobIds.map(async (jobId) => {
+            const job = await getJobById(jobId);
+            titleMap[jobId] = job?.title || 'Công việc đã bị xoá';
+          })
+        );
+        setJobTitleMap(titleMap);
+        setLoading(false);
+      }).catch((error) => {
+        console.error('Error fetching dashboard data:', error);
         setLoading(false);
       });
     }
@@ -186,18 +201,19 @@ export default function Dashboard() {
       ) : (
         <div className="space-y-3">
           {myApplications.map((app) => (
-            <div
+            <Link
               key={app.id}
-              className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-white p-4"
+              to={`/jobs/${app.jobId}`}
+              className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-white p-4 transition-colors hover:border-[var(--color-ring)] hover:bg-[var(--color-secondary)]"
             >
               <div>
-                <p className="font-medium">Job: {app.jobId}</p>
+                <p className="font-medium">{jobTitleMap[app.jobId] || 'Đang tải...'}</p>
                 <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
                   {app.message?.slice(0, 100)}
                 </p>
               </div>
               {statusBadge(app.status)}
-            </div>
+            </Link>
           ))}
         </div>
       )}

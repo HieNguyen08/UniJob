@@ -40,8 +40,6 @@ export interface JobFilter {
   status?: JobStatus;
   searchQuery?: string;
   sortBy?: string;
-  minPayment?: number;
-  maxPayment?: number;
 }
 
 export interface Application {

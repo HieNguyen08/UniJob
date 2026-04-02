@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { getJobs } from '@/services/job.service';
@@ -20,7 +20,6 @@ export default function CVExport() {
   const [loading, setLoading] = useState(true);
   const [showDetailedRatings, setShowDetailedRatings] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const certificateRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isAuthenticated || !userProfile) {
@@ -55,10 +54,10 @@ export default function CVExport() {
   }, [isAuthenticated, userProfile, navigate]);
 
   const handleExport = async () => {
-    if (!user || !certificateRef.current) return;
+    if (!user) return;
     setExporting(true);
     try {
-      await generateCVCertificate(certificateRef.current, user, completedJobs, ratings, { showDetailedRatings });
+      await generateCVCertificate(user, completedJobs, ratings, { showDetailedRatings });
       toast.success('Đã tải xuống PDF!');
     } catch (error) {
       console.error('Export error:', error);
@@ -91,7 +90,7 @@ export default function CVExport() {
       <div className="grid gap-6 lg:grid-cols-5">
         {/* LEFT: Certificate Preview */}
         <div className="lg:col-span-3">
-          <div ref={certificateRef} className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white shadow-sm">
+          <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white shadow-sm">
             {/* Green top bar */}
             <div className="h-3 bg-emerald-500" />
 
@@ -155,7 +154,7 @@ export default function CVExport() {
                 </p>
                 <div className="divide-y divide-gray-100">
                   {completedJobs.length > 0 ? (
-                    completedJobs.slice(0, 5).map((job, index) => (
+                    completedJobs.slice(0, 8).map((job, index) => (
                       <div key={job.id} className="flex items-center justify-between py-3">
                         <div className="flex items-center gap-3">
                           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
@@ -178,9 +177,9 @@ export default function CVExport() {
                       Chưa có dự án nào hoàn thành.
                     </p>
                   )}
-                  {completedJobs.length > 5 && (
+                  {completedJobs.length > 8 && (
                     <p className="py-2 text-center text-xs text-gray-400">
-                      ... và {completedJobs.length - 5} dự án khác
+                      ... và {completedJobs.length - 8} dự án khác
                     </p>
                   )}
                 </div>
@@ -194,7 +193,7 @@ export default function CVExport() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-gray-800">UniWork</p>
+                  <p className="text-sm font-bold text-gray-800">UniJob</p>
                   <p className="text-xs text-gray-500">Kết nối việc làm Sinh viên</p>
                 </div>
               </div>

@@ -24,15 +24,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: () => {
     const unsubscribe = onAuthChanged(async (user) => {
-      if (user) {
-        const profile = await getCurrentUserProfile(user.uid);
-        set({
-          firebaseUser: user,
-          userProfile: profile,
-          isAuthenticated: true,
-          isLoading: false,
-        });
-      } else {
+      try {
+        if (user) {
+          const profile = await getCurrentUserProfile(user.uid);
+          set({
+            firebaseUser: user,
+            userProfile: profile,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } else {
+          set({
+            firebaseUser: null,
+            userProfile: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
         set({
           firebaseUser: null,
           userProfile: null,

@@ -24,7 +24,7 @@ const C = {
 /* ------------------------------------------------------------------ */
 const SCALE = 3;          // render at 3× for sharp PDF
 const A4_W = 794;         // A4 at 96 dpi
-const A4_H = 1123;
+const A4_H_MIN = 1123;    // minimum A4 height
 const W = A4_W;           // logical width
 const M = 75;             // margin (logical px)
 const CW = W - M * 2;    // content width
@@ -93,12 +93,28 @@ function drawBriefcase(ctx: CanvasRenderingContext2D, cx: number, cy: number, si
 /*  Main: draw certificate on Canvas → embed in jsPDF                  */
 /* ------------------------------------------------------------------ */
 export async function generateCVCertificate(
-  _element: HTMLElement,
   user: User,
   completedJobs: Job[],
   ratings: Rating[],
   options: CVExportOptions = { showDetailedRatings: false },
 ): Promise<void> {
+  /* ── Pre-calculate content height ──────────────────────────────── */
+  const jobsToShow = completedJobs.slice(0, 8);
+  const ratingsToShow = (options.showDetailedRatings && ratings.length > 0) ? ratings.slice(0, 5) : [];
+
+  let estimatedH = 14 + 35 + 50 + 20 + 22 + 35 + 26 + 40 + 100 + 35; // top bar + logo + title + name + gap + stats
+  estimatedH += 20; // section header
+  estimatedH += jobsToShow.length > 0 ? jobsToShow.length * 35 : 30;
+  if (completedJobs.length > 8) estimatedH += 20;
+  for (const r of ratingsToShow) {
+    estimatedH += 20 + 22; // base per rating
+    if (r.comment) estimatedH += 16;
+  }
+  if (ratingsToShow.length > 0) estimatedH += 30; // section header + gap
+  estimatedH += 130; // footer area
+
+  const A4_H = Math.max(A4_H_MIN, estimatedH);
+
   const canvas = document.createElement('canvas');
   canvas.width = W * SCALE;
   canvas.height = A4_H * SCALE;
@@ -331,8 +347,9 @@ export async function generateCVCertificate(
 
   /* ── Export to PDF ─────────────────────────────────────────────── */
   const imgData = canvas.toDataURL('image/png');
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  pdf.addImage(imgData, 'PNG', 0, 0, 210, 297);
+  const pdfH = 297 * (A4_H / A4_H_MIN); // scale mm height proportionally
+  const pdf = new jsPDF('p', 'mm', [210, pdfH]);
+  pdf.addImage(imgData, 'PNG', 0, 0, 210, pdfH);
 
   const safeName = (user.displayName || 'user').replace(/\s+/g, '_');
   pdf.save(`certificate_${safeName}.pdf`);

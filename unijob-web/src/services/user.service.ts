@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { User } from '@/types';
 
@@ -26,27 +26,23 @@ export async function updateUserProfile(userId: string, data: Partial<User>): Pr
 }
 
 /**
- * Increment active job count
+ * Increment active job count (atomic)
  */
 export async function incrementActiveJobs(userId: string): Promise<void> {
-  const user = await getUserById(userId);
-  if (user) {
-    await updateDoc(doc(db, 'users', userId), {
-      activeJobCount: user.activeJobCount + 1,
-    });
-  }
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, {
+    activeJobCount: increment(1),
+  });
 }
 
 /**
- * Decrement active job count
+ * Decrement active job count (atomic)
  */
 export async function decrementActiveJobs(userId: string): Promise<void> {
-  const user = await getUserById(userId);
-  if (user && user.activeJobCount > 0) {
-    await updateDoc(doc(db, 'users', userId), {
-      activeJobCount: user.activeJobCount - 1,
-    });
-  }
+  const userRef = doc(db, 'users', userId);
+  await updateDoc(userRef, {
+    activeJobCount: increment(-1),
+  });
 }
 
 /**

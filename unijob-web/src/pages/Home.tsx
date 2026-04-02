@@ -58,15 +58,16 @@ export default function Home() {
       <section className="border-b border-[var(--color-border)] bg-white py-8">
         <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 px-4 md:grid-cols-4">
           {[
-            { icon: Briefcase, label: 'Việc đăng mỗi tuần', value: '50+' },
-            { icon: Users, label: 'Sinh viên sử dụng', value: '500+' },
-            { icon: Star, label: 'Rating trung bình', value: '4.5' },
-            { icon: Clock, label: 'Thời gian match', value: '<2h' },
+            { icon: Briefcase, label: 'Việc đăng mỗi tuần', value: '50+', note: '(mục tiêu)' },
+            { icon: Users, label: 'Sinh viên sử dụng', value: '500+', note: '(mục tiêu)' },
+            { icon: Star, label: 'Rating trung bình', value: '4.5', note: '(mục tiêu)' },
+            { icon: Clock, label: 'Thời gian match', value: '<2h', note: '(mục tiêu)' },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <stat.icon className="mx-auto mb-2 h-6 w-6 text-[var(--color-primary)]" />
               <div className="text-2xl font-bold">{stat.value}</div>
               <div className="text-xs text-[var(--color-muted-foreground)]">{stat.label}</div>
+              <div className="text-[10px] text-[var(--color-muted-foreground)] opacity-60">{stat.note}</div>
             </div>
           ))}
         </div>

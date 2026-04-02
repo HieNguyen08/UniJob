@@ -39,14 +39,15 @@ export async function submitRating(
   });
 
   // Update user's average rating
+  // Note: getRatingsByUser already includes the newly added doc above
   const userRatings = await getRatingsByUser(toUserId);
-  const totalScore = userRatings.reduce((sum, r) => sum + r.score, 0) + score;
-  const avgRating = totalScore / (userRatings.length + 1);
+  const totalScore = userRatings.reduce((sum, r) => sum + r.score, 0);
+  const avgRating = totalScore / userRatings.length;
 
   const userRef = doc(db, 'users', toUserId);
   await updateDoc(userRef, {
     ratingScore: Math.round(avgRating * 10) / 10,
-    totalRatings: userRatings.length + 1,
+    totalRatings: userRatings.length,
   });
 
   return docRef.id;

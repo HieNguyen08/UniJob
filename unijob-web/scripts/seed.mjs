@@ -40,7 +40,7 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const db = getFirestore(app, 'kirigitejkf8095h');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const daysFromNow = (n) => Timestamp.fromDate(new Date(Date.now() + n * 86_400_000));

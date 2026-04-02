@@ -37,7 +37,7 @@ const app = initializeApp(firebaseConfig);
 
 // Services
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = getFirestore(app, 'kirigitejkf8095h');
 export const storage = getStorage(app);
 
 // Google Auth Provider - restrict to school email domain

@@ -1,120 +1,194 @@
-import { ChevronLeft, FileText, MessageCircle, Star, UserRound } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ChevronLeft, FileText, Star, UserRound } from 'lucide-react';
+import { getJobById, updateApplicationStatus, subscribeToJobApplications } from '@/services/job.service';
+import { getUserById } from '@/services/user.service';
+import type { Application, Job } from '@/types';
+import type { User } from '@/types/user';
+import toast from 'react-hot-toast';
 import './my-job-candidates.css';
-
-type Candidate = {
-  id: string;
-  name: string;
-  faculty: string;
-  year: string;
-  scoreLabel: string;
-  ratingCount: string;
-  message: string;
-};
-
-const candidates: Candidate[] = [
-  {
-    id: 'c1',
-    name: 'Nguyễn Văn A',
-    faculty: 'Khoa KHMT - K2021',
-    year: 'K2021',
-    scoreLabel: '4.9/5',
-    ratingCount: '24 đánh giá',
-    message:
-      'Chào bạn, mình có 2 năm kinh nghiệm quay dựng video TikTok, từng làm cho CLB Truyền thông trường. Mình có sẵn thiết bị quay chuyên nghiệp và có thể bắt đầu ngay. Mình đã từng thực hiện nhiều dự án tương tự và có portfolio để bạn tham khảo.',
-  },
-  {
-    id: 'c2',
-    name: 'Trần Thị B',
-    faculty: 'Quản lý công nghiệp - K2020',
-    year: 'K2020',
-    scoreLabel: '5/5',
-    ratingCount: '18 đánh giá',
-    message:
-      'Em xin chào anh/chị. Em là sinh viên năm 4 chuyên ngành Quản lý công nghiệp, có kinh nghiệm quay dựng video cho nhiều sự kiện của trường và các doanh nghiệp. Em rất hứng thú với công việc này và cam kết hoàn thành tốt nhất.',
-  },
-  {
-    id: 'c3',
-    name: 'Lê Minh C',
-    faculty: 'Khoa Hóa - K2022',
-    year: 'K2022',
-    scoreLabel: '4.7/5',
-    ratingCount: '12 đánh giá',
-    message:
-      'Hello! Mình là content creator có kênh TikTok 50K followers. Mình rất am hiểu về xu hướng video viral và biết cách tạo nội dung hấp dẫn. Mình có thể giúp bạn quay video chất lượng cao và tư vấn về concept nếu cần.',
-  },
-];
 
 export default function MyJobCandidates() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const jobId = searchParams.get('jobId');
+
+  const [job, setJob] = useState<Job | null>(null);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [userProfiles, setUserProfiles] = useState<Record<string, User>>({});
+  const [loading, setLoading] = useState(true);
+  const [accepting, setAccepting] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!jobId) return;
+
+    setLoading(true);
+    getJobById(jobId)
+      .then((data) => setJob(data))
+      .catch((err) => {
+        console.error(err);
+        toast.error('Không tải được thông tin công việc');
+      })
+      .finally(() => setLoading(false));
+
+    const unsub = subscribeToJobApplications(jobId, (apps) => {
+      const pendingApps = apps.filter((a) => a.status === 'pending');
+      setApplications(pendingApps);
+
+      const missingIds = pendingApps.map((a) => a.applicantId);
+      
+      setUserProfiles((prev) => {
+        const fetchIds = missingIds.filter((id) => !prev[id]);
+        if (fetchIds.length > 0) {
+          Promise.all(
+            fetchIds.map(async (id) => {
+              const user = await getUserById(id);
+              if (user) {
+                setUserProfiles((latest) => ({ ...latest, [id]: user }));
+              }
+            })
+          );
+        }
+        return prev;
+      });
+    });
+
+    return unsub;
+  }, [jobId]);
+
+  async function handleAccept(applicationId: string) {
+    setAccepting(applicationId);
+    try {
+      await updateApplicationStatus(applicationId, 'accepted');
+      // Reject all other pending applications
+      await Promise.all(
+        applications
+          .filter((a) => a.id !== applicationId)
+          .map((a) => updateApplicationStatus(a.id, 'rejected'))
+      );
+      toast.success('Đã chấp nhận ứng viên!');
+      navigate('/my-jobs');
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi chấp nhận ứng viên');
+    } finally {
+      setAccepting(null);
+    }
+  }
+
+  async function handleReject(applicationId: string) {
+    try {
+      await updateApplicationStatus(applicationId, 'rejected');
+      setApplications((prev) => prev.filter((a) => a.id !== applicationId));
+      toast.success('Đã từ chối ứng viên');
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi từ chối ứng viên');
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="candidates-page">
+        <div className="candidates-container flex justify-center py-20">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-500" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="candidates-page">
       <div className="candidates-container">
-        <button
-          onClick={() => navigate('/my-jobs')}
-          className="candidates-back-link"
-          type="button"
-        >
+        <button onClick={() => navigate('/my-jobs')} className="candidates-back-link" type="button">
           <ChevronLeft className="h-4 w-4" />
           Quay lại danh sách việc
         </button>
 
         <h1 className="candidates-title">Danh sách ứng viên</h1>
 
-        <section className="candidates-job-card">
-          <p className="candidates-job-title">
-            Công việc: <span>Tìm người quay video TikTok sự kiện</span>
-          </p>
-          <div className="candidates-job-meta">
-            <span className="candidates-price">500.000đ</span>
-            <span className="candidates-status">Đang tìm người (3 ứng viên)</span>
+        {job && (
+          <section className="candidates-job-card">
+            <p className="candidates-job-title">
+              Công việc: <span>{job.title}</span>
+            </p>
+            <div className="candidates-job-meta">
+              <span className="candidates-price">
+                {job.payment > 0
+                  ? new Intl.NumberFormat('vi-VN').format(job.payment) + 'đ'
+                  : 'Tình nguyện'}
+              </span>
+              <span className="candidates-status">
+                Đang tìm người ({applications.length} ứng viên)
+              </span>
+            </div>
+          </section>
+        )}
+
+        {applications.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-gray-200 px-4 py-16 text-center text-sm text-gray-400">
+            Chưa có ứng viên nào
           </div>
-        </section>
-
-        <div className="candidates-list">
-          {candidates.map((candidate) => (
-            <article key={candidate.id} className="candidate-card">
-              <div className="candidate-left">
-                <div className="candidate-avatar-wrap">
-                  <div className="candidate-avatar">
-                    <UserRound className="h-10 w-10" />
+        ) : (
+          <div className="candidates-list">
+            {applications.map((app) => {
+              const profile = userProfiles[app.applicantId];
+              return (
+                <article key={app.id} className="candidate-card">
+                  <div className="candidate-left">
+                    <div className="candidate-avatar-wrap">
+                      {profile?.photoURL ? (
+                        <img src={profile.photoURL} alt={app.applicantName} className="candidate-avatar rounded-full" />
+                      ) : (
+                        <div className="candidate-avatar"><UserRound className="h-10 w-10" /></div>
+                      )}
+                    </div>
+                    <h3 className="candidate-name">{app.applicantName}</h3>
+                    <p className="candidate-faculty">{profile?.faculty || 'Chưa cập nhật'}</p>
+                    <div className="candidate-rating">
+                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                      <span className="candidate-rating-score">
+                        {profile?.ratingScore ? profile.ratingScore.toFixed(1) : '0.0'}/5
+                      </span>
+                      <span className="candidate-rating-count">({profile?.totalRatings ?? 0} đánh giá)</span>
+                    </div>
                   </div>
-                </div>
-                <h3 className="candidate-name">{candidate.name}</h3>
-                <p className="candidate-faculty">{candidate.faculty}</p>
-                <div className="candidate-rating">
-                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  <span className="candidate-rating-score">{candidate.scoreLabel}</span>
-                  <span className="candidate-rating-count">({candidate.ratingCount})</span>
-                </div>
-              </div>
 
-              <div className="candidate-message-col">
-                <p className="candidate-message-label">Lời nhắn / Cover Letter:</p>
-                <p className="candidate-message">{candidate.message}</p>
-              </div>
+                  <div className="candidate-message-col">
+                    <p className="candidate-message-label">Lời nhắn / Cover Letter:</p>
+                    <p className="candidate-message">{app.message || 'Không có lời nhắn.'}</p>
+                  </div>
 
-              <div className="candidate-actions">
-                <button className="candidate-btn candidate-btn-accept" type="button">
-                  Chấp nhận
-                </button>
-                <button className="candidate-btn candidate-btn-reject" type="button">
-                  Từ chối
-                </button>
-
-                <button className="candidate-link" type="button">
-                  <FileText className="h-4 w-4" />
-                  Xem hồ sơ chi tiết
-                </button>
-                <button className="candidate-link" type="button">
-                  <MessageCircle className="h-4 w-4" />
-                  Nhắn tin
-                </button>
-                </div>
-            </article>
-          ))}
-        </div>
+                  <div className="candidate-actions">
+                    <button
+                      className="candidate-btn candidate-btn-accept"
+                      type="button"
+                      disabled={accepting === app.id}
+                      onClick={() => handleAccept(app.id)}
+                    >
+                      {accepting === app.id ? 'Đang xử lý...' : 'Chấp nhận'}
+                    </button>
+                    <button
+                      className="candidate-btn candidate-btn-reject"
+                      type="button"
+                      onClick={() => handleReject(app.id)}
+                    >
+                      Từ chối
+                    </button>
+                    <button
+                      className="candidate-link"
+                      type="button"
+                      onClick={() => navigate(`/profile?uid=${app.applicantId}`)}
+                    >
+                      <FileText className="h-4 w-4" />
+                      Xem hồ sơ chi tiết
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   type DocumentData,
   type QueryConstraint,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Job, JobCreateInput, JobFilter, Application } from '@/types';
@@ -186,5 +187,34 @@ export async function updateApplicationStatus(
   await updateDoc(appRef, {
     status,
     updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Subscribe to real-time updates for jobs the user posted
+ * Returns an unsubscribe function — call it in useEffect cleanup
+ */
+export function subscribeToMyPostedJobs(
+  userId: string,
+  onUpdate: (jobs: Job[]) => void
+): () => void {
+  const q = query(jobsCollection, where('postedBy', '==', userId), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const jobs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Job[];
+    onUpdate(jobs);
+  });
+}
+
+/**
+ * Subscribe to real-time updates on applications for a specific job
+ */
+export function subscribeToJobApplications(
+  jobId: string,
+  onUpdate: (apps: Application[]) => void
+): () => void {
+  const q = query(applicationsCollection, where('jobId', '==', jobId), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const apps = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Application[];
+    onUpdate(apps);
   });
 }

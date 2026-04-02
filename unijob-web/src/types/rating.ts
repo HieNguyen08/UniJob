@@ -28,5 +28,4 @@ export interface WorkHistory {
   user2: string;
   jobId: string;
   completedAt: Timestamp;
-  rating: number;
 }

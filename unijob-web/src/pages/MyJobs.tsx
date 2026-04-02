@@ -6,6 +6,7 @@ import {
   getApplicationsByUser,
   getJobsByUser,
   getJobById,
+  getApplicationsByJob,
 } from '@/services/job.service';
 import { getJobCompletion } from '@/services/rating.service';
 import { workerCancelJob, posterCancelJob } from '@/services/cancel.service';
@@ -280,7 +281,6 @@ export default function MyJobs() {
       const postedList: PostedJob[] = await Promise.all(
         myPostedJobs.map(async (job) => {
           // Đếm ứng viên chờ duyệt
-          const { getApplicationsByJob } = await import('@/services/job.service');
           const apps = await getApplicationsByJob(job.id);
           const pendingApps = apps.filter((a) => a.status === 'pending');
 
@@ -398,7 +398,10 @@ export default function MyJobs() {
                 Giới hạn nhận việc: {userProfile?.activeJobCount ?? 0}/{userProfile?.maxJobLimit ?? 2} job đang chạy
               </span>
               <div className="myjobs-progress-track">
-                <div className="myjobs-progress-bar" />
+                <div
+                  className="myjobs-progress-bar"
+                  style={{ width: `${Math.min(100, ((userProfile?.activeJobCount ?? 0) / (userProfile?.maxJobLimit ?? 2)) * 100)}%` }}
+                />
               </div>
             </div>
           ) : (
@@ -435,14 +438,14 @@ export default function MyJobs() {
                     {job.actionLabel && (
                       <button
                         onClick={() => {
-                          if (job.id === 'r1') {
+                          if (job.status === 'in-progress') {
                             setShowReportModal(true);
                             return;
                           }
                         }}
                         type="button"
                         className={`myjobs-action-link ${
-                          job.id === 'r1'
+                          job.status === 'in-progress'
                             ? 'myjobs-action-outline'
                             : ''
                         }`}
@@ -488,7 +491,7 @@ export default function MyJobs() {
                         }}
                         type="button"
                         className={`myjobs-btn myjobs-item-primary ${
-                          job.id === 'p2'
+                          job.status === 'pending'
                             ? 'myjobs-btn-warning'
                             : 'myjobs-btn-primary'
                         }`}

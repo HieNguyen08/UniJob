@@ -89,16 +89,13 @@ export async function confirmCompletion(
   const compData = compSnap.data() as JobCompletion;
   const field = role === 'worker' ? 'workerConfirmed' : 'posterConfirmed';
 
-  let isBothConfirmed = false;
-  if (role === 'worker') {
-    isBothConfirmed = true && compData.posterConfirmed;
-  } else {
-    isBothConfirmed = true && compData.workerConfirmed;
-  }
+  const isBothConfirmed = role === 'worker'
+    ? compData.posterConfirmed
+    : compData.workerConfirmed;
 
   const updates: any = { [field]: true };
   if (isBothConfirmed) {
-    updates.status = 'completed';
+    updates.status = 'confirmed';
     updates.completedAt = serverTimestamp();
   }
 

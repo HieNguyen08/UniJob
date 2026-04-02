@@ -405,7 +405,11 @@ export default function MyJobs() {
               </div>
             </div>
           ) : (
-            <button className="myjobs-btn myjobs-btn-primary myjobs-post-btn" type="button">
+            <button
+              onClick={() => navigate('/create-job')}
+              className="myjobs-btn myjobs-btn-primary myjobs-post-btn"
+              type="button"
+            >
               <Plus className="h-4 w-4" />
               Đăng công việc mới
             </button>

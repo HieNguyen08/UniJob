@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { getJobs } from '@/services/job.service';
@@ -20,6 +20,7 @@ export default function CVExport() {
   const [loading, setLoading] = useState(true);
   const [showDetailedRatings, setShowDetailedRatings] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const certificateRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isAuthenticated || !userProfile) {
@@ -53,11 +54,11 @@ export default function CVExport() {
     fetchData();
   }, [isAuthenticated, userProfile, navigate]);
 
-  const handleExport = () => {
-    if (!user) return;
+  const handleExport = async () => {
+    if (!user || !certificateRef.current) return;
     setExporting(true);
     try {
-      generateCVCertificate(user, completedJobs, ratings, { showDetailedRatings });
+      await generateCVCertificate(certificateRef.current, user, completedJobs, ratings, { showDetailedRatings });
       toast.success('Đã tải xuống PDF!');
     } catch (error) {
       console.error('Export error:', error);
@@ -90,7 +91,7 @@ export default function CVExport() {
       <div className="grid gap-6 lg:grid-cols-5">
         {/* LEFT: Certificate Preview */}
         <div className="lg:col-span-3">
-          <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white shadow-sm">
+          <div ref={certificateRef} className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white shadow-sm">
             {/* Green top bar */}
             <div className="h-3 bg-emerald-500" />
 

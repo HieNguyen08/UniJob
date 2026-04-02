@@ -9,6 +9,7 @@ unijob-web/dist/
 # IDE
 .vscode/
 .idea/
+.claude/
 *.suo
 *.ntvs*
 *.njsproj

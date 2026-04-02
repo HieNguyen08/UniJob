@@ -1,84 +1,71 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper: Check if user is authenticated
-    function isAuthenticated() {
+    // Helper functions
+    function isAuth() {
       return request.auth != null;
     }
-
-    // Helper: Check if user owns the document
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return isAuth() && request.auth.uid == userId;
     }
 
-    // Users collection
+    // USERS: chỉ đọc public info, chỉ chủ tài khoản mới sửa được
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuth();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
       allow delete: if false;
     }
 
-    // Jobs collection
+    // JOBS: ai đăng nhập cũng đọc được, chỉ người đăng mới sửa/xóa
     match /jobs/{jobId} {
-      allow read: if true; // Public read for job listings
-      allow create: if isAuthenticated()
-        && request.resource.data.keys().hasAll(['title', 'description', 'category', 'postedBy'])
-        && request.resource.data.postedBy == request.auth.uid;
-      allow update: if isAuthenticated() && (
-        // Owner can update any field
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (
         resource.data.postedBy == request.auth.uid ||
-        // Non-owners can only modify applicants (to apply)
-        (
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicants']) &&
-          request.resource.data.applicants.size() == resource.data.applicants.size() + 1
-        )
+        // Cho phép update applicants khi ứng tuyển
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicants', 'updatedAt'])
       );
-      allow delete: if isAuthenticated() && resource.data.postedBy == request.auth.uid;
+      allow delete: if isAuth() && resource.data.postedBy == request.auth.uid;
     }
 
-    // Applications collection
-    match /applications/{applicationId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated()
-        && request.resource.data.applicantId == request.auth.uid;
-      // Only job poster can update status (accept/reject)
-      allow update: if isAuthenticated()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']);
+    // APPLICATIONS: applicant đọc được đơn của mình, poster đọc đơn vào job của mình
+    match /applications/{appId} {
+      allow read: if isAuth() && (
+        resource.data.applicantId == request.auth.uid ||
+        // poster đọc: cần check qua jobs collection
+        exists(/databases/$(database)/documents/jobs/$(resource.data.jobId)) &&
+        get(/databases/$(database)/documents/jobs/$(resource.data.jobId)).data.postedBy == request.auth.uid
+      );
+      allow create: if isAuth() && request.resource.data.applicantId == request.auth.uid;
+      allow update: if isAuth() && (
+        // chỉ poster mới được đổi status
+        get(/databases/$(database)/documents/jobs/$(resource.data.jobId)).data.postedBy == request.auth.uid
+      );
       allow delete: if false;
     }
 
-    // Ratings collection
+    // RATINGS: ai đăng nhập cũng đọc, chỉ người trong job mới tạo được
     match /ratings/{ratingId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated()
-        && request.resource.data.fromUserId == request.auth.uid
-        && request.resource.data.fromUserId != request.resource.data.toUserId
-        && request.resource.data.score >= 1
-        && request.resource.data.score <= 5;
-      allow update: if false;
-      allow delete: if false;
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.fromUserId == request.auth.uid;
+      allow update, delete: if false;
     }
 
-    // Job Completions collection
+    // JOB COMPLETIONS: người trong job mới đọc/update được
     match /jobCompletions/{completionId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      // Only allow updating confirmation fields
-      allow update: if isAuthenticated()
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['workerConfirmed', 'posterConfirmed', 'completedAt', 'status']);
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
       allow delete: if false;
     }
 
-    // Work History collection
+    // WORK HISTORY: public read
     match /workHistory/{historyId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if false;
-      allow delete: if false;
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update, delete: if false;
     }
   }
 }

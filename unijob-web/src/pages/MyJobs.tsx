@@ -1,6 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/store/authStore';
+import {
+  getApplicationsByUser,
+  getJobsByUser,
+  getJobById,
+} from '@/services/job.service';
+import { getJobCompletion } from '@/services/rating.service';
+import { workerCancelJob, posterCancelJob } from '@/services/cancel.service';
+
+import toast from 'react-hot-toast';
 import {
   AlertCircle,
   Calendar,
@@ -18,6 +28,8 @@ type WorkStatus = 'in-progress' | 'pending' | 'completed' | 'finding';
 
 type ReceivedJob = {
   id: string;
+  applicationId: string;
+  rawDeadline: { toDate: () => Date } | null;
   title: string;
   postedBy: string;
   deadlineLabel: string;
@@ -29,6 +41,7 @@ type ReceivedJob = {
 
 type PostedJob = {
   id: string;
+  hasAssignedWorker: boolean;
   title: string;
   subtitle: string;
   paymentLabel: string;
@@ -37,67 +50,6 @@ type PostedJob = {
   secondaryActionLabel?: string;
   notificationCount?: number;
 };
-
-const receivedJobs: ReceivedJob[] = [
-  {
-    id: 'r1',
-    title: 'Thiết kế Slide Powerpoint thuyết trình',
-    postedBy: 'Trần Thị B',
-    deadlineLabel: 'Hạn chót: 20/02/2026',
-    paymentLabel: '150.000đ',
-    status: 'in-progress',
-    actionLabel: 'Báo cáo hoàn thành',
-    dangerActionLabel: 'Hủy việc',
-  },
-  {
-    id: 'r2',
-    title: 'Dịch thuật tài liệu tiếng Nhật N3',
-    postedBy: 'Nguyễn Văn C',
-    deadlineLabel: 'Đã nộp: Hôm qua',
-    paymentLabel: '300.000đ',
-    status: 'pending',
-    actionLabel: 'Xem lại minh chứng',
-  },
-  {
-    id: 'r3',
-    title: 'Seeding bài viết Facebook',
-    postedBy: 'Lê Thị D',
-    deadlineLabel: 'Hoàn thành: 10/02/2026',
-    paymentLabel: '50.000đ',
-    status: 'completed',
-    actionLabel: 'Đánh giá người đăng',
-  },
-];
-
-const postedJobs: PostedJob[] = [
-  {
-    id: 'p1',
-    title: 'Tìm người quay video TikTok sự kiện',
-    subtitle: 'Đăng cách đây 2 giờ',
-    paymentLabel: '500.000đ',
-    status: 'finding',
-    primaryActionLabel: 'Xem 3 ứng viên',
-    secondaryActionLabel: 'Chỉnh sửa tin',
-    notificationCount: 3,
-  },
-  {
-    id: 'p2',
-    title: 'Dịch thuật tài liệu tiếng Nhật N3',
-    subtitle: 'Người làm: Nguyễn Văn A',
-    paymentLabel: '300.000đ',
-    status: 'pending',
-    primaryActionLabel: 'Kiểm tra & Thanh toán',
-  },
-  {
-    id: 'p3',
-    title: 'Code Landing Page ReactJS',
-    subtitle: 'Người làm: Lê Văn C',
-    paymentLabel: '800.000đ',
-    status: 'in-progress',
-    primaryActionLabel: 'Nhắn tin',
-    secondaryActionLabel: 'Hủy công việc',
-  },
-];
 
 const statusConfig: Record<WorkStatus, { label: string; className: string }> = {
   'in-progress': {
@@ -186,13 +138,13 @@ function ReportModal({ onClose }: { onClose: () => void }) {
 }
 
 function CancelModal({
-  step,
+  jobTitle,
   onClose,
   onNext,
 }: {
-  step: 1 | 2;
+  jobTitle: string;
   onClose: () => void;
-  onNext: () => void;
+  onNext: (reason: string) => void;
 }) {
   const [selectedReason, setSelectedReason] = useState('');
 
@@ -200,6 +152,7 @@ function CancelModal({
     'Không thể hoàn thành đúng deadline',
     'Yêu cầu công việc thay đổi quá nhiều',
     'Lý do cá nhân khẩn cấp',
+    'Khác'
   ];
 
   return (
@@ -218,7 +171,7 @@ function CancelModal({
         <div className="myjobs-modal-body">
           <section className="myjobs-info-card">
             <p className="myjobs-muted">Công việc:</p>
-            <p className="myjobs-info-title">Thiết kế Slide Powerpoint thuyết trình</p>
+            <p className="myjobs-info-title">{jobTitle}</p>
           </section>
 
           <section>
@@ -252,13 +205,11 @@ function CancelModal({
             Quay lại (Không hủy)
           </button>
           <button
-            onClick={onNext}
+            onClick={() => onNext(selectedReason)}
             type="button"
-            disabled={step === 1 ? !selectedReason : false}
+            disabled={!selectedReason}
             className={`myjobs-btn myjobs-btn-danger ${
-              step === 1 && !selectedReason
-                ? 'myjobs-btn-danger-disabled'
-                : ''
+              !selectedReason ? 'myjobs-btn-danger-disabled' : ''
             }`}
           >
             Xác nhận Hủy
@@ -271,33 +222,132 @@ function CancelModal({
 
 export default function MyJobs() {
   const navigate = useNavigate();
+  const { userProfile } = useAuthStore();
+  const [receivedJobs, setReceivedJobs] = useState<ReceivedJob[]>([]);
+  const [postedJobs, setPostedJobs] = useState<PostedJob[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<WorkTab>('received');
   const [showReportModal, setShowReportModal] = useState(false);
-  const [cancelStep, setCancelStep] = useState<0 | 1 | 2>(0);
+  const [cancelStep, setCancelStep] = useState<0 | 1>(0);
+  const [cancelJobTarget, setCancelJobTarget] = useState<{ type: 'worker' | 'poster', job: ReceivedJob | PostedJob } | null>(null);
 
-  const stats = useMemo(
-    () => [
-      {
-        value: '2',
-        label: 'Đang thực hiện',
-        icon: <Loader className="h-6 w-6 text-blue-500" />,
-        accent: 'myjobs-accent-blue',
-      },
-      {
-        value: '1',
-        label: 'Chờ xác nhận',
-        icon: <Clock3 className="h-6 w-6 text-orange-500" />,
-        accent: 'myjobs-accent-orange',
-      },
-      {
-        value: '15',
-        label: 'Đã hoàn thành',
-        icon: <CheckCircle2 className="h-6 w-6 text-green-500" />,
-        accent: 'myjobs-accent-green',
-      },
-    ],
-    []
-  );
+  const loadJobs = async () => {
+    if (!userProfile) return;
+    setLoading(true);
+    try {
+      // --- Việc tôi nhận (applications) ---
+      const applications = await getApplicationsByUser(userProfile!.uid);
+      const receivedList = await Promise.all(
+        applications
+          .filter((app) => app.status === 'accepted')
+          .map(async (app) => {
+            const job = await getJobById(app.jobId);
+            if (!job) return null;
+
+            const completion = await getJobCompletion(job.id);
+            let status: WorkStatus = 'in-progress';
+            if (job.status === 'completed') status = 'completed';
+            else if (completion && completion.workerConfirmed && !completion.posterConfirmed)
+              status = 'pending';
+
+            const deadline = job.deadline?.toDate
+              ? job.deadline.toDate().toLocaleDateString('vi-VN')
+              : 'N/A';
+
+            return {
+              id: job.id,
+              applicationId: app.id,
+              rawDeadline: job.deadline,
+              title: job.title,
+              postedBy: job.isAnonymous ? 'Ẩn danh' : job.postedByName,
+              deadlineLabel: `Hạn chót: ${deadline}`,
+              paymentLabel: job.payment > 0
+                ? new Intl.NumberFormat('vi-VN').format(job.payment) + 'đ'
+                : 'Tình nguyện',
+              status,
+              actionLabel: status === 'in-progress' ? 'Báo cáo hoàn thành'
+                : status === 'pending' ? 'Xem lại minh chứng'
+                : status === 'completed' ? 'Đánh giá người đăng'
+                : undefined,
+              dangerActionLabel: status === 'in-progress' ? 'Hủy việc' : undefined,
+            } as ReceivedJob;
+          })
+      );
+      setReceivedJobs(receivedList.filter(Boolean) as ReceivedJob[]);
+
+      // --- Việc tôi đăng ---
+      const myPostedJobs = await getJobsByUser(userProfile!.uid);
+      const postedList: PostedJob[] = await Promise.all(
+        myPostedJobs.map(async (job) => {
+          // Đếm ứng viên chờ duyệt
+          const { getApplicationsByJob } = await import('@/services/job.service');
+          const apps = await getApplicationsByJob(job.id);
+          const pendingApps = apps.filter((a) => a.status === 'pending');
+
+          let status: WorkStatus = 'finding';
+          if (job.status === 'in-progress') status = 'in-progress';
+          else if (job.status === 'completed') status = 'completed';
+          else if (job.assignedTo?.length > 0) status = 'pending';
+
+          const assignedName = job.assignedTo?.[0]
+            ? apps.find((a) => a.applicantId === job.assignedTo[0])?.applicantName || 'Sinh viên'
+            : null;
+
+          return {
+            id: job.id,
+            hasAssignedWorker: (job.assignedTo?.length ?? 0) > 0,
+            title: job.title,
+            subtitle: assignedName
+              ? `Người làm: ${assignedName}`
+              : `Đăng cách đây vài ngày`,
+            paymentLabel: job.payment > 0
+              ? new Intl.NumberFormat('vi-VN').format(job.payment) + 'đ'
+              : 'Tình nguyện',
+            status,
+            primaryActionLabel: status === 'finding'
+              ? `Xem ${pendingApps.length} ứng viên`
+              : status === 'pending' ? 'Kiểm tra & Thanh toán'
+              : 'Nhắn tin',
+            secondaryActionLabel: status !== 'completed' ? 'Hủy công việc' : undefined,
+            notificationCount: pendingApps.length > 0 ? pendingApps.length : undefined,
+          } as PostedJob;
+        })
+      );
+      setPostedJobs(postedList);
+    } catch (err) {
+      console.error(err);
+      toast.error('Không tải được danh sách công việc');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadJobs();
+  }, [userProfile]);
+
+  const stats = useMemo(() => {
+    const inProgress = receivedJobs.filter((j) => j.status === 'in-progress').length;
+    const pending = receivedJobs.filter((j) => j.status === 'pending').length;
+    const completed = receivedJobs.filter((j) => j.status === 'completed').length;
+    return [
+      { value: String(inProgress), label: 'Đang thực hiện', icon: <Loader className="h-6 w-6 text-blue-500" />, accent: 'myjobs-accent-blue' },
+      { value: String(pending), label: 'Chờ xác nhận', icon: <Clock3 className="h-6 w-6 text-orange-500" />, accent: 'myjobs-accent-orange' },
+      { value: String(completed), label: 'Đã hoàn thành', icon: <CheckCircle2 className="h-6 w-6 text-green-500" />, accent: 'myjobs-accent-green' },
+    ];
+  }, [receivedJobs]);
+
+  if (loading) {
+    return (
+      <div className="myjobs-page">
+        <div className="myjobs-container">
+          <div className="flex justify-center py-20">
+            <Loader className="h-8 w-8 animate-spin text-emerald-500" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="myjobs-page">
@@ -344,7 +394,9 @@ export default function MyJobs() {
 
           {activeTab === 'received' ? (
             <div className="myjobs-limit-wrap">
-              <span>Giới hạn nhận việc: 2/3 job đang chạy</span>
+              <span>
+                Giới hạn nhận việc: {userProfile?.activeJobCount ?? 0}/{userProfile?.maxJobLimit ?? 2} job đang chạy
+              </span>
               <div className="myjobs-progress-track">
                 <div className="myjobs-progress-bar" />
               </div>
@@ -400,7 +452,10 @@ export default function MyJobs() {
                     )}
                     {job.dangerActionLabel && (
                       <button
-                        onClick={() => setCancelStep(1)}
+                        onClick={() => {
+                          setCancelJobTarget({ type: 'worker', job });
+                          setCancelStep(1);
+                        }}
                         className="myjobs-action-danger"
                         type="button"
                       >
@@ -425,13 +480,10 @@ export default function MyJobs() {
                       </span>
                       <button
                         onClick={() => {
-                          if (job.id === 'p1') {
-                            navigate('/my-jobs/candidates');
-                            return;
-                          }
-                          if (job.id === 'p2') {
-                            navigate('/my-jobs/acceptance');
-                            return;
+                          if (job.status === 'finding') {
+                            navigate(`/my-jobs/candidates?jobId=${job.id}`);
+                          } else if (job.status === 'pending') {
+                            navigate(`/my-jobs/acceptance?jobId=${job.id}`);
                           }
                         }}
                         type="button"
@@ -456,6 +508,7 @@ export default function MyJobs() {
                       <button
                         onClick={() => {
                           if (job.secondaryActionLabel === 'Hủy công việc') {
+                            setCancelJobTarget({ type: 'poster', job });
                             setCancelStep(1);
                           }
                         }}
@@ -476,18 +529,44 @@ export default function MyJobs() {
       </div>
 
       {showReportModal ? <ReportModal onClose={() => setShowReportModal(false)} /> : null}
-      {cancelStep === 1 ? (
+      
+      {cancelStep === 1 && cancelJobTarget ? (
         <CancelModal
-          step={1}
-          onClose={() => setCancelStep(0)}
-          onNext={() => setCancelStep(2)}
-        />
-      ) : null}
-      {cancelStep === 2 ? (
-        <CancelModal
-          step={2}
-          onClose={() => setCancelStep(0)}
-          onNext={() => setCancelStep(0)}
+          jobTitle={cancelJobTarget.job.title}
+          onClose={() => {
+            setCancelStep(0);
+            setCancelJobTarget(null);
+          }}
+          onNext={async (reason) => {
+            try {
+              if (cancelJobTarget.type === 'worker') {
+                const wJob = cancelJobTarget.job as ReceivedJob;
+                const result = await workerCancelJob(
+                  wJob.id,
+                  wJob.applicationId,
+                  userProfile!.uid,
+                  reason as any,
+                  wJob.rawDeadline
+                );
+                toast.success(result.message);
+              } else {
+                const pJob = cancelJobTarget.job as PostedJob;
+                const result = await posterCancelJob(
+                  pJob.id,
+                  userProfile!.uid,
+                  pJob.hasAssignedWorker
+                );
+                toast.success(result.message);
+              }
+              setCancelStep(0);
+              setCancelJobTarget(null);
+              // Tải lại jobs sau khi hủy
+              loadJobs();
+            } catch (error) {
+              console.error(error);
+              toast.error('Có lỗi xảy ra khi hủy công việc.');
+            }
+          }}
         />
       ) : null}
     </div>

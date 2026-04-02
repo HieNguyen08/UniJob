@@ -7,9 +7,12 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
+  getDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Rating, JobCompletion } from '@/types';
+import { recordWorkHistory } from '@/services/workHistory.service';
+import { getJobById, updateJob } from '@/services/job.service';
 
 const ratingsCollection = collection(db, 'ratings');
 const completionsCollection = collection(db, 'jobCompletions');
@@ -80,11 +83,35 @@ export async function confirmCompletion(
   role: 'worker' | 'poster'
 ): Promise<void> {
   const completionRef = doc(db, 'jobCompletions', completionId);
+  const compSnap = await getDoc(completionRef);
+  if (!compSnap.exists()) return;
+
+  const compData = compSnap.data() as JobCompletion;
   const field = role === 'worker' ? 'workerConfirmed' : 'posterConfirmed';
 
-  await updateDoc(completionRef, {
-    [field]: true,
-  });
+  let isBothConfirmed = false;
+  if (role === 'worker') {
+    isBothConfirmed = true && compData.posterConfirmed;
+  } else {
+    isBothConfirmed = true && compData.workerConfirmed;
+  }
+
+  const updates: any = { [field]: true };
+  if (isBothConfirmed) {
+    updates.status = 'completed';
+    updates.completedAt = serverTimestamp();
+  }
+
+  await updateDoc(completionRef, updates);
+
+  if (isBothConfirmed) {
+    // Lưu work history
+    const job = await getJobById(compData.jobId);
+    if (job && job.assignedTo && job.assignedTo.length > 0) {
+      await recordWorkHistory(job.postedBy, job.assignedTo[0], job.id);
+      await updateJob(job.id, { status: 'completed' });
+    }
+  }
 }
 
 /**

@@ -11,7 +11,7 @@ interface JobState {
   lastDoc: DocumentData | undefined;
 
   // Actions
-  fetchJobs: (reset?: boolean) => Promise<void>;
+  fetchJobs: (reset?: boolean, limit?: number) => Promise<void>;
   setFilters: (filters: Partial<JobFilter>) => void;
   resetFilters: () => void;
 }
@@ -33,13 +33,13 @@ export const useJobStore = create<JobState>((set, get) => ({
   hasMore: true,
   lastDoc: undefined,
 
-  fetchJobs: async (reset = false) => {
+  fetchJobs: async (reset = false, limit?: number) => {
     const { filters, lastDoc } = get();
     set({ isLoading: true });
 
     try {
       const cursor = reset ? undefined : lastDoc;
-      let jobs = await getJobs(filters, undefined, cursor);
+      let jobs = await getJobs(filters, limit, cursor);
 
       // Client-side search filtering (Firestore doesn't support full-text search)
       if (filters.searchQuery) {

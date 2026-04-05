@@ -1,0 +1,173 @@
+% ============================================================
+%  Chương 4 – Trình bày  (2 điểm)
+%  Yêu cầu:
+%    4.1  Video giới thiệu sản phẩm/dịch vụ
+%    4.2  Ảnh chụp giao diện sản phẩm (report format đẹp)
+% ============================================================
+
+% ------------------------------------------------------------------
+\section{Video giới thiệu sản phẩm}
+% ------------------------------------------------------------------
+
+% TODO: Upload video demo lên YouTube / Google Drive rồi điền link vào bảng dưới đây.
+% Gợi ý kịch bản video (3--5 phút):
+%   1. Mở trang chủ, giới thiệu UniJob và section "Đề xuất cho bạn" (AI Matching)
+%   2. Duyệt danh sách công việc, sử dụng bộ lọc theo khoa / kỹ năng
+%   3. Xem chi tiết task, ứng tuyển với thư giới thiệu
+%   4. Xem hồ sơ cá nhân + Trust Score
+%   5. Xuất chứng nhận CV Passport PDF
+%   6. (Tùy chọn) Dashboard quản lý công việc đã đăng
+
+Video demo UniJob trình bày toàn bộ luồng người dùng chính trong thời lượng khoảng
+3--5 phút, quay màn hình trực tiếp trên trình duyệt.
+
+\begin{table}[H]
+\centering
+\caption{Thông tin video giới thiệu sản phẩm}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{|p{3cm}|X|}
+\hline
+\rowcolor{emeraldhead} \th{Mục} & \th{Nội dung} \\
+\hline
+\u0110ường dẫn  & \textit{TODO: Điền link YouTube / Google Drive sau khi upload} \\
+\hline
+Thời lượng & $\approx$ 3--5 phút \\
+\hline
+Nội dung   & Đăng nhập $\to$ AI Matching $\to$ Ứng tuyển $\to$ CV Export PDF \\
+\hline
+Công cụ    & OBS Studio / Loom / Windows Game Bar (Win\,+\,G) \\
+\hline
+\end{tabularx}
+\end{table}
+
+\textbf{Kịch bản demo:}
+\begin{enumerate}
+  \item Đăng nhập bằng Google OAuth (\texttt{@hcmut.edu.vn}).
+  \item Xem trang chủ -- section ``Đề xuất cho bạn'' với AI Matching hiển thị 6 công việc
+    phù hợp nhất theo khoa và kỹ năng.
+  \item Duyệt danh sách công việc -- dùng bộ lọc theo khoa và kỹ năng yêu cầu.
+  \item Mở chi tiết một task -- đọc mô tả và bấm ``Ứng tuyển ngay'' với thư giới thiệu.
+  \item Xem hồ sơ cá nhân -- điểm uy tín (Trust Score), lịch sử công việc đã hoàn thành.
+  \item Vào trang \texttt{/cv-export} -- nhấn ``Tải xuống PDF'' để xuất chứng nhận.
+\end{enumerate}
+
+% ------------------------------------------------------------------
+\section{Ảnh chụp giao diện sản phẩm}
+% ------------------------------------------------------------------
+
+% TODO: Chụp màn hình từng trang của trang web UniJob đang chạy,
+%       lưu vào thư mục Report/images/ với tên file đúng như dưới đây:
+%   home.png        -- Trang chủ
+%   joblist.png     -- Danh sách công việc
+%   jobdetail.png   -- Chi tiết công việc
+%   createjob.png   -- Đăng công việc mới
+%   profile.png     -- Hồ sơ cá nhân
+%   cvexport.png    -- Xuất chứng nhận CV
+%   dashboard.png   -- Dashboard quản lý
+%   login.png       -- Trang đăng nhập
+
+Phần này trình bày ảnh chụp màn hình thực tế các trang chính của UniJob.
+
+% ------------------------------------------------------------------
+\subsection{Trang chủ (Home)}
+% ------------------------------------------------------------------
+
+Trang chủ hiển thị banner giới thiệu, thống kê nổi bật và danh sách công việc gợi ý
+bởi thuật toán AI Matching.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{home.png}
+  \caption{Giao diện trang chủ UniJob}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsection{Danh sách công việc (Job List)}
+% ------------------------------------------------------------------
+
+Trang danh sách cho phép tìm kiếm, lọc theo khoa, kỹ năng, trạng thái, sắp xếp
+theo lương hoặc ngày đăng.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{joblist.png}
+  \caption{Trang danh sách công việc với bộ lọc}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsection{Chi tiết công việc (Job Detail)}
+% ------------------------------------------------------------------
+
+Trang chi tiết hiển thị đầy đủ thông tin task: mô tả, yêu cầu, kỹ năng, mức lương,
+nút ứng tuyển và danh sách ứng viên.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{jobdetail.png}
+  \caption{Trang chi tiết công việc}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsection{Đăng công việc (Create Job)}
+% ------------------------------------------------------------------
+
+Form tạo công việc mới với các trường: tiêu đề, mô tả, mức lương, khoa, kỹ năng yêu
+cầu, hạn ứng tuyển.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{createjob.png}
+  \caption{Trang đăng công việc mới}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsection{Trang cá nhân (Profile)}
+% ------------------------------------------------------------------
+
+Trang profile hiển thị thông tin sinh viên, kỹ năng, khoa, điểm uy tín, và lịch sử
+công việc đã hoàn thành.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{profile.png}
+  \caption{Trang cá nhân người dùng}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsection{Xuất chứng nhận CV (CV Export)}
+% ------------------------------------------------------------------
+
+Tính năng xuất chứng nhận kinh nghiệm dưới dạng PDF, bao gồm thông tin cá nhân,
+thống kê công việc, điểm đánh giá, và danh sách task hoàn thành.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{cvexport.png}
+  \caption{Xuất chứng nhận kinh nghiệm PDF}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsection{Dashboard}
+% ------------------------------------------------------------------
+
+Dashboard tổng quan hiển thị biểu đồ thống kê: số công việc đã đăng, ứng tuyển,
+hoàn thành, và đánh giá gần đây.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{dashboard.png}
+  \caption{Trang Dashboard tổng quan}
+\end{figure}
+
+% ------------------------------------------------------------------
+\subsection{Đăng nhập (Login)}
+% ------------------------------------------------------------------
+
+Trang đăng nhập sử dụng Google OAuth, giao diện đơn giản với nút ``Sign in with
+Google''.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{login.png}
+  \caption{Trang đăng nhập Google OAuth}
+\end{figure}

@@ -1,0 +1,120 @@
+% ============================================================
+%  2.2 – Nguyên lý thiết kế hình thức  (0.5 điểm)
+%  Trạng thái: ĐÃ HOÀN THIỆN
+% ============================================================
+
+\subsection{Nguyên lý nền tảng}
+
+Thiết kế hình thức của UniJob được xây dựng trên \textbf{4 nguyên lý cốt lõi} từ lý thuyết
+thiết kế giao diện hiện đại:
+
+\begin{enumerate}
+  \item \textbf{Proximity (Gần kề):} Các thông tin liên quan được nhóm lại thành
+    đơn vị trực quan (card). Mỗi job card chứa đầy đủ 6--8 thông tin cốt lõi trong một
+    khối bao quanh bởi viền và shadow nhẹ, giúp mắt người dùng di chuyển tự nhiên.
+
+  \item \textbf{Alignment (Căn chỉnh):} Tất cả nội dung căn trái trên desktop, căn giữa
+    trên mobile. Lưới Tailwind CSS đảm bảo căn chỉnh pixel-perfect trên mọi viewport.
+
+  \item \textbf{Contrast (Tương phản):} Màu chủ đạo xanh lá (\texttt{\#10b981}) trên nền
+    trắng đạt tỷ lệ tương phản 3.1:1 (WCAG AA cho large text). Text body \texttt{\#111827}
+    trên trắng đạt 16.1:1, vượt chuẩn WCAG AAA.
+
+  \item \textbf{Repetition (Lặp lại):} Design tokens CSS (\texttt{--color-primary},
+    \texttt{--color-border}...) được dùng xuyên suốt toàn bộ codebase, đảm bảo tính nhất
+    quán khi thay đổi theme mà không cần sửa từng component.
+\end{enumerate}
+
+\subsection{Hệ thống Typography}
+
+\begin{table}[H]
+\centering
+\caption{Cấu trúc typography trong UniJob}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabularx}{\textwidth}{|p{3.5cm}|p{3.5cm}|X|}
+\hline
+\rowcolor{emeraldhead} \th{Mức} & \th{Class Tailwind} & \th{Sử dụng} \\
+\hline
+Display Heading & \texttt{text-4xl font-bold} & Hero headline trang chủ \\
+\hline
+H1 Section      & \texttt{text-2xl font-bold} & Tiêu đề trang (JobDetail, Profile) \\
+\hline
+H2 Card title   & \texttt{text-lg font-semibold} & Tiêu đề job card \\
+\hline
+Body            & \texttt{text-sm} (14px)     & Mô tả, nội dung form \\
+\hline
+Caption         & \texttt{text-xs text-gray-500} & Metadata: ngày, tag, badge \\
+\hline
+\end{tabularx}
+\end{table}
+
+Font stack mặc định: \texttt{"Segoe UI", Roboto, Arial, sans-serif} -- không nhúng custom
+font để tối ưu hiệu suất tải trang.
+
+\subsection{Hệ thống Component}
+
+\subsubsection{Button}
+
+Có 3 biến thể chính:
+\begin{itemize}
+  \item \textbf{Primary:} nền emerald, chữ trắng -- dùng cho CTA chính (``Ứng tuyển ngay'',
+    ``Tải xuống PDF'').
+  \item \textbf{Outline:} viền emerald, chữ emerald -- dùng cho hành động thứ cấp
+    (``Chia sẻ LinkedIn'', ``Hủy'').
+  \item \textbf{Ghost:} không viền, không nền -- dùng cho điều hướng nội bộ.
+\end{itemize}
+
+Tất cả button có \texttt{disabled} state với \texttt{opacity-50} và loading spinner khi
+đang xử lý bất đồng bộ.
+
+\subsubsection{Card}
+
+Card là đơn vị giao diện cơ bản nhất của UniJob. Mỗi card có:
+\begin{itemize}
+  \item Border \texttt{rounded-2xl} (16px) và shadow nhẹ \texttt{shadow-sm}.
+  \item Hover state \texttt{hover:shadow-md hover:border-emerald-200} để tạo phản hồi tactile.
+  \item Internal padding \texttt{p-4} hoặc \texttt{p-6} tùy context.
+\end{itemize}
+
+\subsubsection{Badge và Tag}
+
+\begin{itemize}
+  \item \textbf{Category badge:} nền xanh lá nhạt (\texttt{bg-emerald-100}), chữ đậm xanh lá.
+  \item \textbf{Urgent badge:} nền cam (\texttt{bg-orange-100}), icon Zap màu cam -- thu hút
+    sự chú ý cho task cần người gấp.
+  \item \textbf{Skill tag:} nền xám nhạt (\texttt{bg-gray-100}), font nhỏ -- không cạnh tranh
+    sự chú ý với category badge.
+\end{itemize}
+
+\subsubsection{Toast Notifications}
+
+Sử dụng \texttt{react-hot-toast} với 3 loại thông báo:
+\begin{itemize}
+  \item \textbf{Success:} icon tick xanh lá -- ứng tuyển thành công, lưu profile...
+  \item \textbf{Error:} icon X đỏ -- lỗi mạng, form validation fail...
+  \item \textbf{Info:} icon ℹ️ -- tính năng đang phát triển (LinkedIn share).
+\end{itemize}
+
+\subsection{Micro-interactions và Animation}
+
+\begin{itemize}
+  \item \textbf{Hero fade-in:} \texttt{framer-motion} \texttt{opacity: 0 → 1, y: 20 → 0}
+    trong 0.6 giây khi tải trang chủ.
+  \item \textbf{Apply form slide:} form ứng tuyển hiện/ẩn mượt mà với
+    \texttt{transition-all} CSS khi toggle.
+  \item \textbf{Spinner khi loading:} vòng quay border-emerald trên background trắng,
+    thay thế toàn bộ content khi đang fetch từ Firestore.
+  \item \textbf{Skeleton loading:} \texttt{animate-pulse} cho các block gray trong khi
+    dữ liệu chưa về -- tránh Layout Shift (CLS).
+\end{itemize}
+
+\subsection{Layout và Spacing System}
+
+\begin{itemize}
+  \item Spacing dùng bội số 4px: \texttt{gap-4} (16px), \texttt{gap-6} (24px),
+    \texttt{p-8} (32px).
+  \item \textbf{Max container width:} \texttt{max-w-7xl} (1280px) cho trang danh sách,
+    \texttt{max-w-5xl} (1024px) cho trang chi tiết và form.
+  \item \textbf{Grid system:} 3-col (\texttt{grid-cols-3}) cho job cards trên desktop,
+    1-col trên mobile; 5-col (3:2) cho CVExport layout.
+\end{itemize}

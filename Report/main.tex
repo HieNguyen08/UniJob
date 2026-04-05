@@ -1,0 +1,196 @@
+% ============================================================
+%  UniJob – Báo cáo môn Electronic Commerce CO3027 HK252
+%  Compile: XeLaTeX  (xelatex main.tex)
+%  Hoặc:    pdflatex (pdflatex main.tex) với gói T5/inputenc
+% ============================================================
+\documentclass[12pt, a4paper]{report}
+
+% ---------- Encoding & Font (XeLaTeX) ----------
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\setmainlanguage{vietnamese}
+\setotherlanguage{english}
+% Uncomment dòng dưới nếu muốn dùng font Times New Roman
+% \setmainfont{Times New Roman}
+
+% ---------- Nếu dùng pdfLaTeX, thay 3 dòng trên bằng: ----------
+% \usepackage[utf8]{inputenc}
+% \usepackage[T5]{fontenc}
+% \usepackage[vietnamese]{babel}
+
+% ---------- Layout ----------
+\usepackage[a4paper, top=2.5cm, bottom=2.5cm, left=3cm, right=2cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{parskip}          % khoảng cách đoạn văn
+
+% ---------- Header / Footer ----------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small UniJob -- CO3027 HK252}
+\fancyhead[R]{\small Nhóm X}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ---------- Hình ảnh & bảng ----------
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{caption}
+\graphicspath{{images/}}      % đặt ảnh trong thư mục images/
+
+% ---------- Màu sắc & Code ----------
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{tabularx}
+\usepackage{listings}
+\definecolor{codegray}{rgb}{0.95,0.95,0.95}
+\definecolor{emeraldhead}{RGB}{5,150,105}   % emerald-600 -- header bảng
+\definecolor{emeraldrow}{RGB}{209,250,229}  % emerald-100 -- header bg
+% ---- Kiểu bảng Excel: full-width, border đầy đủ ----
+% \th{}: tiêu đề cột -- chữ trắng đậm trên nền xanh
+\newcommand{\th}[1]{\textbf{\textcolor{white}{#1}}}
+% Row height & padding toàn cục
+\renewcommand{\arraystretch}{1.5}
+\setlength{\tabcolsep}{8pt}
+% Màu đường kẻ
+\arrayrulecolor{emeraldhead}
+% Độ dày đường kẻ ngang giữa các hàng
+\setlength{\arrayrulewidth}{0.5pt}
+\lstdefinelanguage{JavaScript}{
+  morekeywords={break, case, catch, const, continue, debugger, default, delete,
+    do, else, export, extends, finally, for, function, if, import, in,
+    instanceof, let, new, of, return, switch, this, throw, try, typeof,
+    var, void, while, with, yield, async, await, class, enum, implements,
+    interface, package, private, protected, public, static, super, true, false, null, undefined},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]',
+  morestring=[b]",
+  morestring=[b]`,
+}
+\lstset{
+  backgroundcolor=\color{codegray},
+  basicstyle=\footnotesize\ttfamily,
+  breaklines=true,
+  frame=single,
+  language=JavaScript,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  stringstyle=\color{orange!70!black},
+  commentstyle=\color{green!50!black},
+  tabsize=2,
+  captionpos=b,
+}
+
+% ---------- Hyperlink ----------
+\usepackage[colorlinks=true, linkcolor=black, urlcolor=blue, citecolor=blue]{hyperref}
+
+% ---------- Misc ----------
+\usepackage{enumitem}
+\usepackage{tikz}
+\usepackage{amsmath}
+\usepackage{titlesec}
+
+% ---------- Chương đánh số La Mã ----------
+\renewcommand{\thechapter}{\Roman{chapter}}
+\titleformat{\chapter}[hang]{\Large\bfseries}{\thechapter.\;}{0pt}{}
+\titlespacing{\chapter}{0pt}{20pt}{12pt}
+
+% ============================================================
+\begin{document}
+
+% ---------- Trang bìa ----------
+\begin{titlepage}
+  \centering
+  \vspace*{0.5cm}
+  {\large\textbf{TRƯỜNG ĐẠI HỌC BÁCH KHOA TP.HCM}}\\[0.3cm]
+  {\large Khoa Khoa học \& Kỹ thuật Máy tính}\\[0.8cm]
+
+  \includegraphics[width=3.5cm]{hcmut.png}\\[0.8cm]
+
+  {\Huge\textbf{UniJob}}\\[0.5cm]
+  {\Large\textbf{Campus Task Marketplace}}\\[0.3cm]
+  {\large Nền tảng thương mại điện tử nội bộ kết nối\\
+  công việc ngắn hạn dành cho sinh viên đại học}\\[2cm]
+
+  \begin{tabular}{ll}
+    \textbf{Môn học:}   & Electronic Commerce -- CO3027 (HK252) \\[0.3cm]
+    \textbf{Nhóm:}      & [Số nhóm] \\[0.3cm]
+    \textbf{GVHD:}      & [Tên giảng viên] \\[0.3cm]
+    \textbf{Thành viên:} & Nguyễn Minh Hiếu -- [MSSV] \\
+                         & Thái Bảo Long    -- [MSSV] \\
+                         & Ngô Quang Anh    -- [MSSV] \\
+                         & Điệp Vũ Minh     -- [MSSV] \\
+                         & Nguyễn Quốc Lộc  -- [MSSV] \\
+  \end{tabular}\\[2cm]
+
+  {\large TP. Hồ Chí Minh, tháng 04 năm 2026}
+\end{titlepage}
+
+% ---------- Mục lục ----------
+\tableofcontents
+\newpage
+\listoffigures
+\listoftables
+\newpage
+
+% ============================================================
+\chapter{Tổng quan dự án}
+\label{chap:intro}
+
+\section{Xác định dự án}
+\input{chapters/part1_1}
+
+\section{Business Model Canvas}
+\input{chapters/part1_2}
+
+\section{Pricing Model và Revenue Model}
+\input{chapters/part1_3}
+
+\section{Kế hoạch phát triển và Chi phí ước tính}
+\input{chapters/part1_4}
+
+% ============================================================
+\chapter{Thiết kế}
+\label{chap:design}
+
+\section{Thiết kế giao diện người dùng (UI/UX)}
+\input{chapters/part2_1}
+
+\section{Nguyên lý thiết kế hình thức}
+\input{chapters/part2_2}
+
+% ============================================================
+\chapter{Hiện thực}
+\label{chap:impl}
+
+\section{Triển khai website và Framework sử dụng}
+\input{chapters/part3_1}
+
+\section{Demo code}
+\input{chapters/part3_2}
+
+% ============================================================
+\chapter{Trình bày}
+\label{chap:pres}
+\input{chapters/part4}
+
+% ============================================================
+\chapter{Tính năng nâng cao -- Làn sóng thương mại điện tử thứ tư}
+\label{chap:advanced}
+\input{chapters/part5}
+
+% ============================================================
+\chapter*{Phụ lục}
+\addcontentsline{toc}{chapter}{Phụ lục}
+\input{chapters/appendix}
+
+% ============================================================
+\end{document}

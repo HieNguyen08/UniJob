@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, Clock, Search, Star } from 'lucide-react';
+import { ChevronDown, Clock, Search, Star, X } from 'lucide-react';
 
 import { useJobStore } from '@/store/jobStore';
-import { FACULTIES, SORT_OPTIONS } from '@/lib/constants';
+import { FACULTIES, JOB_CATEGORIES, SORT_OPTIONS } from '@/lib/constants';
 import { formatCurrency, truncateText } from '@/lib/utils';
 import { getUserById } from '@/services/user.service';
 import type { Job } from '@/types';
@@ -502,6 +502,38 @@ export default function JobList() {
               </div>
             </div>
 
+            {/* Category chips */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setFilters({ category: undefined })}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                  !filters.category
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'bg-white border border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]'
+                }`}
+              >
+                Tất cả
+              </button>
+              {JOB_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.value}
+                  type="button"
+                  onClick={() =>
+                    setFilters({ category: filters.category === cat.value ? undefined : cat.value })
+                  }
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    filters.category === cat.value
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : 'bg-white border border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]'
+                  }`}
+                >
+                  <span>{cat.icon}</span>
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
             {/* Applied filters */}
             <div className="mt-4">
               <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -537,8 +569,16 @@ export default function JobList() {
                 <JobCard key={job.id} job={job} rating={ratingByUserId[job.postedBy]} />
               ))}
               {!isLoading && pagedJobs.length === 0 && (
-                <div className="col-span-full rounded-2xl border border-[var(--color-border)] bg-white p-6 text-sm text-[var(--color-muted-foreground)]">
-                  Không có công việc phù hợp.
+                <div className="col-span-full rounded-2xl border border-dashed border-[var(--color-border)] bg-white p-10 text-center">
+                  <Search className="mx-auto mb-3 h-10 w-10 opacity-20" />
+                  <p className="font-medium">Không có công việc phù hợp</p>
+                  <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">Thử điều chỉnh bộ lọc hoặc xem tất cả danh mục</p>
+                  <button
+                    onClick={handleClearAll}
+                    className="mt-4 inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm hover:bg-[var(--color-secondary)]"
+                  >
+                    <X className="h-3.5 w-3.5" /> Xóa bộ lọc
+                  </button>
                 </div>
               )}
             </div>

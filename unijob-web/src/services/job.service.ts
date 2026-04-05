@@ -19,6 +19,7 @@ import {
 import { db } from '@/lib/firebase';
 import type { Job, JobCreateInput, JobFilter, Application } from '@/types';
 import { ITEMS_PER_PAGE } from '@/lib/constants';
+import { createNotification } from '@/services/notification.service';
 
 const jobsCollection = collection(db, 'jobs');
 const applicationsCollection = collection(db, 'applications');
@@ -155,6 +156,25 @@ export async function applyForJob(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  // Notify the job poster
+  try {
+    const jobSnap = await getDoc(doc(db, 'jobs', jobId));
+    if (jobSnap.exists()) {
+      const job = jobSnap.data() as Job;
+      if (job.postedBy && job.postedBy !== applicantId) {
+        await createNotification(
+          job.postedBy,
+          'new_application',
+          `${applicantName} đã ứng tuyển "${job.title}"`,
+          { jobId, jobTitle: job.title, fromName: applicantName }
+        );
+      }
+    }
+  } catch {
+    // Non-critical — ignore notification errors
+  }
+
   return docRef.id;
 }
 
@@ -188,6 +208,26 @@ export async function updateApplicationStatus(
     status,
     updatedAt: serverTimestamp(),
   });
+
+  // Notify the applicant
+  try {
+    const appSnap = await getDoc(appRef);
+    if (appSnap.exists()) {
+      const app = appSnap.data() as Application;
+      const jobSnap = await getDoc(doc(db, 'jobs', app.jobId));
+      const jobTitle = jobSnap.exists() ? (jobSnap.data() as Job).title : 'công việc';
+      await createNotification(
+        app.applicantId,
+        status === 'accepted' ? 'application_accepted' : 'application_rejected',
+        status === 'accepted'
+          ? `🎉 Đơn ứng tuyển "${jobTitle}" đã được chấp nhận!`
+          : `Đơn ứng tuyển "${jobTitle}" không được chấp nhận`,
+        { jobId: app.jobId, jobTitle }
+      );
+    }
+  } catch {
+    // Non-critical — ignore notification errors
+  }
 }
 
 /**

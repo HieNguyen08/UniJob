@@ -194,6 +194,41 @@ export default function Profile() {
               <Edit3 className="h-4 w-4" />
               {isEditing ? 'Đóng chỉnh sửa' : 'Chỉnh sửa hồ sơ'}
             </button>
+
+            {/* Profile Completion */}
+            {(() => {
+              const fields = [
+                { label: 'Họ tên', done: !!userProfile.displayName },
+                { label: 'Khoa', done: !!userProfile.faculty },
+                { label: 'MSSV', done: !!userProfile.studentId },
+                { label: 'Số điện thoại', done: !!userProfile.phone },
+                { label: 'Giới thiệu bản thân', done: !!userProfile.bio },
+                { label: 'Kỹ năng', done: (userProfile.skills?.length ?? 0) > 0 },
+              ];
+              const done = fields.filter((f) => f.done).length;
+              const pct = Math.round((done / fields.length) * 100);
+              const missing = fields.filter((f) => !f.done).map((f) => f.label);
+              if (pct === 100) return null;
+              return (
+                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-amber-800">Hoàn thiện hồ sơ</span>
+                    <span className="text-xs font-bold text-amber-700">{pct}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-amber-100">
+                    <div
+                      className="h-2 rounded-full bg-amber-400 transition-all duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  {missing.length > 0 && (
+                    <p className="mt-2 text-[11px] text-amber-700">
+                      Còn thiếu: {missing.join(', ')}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </aside>
 

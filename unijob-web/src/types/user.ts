@@ -11,6 +11,7 @@ export interface User {
   phone: string;
   bio: string;
   skills: string[];
+  bookmarks: string[];
   ratingScore: number;
   totalRatings: number;
   activeJobCount: number;

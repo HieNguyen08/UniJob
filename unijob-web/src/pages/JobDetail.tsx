@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { getJobById, applyForJob } from '@/services/job.service';
+import { toggleBookmark, getBookmarkedJobIds } from '@/services/bookmark.service';
 import type { Job } from '@/types';
 import { JOB_CATEGORIES } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
@@ -16,6 +17,9 @@ import {
   Calendar,
   Send,
   EyeOff,
+  Bookmark,
+  BookmarkCheck,
+  Share2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -30,6 +34,8 @@ export default function JobDetail() {
   const [applyMessage, setApplyMessage] = useState('');
   const [showApplyForm, setShowApplyForm] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -39,6 +45,33 @@ export default function JobDetail() {
       });
     }
   }, [id]);
+
+  // Load bookmark state
+  useEffect(() => {
+    if (!userProfile?.uid || !id) return;
+    getBookmarkedJobIds(userProfile.uid).then((ids) => {
+      setIsBookmarked(ids.includes(id));
+    });
+  }, [userProfile?.uid, id]);
+
+  const handleBookmark = async () => {
+    if (!isAuthenticated || !userProfile) { toast.error('Vui lòng đăng nhập'); return; }
+    setBookmarkLoading(true);
+    try {
+      const newState = await toggleBookmark(userProfile.uid, id!);
+      setIsBookmarked(newState);
+      toast.success(newState ? 'Đã lưu công việc!' : 'Đã bỏ lưu');
+    } catch {
+      toast.error('Không thể lưu, thử lại');
+    } finally {
+      setBookmarkLoading(false);
+    }
+  };
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast.success('Đã sao chép link! 🔗');
+  };
 
   const hasApplied = userProfile?.uid ? job?.applicants?.includes(userProfile.uid) : false;
 
@@ -102,14 +135,41 @@ export default function JobDetail() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      {/* Back button */}
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-6 flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Quay lại
-      </button>
+      {/* Back button + actions */}
+      <div className="mb-6 flex items-center justify-between">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Quảy lại
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-secondary)]"
+          >
+            <Share2 className="h-4 w-4" />
+            Chia sẻ
+          </button>
+          <button
+            onClick={handleBookmark}
+            disabled={bookmarkLoading}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+              isBookmarked
+                ? 'border-[var(--color-primary)] bg-[var(--color-secondary)] text-[var(--color-primary)]'
+                : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-secondary)]'
+            }`}
+          >
+            {isBookmarked ? (
+              <BookmarkCheck className="h-4 w-4" />
+            ) : (
+              <Bookmark className="h-4 w-4" />
+            )}
+            {isBookmarked ? 'Đã lưu' : 'Lưu'}
+          </button>
+        </div>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main content */}

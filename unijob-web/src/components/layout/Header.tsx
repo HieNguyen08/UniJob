@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import NotificationBell from './NotificationBell';
 
 export default function Header() {
   const { isAuthenticated, userProfile, login, logout } = useAuthStore();
@@ -81,6 +82,7 @@ export default function Header() {
         <div className="hidden items-center gap-3 md:flex">
           {isAuthenticated && userProfile ? (
             <div className="flex items-center gap-3">
+              <NotificationBell />
               <Link
                 to="/profile"
                 className="flex items-center gap-2 rounded-full border border-[var(--color-border)] px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-secondary)]"

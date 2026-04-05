@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { getJobsByUser, getJobById } from '@/services/job.service';
-import { getApplicationsByUser } from '@/services/job.service';
+import { getJobsByUser, getJobById, getApplicationsByUser } from '@/services/job.service';
+import { getBookmarkedJobIds } from '@/services/bookmark.service';
 import type { Job, Application } from '@/types';
-import { Briefcase, Send, Clock, CheckCircle, PlusCircle, Eye } from 'lucide-react';
+import { Briefcase, Send, Clock, CheckCircle, PlusCircle, Eye, Bookmark } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { JOB_CATEGORIES } from '@/lib/constants';
 
-type Tab = 'posted' | 'applied';
+type Tab = 'posted' | 'applied' | 'saved';
 
 export default function Dashboard() {
   const { userProfile } = useAuthStore();
   const [activeTab, setActiveTab] = useState<Tab>('posted');
   const [myJobs, setMyJobs] = useState<Job[]>([]);
   const [myApplications, setMyApplications] = useState<Application[]>([]);
+  const [savedJobs, setSavedJobs] = useState<Job[]>([]);
   const [jobTitleMap, setJobTitleMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
@@ -23,7 +24,8 @@ export default function Dashboard() {
       Promise.all([
         getJobsByUser(userProfile.uid),
         getApplicationsByUser(userProfile.uid),
-      ]).then(async ([jobs, apps]) => {
+        getBookmarkedJobIds(userProfile.uid),
+      ]).then(async ([jobs, apps, bookmarkIds]) => {
         setMyJobs(jobs);
         setMyApplications(apps);
 
@@ -37,6 +39,13 @@ export default function Dashboard() {
           })
         );
         setJobTitleMap(titleMap);
+
+        // Resolve saved jobs
+        const savedJobObjs = await Promise.all(
+          bookmarkIds.map((id) => getJobById(id))
+        );
+        setSavedJobs(savedJobObjs.filter((j): j is Job => j !== null));
+
         setLoading(false);
       }).catch((error) => {
         console.error('Error fetching dashboard data:', error);
@@ -139,6 +148,17 @@ export default function Dashboard() {
           <Send className="h-4 w-4" />
           Đã ứng tuyển ({myApplications.length})
         </button>
+        <button
+          onClick={() => setActiveTab('saved')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+            activeTab === 'saved'
+              ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+              : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+          }`}
+        >
+          <Bookmark className="h-4 w-4" />
+          Đã lưu ({savedJobs.length})
+        </button>
       </div>
 
       {/* Content */}
@@ -187,32 +207,67 @@ export default function Dashboard() {
             ))}
           </div>
         )
-      ) : myApplications.length === 0 ? (
+      ) : activeTab === 'applied' ? (
+        myApplications.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[var(--color-border)] py-16 text-center">
+            <Send className="mx-auto mb-3 h-10 w-10 text-[var(--color-muted-foreground)]" />
+            <p className="font-medium">Bạn chưa ứng tuyển việc nào</p>
+            <Link
+              to="/jobs"
+              className="mt-3 inline-flex items-center gap-1 text-sm text-[var(--color-primary)] hover:underline"
+            >
+              Khám phá việc làm →
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myApplications.map((app) => (
+              <Link
+                key={app.id}
+                to={`/jobs/${app.jobId}`}
+                className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-white p-4 transition-colors hover:border-[var(--color-ring)] hover:bg-[var(--color-secondary)]"
+              >
+                <div>
+                  <p className="font-medium">{jobTitleMap[app.jobId] || 'Đang tải...'}</p>
+                  <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                    {app.message?.slice(0, 100)}
+                  </p>
+                </div>
+                {statusBadge(app.status)}
+              </Link>
+            ))}
+          </div>
+        )
+      ) : savedJobs.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[var(--color-border)] py-16 text-center">
-          <Send className="mx-auto mb-3 h-10 w-10 text-[var(--color-muted-foreground)]" />
-          <p className="font-medium">Bạn chưa ứng tuyển việc nào</p>
+          <Bookmark className="mx-auto mb-3 h-10 w-10 text-[var(--color-muted-foreground)]" />
+          <p className="font-medium">Chưa lưu việc nào</p>
           <Link
             to="/jobs"
             className="mt-3 inline-flex items-center gap-1 text-sm text-[var(--color-primary)] hover:underline"
           >
-            Khám phá việc làm →
+            Tìm việc để lưu →
           </Link>
         </div>
       ) : (
         <div className="space-y-3">
-          {myApplications.map((app) => (
+          {savedJobs.map((job) => (
             <Link
-              key={app.id}
-              to={`/jobs/${app.jobId}`}
+              key={job.id}
+              to={`/jobs/${job.id}`}
               className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-white p-4 transition-colors hover:border-[var(--color-ring)] hover:bg-[var(--color-secondary)]"
             >
-              <div>
-                <p className="font-medium">{jobTitleMap[app.jobId] || 'Đang tải...'}</p>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium">{job.title}</h3>
+                  {statusBadge(job.status)}
+                </div>
                 <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                  {app.message?.slice(0, 100)}
+                  {JOB_CATEGORIES.find((c) => c.value === job.category)?.label || 'Khác'} •{' '}
+                  {job.payment > 0 ? formatCurrency(job.payment) : 'Tình nguyện'}
                 </p>
               </div>
-              {statusBadge(app.status)}
+              <Bookmark className="h-4 w-4 text-[var(--color-primary)]" />
             </Link>
           ))}
         </div>

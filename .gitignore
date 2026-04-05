@@ -26,3 +26,9 @@ unijob-web/.docker/
 # Logs
 *.log
 npm-debug.log*
+
+# Reports & Slides
+Report/
+Report-Assignment/
+slide_images/
+*.pptx

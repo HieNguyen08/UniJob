@@ -1,0 +1,320 @@
+% ============================================================
+%  3.2 – Demo code  (1 điểm)
+%  Trạng thái: ĐÃ HOÀN THIỆN
+% ============================================================
+
+\subsection{Tổng quan demo code}
+
+Phần này trình bày các đoạn code đại diện cho các tính năng cốt lõi đã triển khai trong
+UniJob. Mã nguồn đầy đủ được lưu tại GitHub repository của nhóm.
+
+\subsection{Xác thực người dùng -- Firebase Google OAuth}
+
+\begin{lstlisting}[caption={auth.service.ts -- Google OAuth sign-in}]
+import {
+  getAuth, signInWithPopup,
+  GoogleAuthProvider, onAuthStateChanged
+} from 'firebase/auth';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+const auth = getAuth();
+const provider = new GoogleAuthProvider();
+
+export async function signInWithGoogle(): Promise<void> {
+  const result = await signInWithPopup(auth, provider);
+  const user = result.user;
+
+  // Create user document if first-time login
+  const userRef = doc(db, 'users', user.uid);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) {
+    await setDoc(userRef, {
+      uid: user.uid,
+      displayName: user.displayName,
+      email: user.email,
+      photoURL: user.photoURL,
+      ratingScore: null,
+      skills: [],
+      createdAt: serverTimestamp(),
+    });
+  }
+}
+\end{lstlisting}
+
+\subsection{Ứng tuyển công việc -- JobDetail handleApply}
+
+\begin{lstlisting}[caption={JobDetail.tsx -- handleApply function}]
+const handleApply = async () => {
+  if (!isAuthenticated || !userProfile) {
+    navigate('/login');
+    return;
+  }
+  // Guard: prevent duplicate applications
+  if (hasApplied) {
+    toast.error('Already applied!');
+    return;
+  }
+  setApplying(true);
+  try {
+    await applyForJob(
+      id!,
+      userProfile.uid,
+      userProfile.displayName,
+      userProfile.photoURL || '',
+      applyMessage
+    );
+    // Optimistic local state update
+    setJob((prev) =>
+      prev
+        ? { ...prev,
+            applicants: [...(prev.applicants || []), userProfile.uid] }
+        : prev
+    );
+    toast.success('Application submitted!');
+    setShowApplyForm(false);
+    setApplyMessage('');
+  } catch (error) {
+    toast.error('Failed to apply, please try again');
+  } finally {
+    setApplying(false);
+  }
+};
+\end{lstlisting}
+
+\subsection{Thuật toán AI Job Matching -- suggest.service.ts}
+
+\begin{lstlisting}[caption={suggest.service.ts -- Scoring algorithm}]
+export function getSuggestedJobs(
+  user: User,
+  allJobs: Job[],
+  userApplications: Application[]
+): ScoredJob[] {
+  const appliedJobIds = new Set(
+    userApplications.map((a) => a.jobId)
+  );
+
+  return allJobs
+    .filter((job) =>
+      job.postedBy !== user.uid &&
+      !appliedJobIds.has(job.id) &&
+      job.status === 'open'
+    )
+    .map((job) => {
+      let score = 0;
+      const reasons: string[] = [];
+
+      // Faculty match: 40 pts
+      if (user.faculty && job.faculty === user.faculty) {
+        score += 40;
+        reasons.push('Same faculty');
+      }
+
+      // Skills/tags overlap: 30 pts
+      if (user.skills?.length > 0 && job.tags?.length > 0) {
+        const userSkills = new Set(
+          user.skills.map((s) => s.toLowerCase())
+        );
+        const matched = job.tags.filter(
+          (t) => userSkills.has(t.toLowerCase())
+        );
+        if (matched.length > 0) {
+          score += Math.round(
+            (matched.length / job.tags.length) * 30
+          );
+          reasons.push(`Skills: ${matched.join(', ')}`);
+        }
+      }
+
+      // Recency: 10 pts (7-day decay)
+      if (job.createdAt) {
+        const age = Date.now() - job.createdAt.toDate().getTime();
+        const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+        if (age < SEVEN_DAYS)
+          score += Math.round((1 - age / SEVEN_DAYS) * 10);
+      }
+
+      // Urgent bonus: +5 pts
+      if (job.isUrgent) { score += 5; }
+
+      return { ...job, matchScore: score, matchReasons: reasons };
+    })
+    .sort((a, b) => b.matchScore - a.matchScore)
+    .slice(0, 6);
+}
+\end{lstlisting}
+
+\subsection{Xuất CV -- cv.service.ts}
+
+\begin{lstlisting}[caption={cv.service.ts -- Canvas 2D PDF rendering (excerpt)}]
+export async function generateCVCertificate(
+  user: User,
+  completedJobs: Job[],
+  ratings: Rating[],
+  options: CVExportOptions = { showDetailedRatings: false }
+): Promise<void> {
+  const canvas = document.createElement('canvas');
+  const SCALE = 3; // 3x resolution for sharp PDF
+  canvas.width  = 794 * SCALE;  // A4 width at 96dpi
+  canvas.height = 1123 * SCALE; // A4 height at 96dpi
+  const ctx = canvas.getContext('2d')!;
+  ctx.scale(SCALE, SCALE);
+
+  // White background
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, 794, 1123);
+
+  // Green header bar
+  ctx.fillStyle = '#10b981'; // emerald-500
+  ctx.fillRect(0, 0, 794, 14);
+
+  // Certificate title
+  ctx.font = 'bold 22px "Segoe UI", sans-serif';
+  ctx.fillStyle = '#1f2937';
+  ctx.textAlign = 'center';
+  ctx.fillText('EXPERIENCE CERTIFICATE', 794 / 2, 120);
+
+  // ... (stat boxes, job list, footer)
+
+  // Embed canvas into jsPDF
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF('p', 'mm', [210, 297]);
+  pdf.addImage(imgData, 'PNG', 0, 0, 210, 297);
+  pdf.save(`certificate_${user.displayName}.pdf`);
+}
+\end{lstlisting}
+
+\textit{Lý do dùng Canvas 2D thay vì html2canvas:} Thư viện html2canvas gặp lỗi parse
+màu \texttt{oklch()} của Tailwind CSS v4. Canvas 2D API vẽ trực tiếp bằng hex color,
+không phụ thuộc vào CSS parser của browser -- đảm bảo export PDF ổn định trên mọi
+trình duyệt.
+
+\subsection{Tìm kiếm -- Client-side search filter}
+
+\begin{lstlisting}[caption={jobStore.ts -- Client-side search query filter}]
+// After fetching from Firestore, filter by searchQuery
+const { searchQuery } = get().filters;
+if (searchQuery?.trim()) {
+  const q = searchQuery.toLowerCase();
+  fetchedJobs = fetchedJobs.filter(
+    (job) =>
+      job.title.toLowerCase().includes(q) ||
+      job.description?.toLowerCase().includes(q)
+  );
+}
+\end{lstlisting}
+
+\textit{Ghi chú:} Firestore không hỗ trợ full-text search nội địa. Giải pháp lọc
+client-side đủ dùng cho quy mô demo ($<$500 records). Trong production, có thể tích hợp
+Algolia hoặc Typesense.
+
+\subsection{Hệ thống đánh giá uy tín -- rating.service.ts}
+
+\begin{lstlisting}[caption={rating.service.ts -- submitRating và cập nhật điểm uy tín tự động}]
+export async function submitRating(
+  jobId: string,
+  fromUserId: string,
+  toUserId: string,
+  score: number,        // 1-5
+  comment: string,
+  type: 'poster-to-worker' | 'worker-to-poster'
+): Promise<string> {
+  // Luu rating vao Firestore
+  const docRef = await addDoc(ratingsCollection, {
+    jobId, fromUserId, toUserId,
+    score, comment, type,
+    createdAt: serverTimestamp(),
+  });
+
+  // Tinh lai diem uy tin trung binh cho nguoi nhan rating
+  const userRatings = await getRatingsByUser(toUserId);
+  const avg = userRatings.reduce((s, r) => s + r.score, 0)
+              / userRatings.length;
+
+  await updateDoc(doc(db, 'users', toUserId), {
+    ratingScore:  Math.round(avg * 10) / 10,
+    totalRatings: userRatings.length,
+  });
+  return docRef.id;
+}
+\end{lstlisting}
+
+\subsection{Xác nhận hoàn thành công việc 2 chiều -- confirmCompletion}
+
+\begin{lstlisting}[caption={rating.service.ts -- Xác nhận hoàn thành 2 chiều (poster + worker)}]
+export async function confirmCompletion(
+  completionId: string,
+  role: 'worker' | 'poster'
+): Promise<void> {
+  const ref  = doc(db, 'jobCompletions', completionId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+
+  const data  = snap.data() as JobCompletion;
+  const field = role === 'worker' ? 'workerConfirmed' : 'posterConfirmed';
+  const other = role === 'worker' ? data.posterConfirmed : data.workerConfirmed;
+
+  const updates: any = { [field]: true };
+  if (other) {
+    // Ca hai ben da xac nhan -- hoan thanh chinh thuc
+    updates.status      = 'confirmed';
+    updates.completedAt = serverTimestamp();
+  }
+  await updateDoc(ref, updates);
+
+  if (other) {
+    // Ghi nhan workHistory va dong task
+    const job = await getJobById(data.jobId);
+    if (job?.assignedTo?.[0]) {
+      await recordWorkHistory(job.postedBy, job.assignedTo[0], job.id);
+      await updateJob(job.id, { status: 'completed' });
+    }
+  }
+}
+\end{lstlisting}
+
+\textit{Cơ chế 2-step confirmation:} Cả poster lẫn worker phải nhấn xác nhận
+(\texttt{posterConfirmed = true} \textbf{và} \texttt{workerConfirmed = true}) thì hệ
+thống mới ghi nhận \texttt{workHistory}, mở khóa chức năng đánh giá, và cập nhật
+trạng thái task thành \texttt{completed}. Cơ chế này tránh gian lận đánh giá
+và đảm bảo tính công bằng cho cả hai bên.
+
+\subsection{State Management -- Zustand authStore}
+
+\begin{lstlisting}[caption={authStore.ts -- Global auth state with Zustand}]
+interface AuthState {
+  user: FirebaseUser | null;
+  userProfile: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  initialize: () => Unsubscribe;
+}
+
+export const useAuthStore = create<AuthState>((set) => ({
+  user: null,
+  userProfile: null,
+  isAuthenticated: false,
+  isLoading: true,
+
+  initialize: () => {
+    return onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const profile = await getUserById(firebaseUser.uid);
+        set({
+          user: firebaseUser,
+          userProfile: profile,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } else {
+        set({
+          user: null,
+          userProfile: null,
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      }
+    });
+  },
+}));
+\end{lstlisting}

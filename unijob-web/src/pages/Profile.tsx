@@ -1,7 +1,7 @@
 import { useAuthStore } from '@/store/authStore';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { updateUserProfile } from '@/services/user.service';
+import { useNavigate, useParams } from 'react-router-dom';
+import { updateUserProfile, getUserById } from '@/services/user.service';
 import { getJobsByUser } from '@/services/job.service';
 import { getRatingsByUser } from '@/services/rating.service';
 import { FACULTIES } from '@/lib/constants';
@@ -18,6 +18,7 @@ import {
   BadgeCheck,
   Calendar,
   ShieldCheck,
+  ChevronLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -34,7 +35,15 @@ function formatDate(timestamp: unknown): string {
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { userId } = useParams<{ userId?: string }>();
   const { userProfile, refreshProfile } = useAuthStore();
+  const [externalProfile, setExternalProfile] = useState<import('@/types/user').User | null>(null);
+  const [loadingExternal, setLoadingExternal] = useState(false);
+
+  // Determine if we're viewing someone else's profile
+  const isViewingOther = !!userId && userId !== userProfile?.uid;
+  const displayProfile = isViewingOther ? externalProfile : userProfile;
+
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState<ActivityTab>('all');
   const [myJobs, setMyJobs] = useState<Job[]>([]);
@@ -50,8 +59,25 @@ export default function Profile() {
     skills: userProfile?.skills?.join(', ') || '',
   });
 
+  // Fetch external user profile when viewing another user
   useEffect(() => {
-    if (!userProfile) return;
+    if (!isViewingOther || !userId) return;
+    setLoadingExternal(true);
+    getUserById(userId)
+      .then((profile) => {
+        setExternalProfile(profile);
+      })
+      .catch((error) => {
+        console.error(error);
+        toast.error('Không tải được hồ sơ người dùng');
+      })
+      .finally(() => {
+        setLoadingExternal(false);
+      });
+  }, [userId, isViewingOther]);
+
+  useEffect(() => {
+    if (!userProfile || isViewingOther) return;
 
     setForm({
       displayName: userProfile.displayName || '',
@@ -62,11 +88,16 @@ export default function Profile() {
       bio: userProfile.bio || '',
       skills: userProfile.skills?.join(', ') || '',
     });
+  }, [userProfile, isViewingOther]);
+
+  useEffect(() => {
+    const targetUid = isViewingOther ? userId : userProfile?.uid;
+    if (!targetUid) return;
 
     setLoadingActivity(true);
     Promise.all([
-      getJobsByUser(userProfile.uid),
-      getRatingsByUser(userProfile.uid),
+      getJobsByUser(targetUid),
+      getRatingsByUser(targetUid),
     ])
       .then(([jobs, ratings]) => {
         setMyJobs(jobs);
@@ -79,7 +110,7 @@ export default function Profile() {
       .finally(() => {
         setLoadingActivity(false);
       });
-  }, [userProfile]);
+  }, [userProfile?.uid, userId, isViewingOther]);
 
   const completedJobs = useMemo(
     () => myJobs.filter((job) => job.status === 'completed'),
@@ -87,14 +118,36 @@ export default function Profile() {
   );
 
   const trustScore = useMemo(() => {
-    if (!userProfile?.totalRatings) return 0;
-    return Math.max(0, Math.min(100, Math.round((userProfile.ratingScore / 5) * 100)));
-  }, [userProfile?.ratingScore, userProfile?.totalRatings]);
+    if (!displayProfile?.totalRatings) return 0;
+    return Math.max(0, Math.min(100, Math.round((displayProfile.ratingScore / 5) * 100)));
+  }, [displayProfile?.ratingScore, displayProfile?.totalRatings]);
 
   if (!userProfile) {
     return (
       <div className="py-20 text-center">
         <p className="text-[var(--color-muted-foreground)]">Vui lòng đăng nhập</p>
+      </div>
+    );
+  }
+
+  if (loadingExternal) {
+    return (
+      <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-500" />
+      </div>
+    );
+  }
+
+  if (isViewingOther && !externalProfile) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-[var(--color-muted-foreground)]">Không tìm thấy hồ sơ người dùng</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="mt-4 text-sm text-emerald-600 hover:underline"
+        >
+          ← Quay lại
+        </button>
       </div>
     );
   }
@@ -124,8 +177,17 @@ export default function Profile() {
 
   return (
     <div className="flex min-h-[calc(100vh-8rem)] flex-col bg-gradient-to-b from-white to-gray-50 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      {isViewingOther && (
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-4 flex items-center gap-1 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Quay lại
+        </button>
+      )}
       <p className="mb-6 text-xs font-medium tracking-widest text-[var(--color-muted-foreground)] uppercase opacity-60 sm:text-xs">
-        User Profile and Portfolio Page
+        {isViewingOther ? 'Hồ sơ người dùng' : 'User Profile and Portfolio Page'}
       </p>
 
       <div className="grid flex-1 gap-6 xl:grid-cols-12">
@@ -135,15 +197,15 @@ export default function Profile() {
             {/* Avatar + Header Info - Centered in Box */}
             <div className="mb-6 flex flex-col items-center text-center">
               <div className="relative mb-4 h-32 w-32 sm:h-36 sm:w-36">
-                {userProfile.photoURL ? (
+                {displayProfile!.photoURL ? (
                   <img
-                    src={userProfile.photoURL}
-                    alt={userProfile.displayName}
+                    src={displayProfile!.photoURL}
+                    alt={displayProfile!.displayName}
                     className="h-full w-full rounded-full border-4 border-emerald-100 object-cover shadow-lg"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center rounded-full border-4 border-emerald-100 bg-emerald-50 text-6xl font-semibold text-emerald-600 shadow-lg">
-                    {userProfile.displayName?.charAt(0) || '?'}
+                    {displayProfile!.displayName?.charAt(0) || '?'}
                   </div>
                 )}
                 <div className="absolute right-0 bottom-2 rounded-full bg-emerald-500 p-2 text-white shadow-lg">
@@ -154,56 +216,82 @@ export default function Profile() {
               <span className="inline-block rounded-full bg-emerald-100 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
                 Sinh viên xác thực
               </span>
-              <h2 className="mt-4 text-2xl font-bold tracking-tight leading-tight">{userProfile.displayName}</h2>
+              <h2 className="mt-4 text-2xl font-bold tracking-tight leading-tight">{displayProfile!.displayName}</h2>
               <p className="mt-2 text-sm leading-relaxed text-[var(--color-muted-foreground)]">
-                {userProfile.faculty || 'Chưa cập nhật khoa'}
-                {userProfile.studentId ? ` • ${userProfile.studentId}` : ''}
+                {displayProfile!.faculty || 'Chưa cập nhật khoa'}
+                {!isViewingOther && displayProfile!.studentId ? ` • ${displayProfile!.studentId}` : ''}
               </p>
             </div>
 
-            <div className="space-y-4 border-t border-gray-100 pt-5">
-              <div className="flex items-start gap-3">
-                <Mail className="mt-1 h-4 w-4 flex-shrink-0 text-emerald-600" />
-                <div>
-                  <p className="text-xs font-medium text-[var(--color-muted-foreground)]">Email</p>
-                  <p className="mt-0.5 text-sm font-medium text-gray-900 break-all">{userProfile.email}</p>
+            {!isViewingOther && (
+              <div className="space-y-4 border-t border-gray-100 pt-5">
+                <div className="flex items-start gap-3">
+                  <Mail className="mt-1 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                  <div>
+                    <p className="text-xs font-medium text-[var(--color-muted-foreground)]">Email</p>
+                    <p className="mt-0.5 text-sm font-medium text-gray-900 break-all">{displayProfile!.email}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Phone className="mt-1 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                  <div>
+                    <p className="text-xs font-medium text-[var(--color-muted-foreground)]">Số điện thoại</p>
+                    <p className="mt-0.5 text-sm font-medium text-gray-900">{displayProfile!.phone || 'Chưa cập nhật'}</p>
+                  </div>
                 </div>
               </div>
+            )}
 
-              <div className="flex items-start gap-3">
-                <Phone className="mt-1 h-4 w-4 flex-shrink-0 text-emerald-600" />
-                <div>
-                  <p className="text-xs font-medium text-[var(--color-muted-foreground)]">Số điện thoại</p>
-                  <p className="mt-0.5 text-sm font-medium text-gray-900">{userProfile.phone || 'Chưa cập nhật'}</p>
+            {isViewingOther && displayProfile!.bio && (
+              <div className="border-t border-gray-100 pt-5">
+                <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1">Giới thiệu</p>
+                <p className="text-sm text-gray-700 leading-relaxed">{displayProfile!.bio}</p>
+              </div>
+            )}
+
+            {isViewingOther && displayProfile!.skills && displayProfile!.skills.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-2">Kỹ năng</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {displayProfile!.skills.map((skill) => (
+                    <span key={skill} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                      {skill}
+                    </span>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
 
-            <button
-              onClick={() => navigate('/cv-export')}
-              className="mt-5 w-full rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:bg-emerald-600 transition-all duration-200 flex items-center justify-center gap-2"
-            >
-              <FileDown className="h-4 w-4" />
-              Xuất CV Passport
-            </button>
+            {!isViewingOther && (
+              <>
+                <button
+                  onClick={() => navigate('/cv-export')}
+                  className="mt-5 w-full rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-lg hover:bg-emerald-600 transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <FileDown className="h-4 w-4" />
+                  Xuất CV Passport
+                </button>
 
-            <button
-              onClick={() => setIsEditing((prev) => !prev)}
-              className="mt-3 w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition-all duration-200 hover:bg-blue-100 hover:shadow-md flex items-center justify-center gap-2"
-            >
-              <Edit3 className="h-4 w-4" />
-              {isEditing ? 'Đóng chỉnh sửa' : 'Chỉnh sửa hồ sơ'}
-            </button>
+                <button
+                  onClick={() => setIsEditing((prev) => !prev)}
+                  className="mt-3 w-full rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition-all duration-200 hover:bg-blue-100 hover:shadow-md flex items-center justify-center gap-2"
+                >
+                  <Edit3 className="h-4 w-4" />
+                  {isEditing ? 'Đóng chỉnh sửa' : 'Chỉnh sửa hồ sơ'}
+                </button>
+              </>
+            )}
 
-            {/* Profile Completion */}
-            {(() => {
+            {/* Profile Completion - only for own profile */}
+            {!isViewingOther && (() => {
               const fields = [
-                { label: 'Họ tên', done: !!userProfile.displayName },
-                { label: 'Khoa', done: !!userProfile.faculty },
-                { label: 'MSSV', done: !!userProfile.studentId },
-                { label: 'Số điện thoại', done: !!userProfile.phone },
-                { label: 'Giới thiệu bản thân', done: !!userProfile.bio },
-                { label: 'Kỹ năng', done: (userProfile.skills?.length ?? 0) > 0 },
+                { label: 'Họ tên', done: !!displayProfile!.displayName },
+                { label: 'Khoa', done: !!displayProfile!.faculty },
+                { label: 'MSSV', done: !!displayProfile!.studentId },
+                { label: 'Số điện thoại', done: !!displayProfile!.phone },
+                { label: 'Giới thiệu bản thân', done: !!displayProfile!.bio },
+                { label: 'Kỹ năng', done: (displayProfile!.skills?.length ?? 0) > 0 },
               ];
               const done = fields.filter((f) => f.done).length;
               const pct = Math.round((done / fields.length) * 100);
@@ -238,7 +326,7 @@ export default function Profile() {
             <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.08)] sm:p-6 hover:shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition-shadow duration-300">
               <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Đánh giá trung bình</p>
               <p className="mt-3 text-4xl font-bold tracking-tight leading-none">
-                {userProfile.ratingScore > 0 ? userProfile.ratingScore.toFixed(1) : '0.0'}
+                {displayProfile!.ratingScore > 0 ? displayProfile!.ratingScore.toFixed(1) : '0.0'}
                 <span className="text-xl ml-1 font-semibold text-gray-400">/ 5</span>
               </p>
               <div className="mt-3 flex gap-1.5">
@@ -246,7 +334,7 @@ export default function Profile() {
                   <Star
                     key={index}
                     className={`h-4 w-4 ${
-                      index < Math.round(userProfile.ratingScore)
+                      index < Math.round(displayProfile!.ratingScore)
                         ? 'fill-yellow-400 text-yellow-400'
                         : 'text-gray-200'
                     }`}
@@ -395,7 +483,7 @@ export default function Profile() {
             </div>
           </div>
 
-          {isEditing && (
+          {isEditing && !isViewingOther && (
             <div className="overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
               <div className="border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-transparent p-6">
                 <div className="flex items-center gap-2">

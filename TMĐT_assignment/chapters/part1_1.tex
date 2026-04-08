@@ -1,0 +1,106 @@
+% ============================================================
+%  1.1 – Xác định dự án  (0.5 điểm)
+%  Trạng thái: ĐÃ HOÀN THÀNH
+% ============================================================
+
+\subsection{Bối cảnh và vấn đề}
+
+Trong môi trường đại học, các hoạt động hỗ trợ học tập, nghiên cứu và tổ chức phong trào
+diễn ra thường xuyên và liên tục. Sinh viên có nhu cầu tìm gia sư các môn chuyên ngành, tìm
+trợ giảng, tìm người hỗ trợ phòng thí nghiệm, cộng tác viên tổ chức sự kiện, hoặc tham gia
+các hoạt động công tác xã hội do Đoàn--Hội phát động. Đồng thời, giảng viên, phòng ban và
+các câu lạc bộ trong trường cũng thường xuyên cần tuyển sinh viên tham gia công việc ngắn
+hạn hoặc bán thời gian.
+
+Mặc dù các hoạt động này diễn ra với tần suất cao, quá trình kết nối giữa bên có nhu cầu và
+bên cung ứng chủ yếu thực hiện qua các kênh \textbf{phi chính thức} như Facebook Group nội bộ,
+Zalo nhóm lớp, email thông báo hoặc truyền miệng. Qua quan sát thực tế, nhóm xác định
+\textbf{ba vấn đề cốt lõi}:
+
+\begin{enumerate}
+  \item \textbf{Thông tin phân tán, thiếu hệ thống.}
+    Bài đăng trên Facebook nhanh chóng bị trôi khỏi dòng thời gian; không có cơ sở dữ liệu
+    tập trung cho phép lọc theo loại công việc, đơn vị tuyển dụng hoặc kỹ năng yêu cầu.
+
+  \item \textbf{Thiếu cơ chế đánh giá và minh bạch năng lực.}
+    Không có hồ sơ kỹ năng chuẩn hóa, không có lịch sử đánh giá sau hoàn thành công việc;
+    tuyển chọn chủ yếu dựa trên sự quen biết.
+
+  \item \textbf{Quy trình giao việc không được số hóa.}
+    Không có bước xác nhận chính thức trạng thái ``đang thực hiện'' hay ``đã hoàn thành'';
+    thanh toán hoàn toàn dựa trên niềm tin cá nhân, không có cơ chế trung gian.
+\end{enumerate}
+
+\subsection{Nghiên cứu thị trường -- Phân tích hệ sinh thái nội bộ}
+
+Nhóm khảo sát bốn kênh hiện đang được sinh viên, giảng viên và tổ chức trong trường sử dụng:
+
+\begin{table}[H]
+\centering
+\caption{So sánh các kênh kết nối hiện tại trong môi trường đại học}
+\begin{tabularx}{\textwidth}{|p{2.4cm}|X|X|}
+\hline
+ \textbf{Kênh} & \textbf{Ưu điểm} & \textbf{Hạn chế} \\
+\hline
+Facebook Group & Độ phủ cao, quen thuộc & Thông tin trôi nhanh; không có cấu trúc; không theo dõi trạng thái \\
+\hline
+Zalo Group & Tức thời cao & Thông tin bị mất trong nhóm đông; không phân loại hay lưu trữ \\
+\hline
+Email trường & Tính chính thống cao & Giao tiếp một chiều; không có danh sách vị trí mở; không có cơ chế tracking \\
+\hline
+Google Form & Chuẩn hóa đầu vào & Chỉ thu thập dữ liệu; không xây dựng hồ sơ năng lực lâu dài \\
+\hline
+\end{tabularx}
+\end{table}
+
+\textbf{Kết luận:} Không có kênh nào trong số trên tạo ra quy trình giao dịch khép kín với
+đánh giá, xác nhận hoàn thành và lịch sử năng lực tích lũy.
+
+\subsection{Ý tưởng dự án và mô hình}
+
+Xuất phát từ khoảng trống trên, nhóm đề xuất dự án \textbf{``UniJob'' (Uni Task Hub)} -- một
+nền tảng thương mại điện tử nội bộ dành riêng cho cộng đồng trong trường đại học.
+
+\begin{itemize}
+  \item \textbf{Mô hình:} C2C + B2C nội bộ (sinh viên, giảng viên, Đoàn--Hội, CLB, phòng ban).
+  \item \textbf{Quy trình:} Đăng task $\rightarrow$ Ứng tuyển $\rightarrow$ Xác nhận nhận việc
+    $\rightarrow$ Thực hiện $\rightarrow$ Xác nhận hoàn thành $\rightarrow$ Đánh giá.
+  \item \textbf{Điểm khác biệt:} Xác thực qua email trường học (\texttt{@hcmut.edu.vn}), giảm
+    rủi ro ẩn danh, tăng độ tin cậy nội bộ.
+\end{itemize}
+
+\subsection{Xác định khách hàng}
+
+Nền tảng phục vụ hai nhóm người dùng song song trong cùng một hệ sinh thái:
+
+\begin{itemize}
+  \item \textbf{Bên đăng task:} Giảng viên cần trợ giảng / hỗ trợ nghiên cứu; phòng ban cần
+    nhập liệu / trực văn phòng; CLB cần cộng tác viên sự kiện; sinh viên cần gia sư.
+    \textit{Nhu cầu chung:} tuyển người nhanh, tin cậy, theo dõi tiến độ.
+
+  \item \textbf{Bên nhận task:} Sinh viên muốn tích lũy kinh nghiệm, xây dựng hồ sơ hoạt động,
+    có thêm thu nhập hoặc điểm rèn luyện.
+    \textit{Nhu cầu chung:} môi trường minh bạch, có thể chứng minh năng lực qua lịch sử
+    và đánh giá.
+\end{itemize}
+
+\subsection{Tính đổi mới và tính khả thi}
+
+\textbf{Tính đổi mới:} Không nằm ở công nghệ phức tạp mà ở việc tái cấu trúc hệ sinh thái
+task sẵn có thành một ``campus marketplace'' chuyên biệt với quy trình số hóa đầy đủ.
+
+\textbf{Tính khả thi kỹ thuật:} Website xây dựng với React 19 + Firebase (Auth, Firestore,
+Storage, Hosting); không yêu cầu logistics hay chuỗi cung ứng phức tạp; chi phí vận hành thấp.
+
+\textbf{Tính khả thi vận hành:} Phạm vi ban đầu giới hạn trong một trường; xác thực qua email
+trường giúp hạn chế tài khoản giả mạo; quản lý nội dung đơn giản.
+
+\textbf{Tính khả thi pháp lý:} Nền tảng hoạt động như hệ thống kết nối dịch vụ nội bộ, không
+kinh doanh hàng hóa cấm, không vi phạm quy định về TMĐT Việt Nam.
+
+\subsection{Kết luận}
+
+Dự án UniJob được đề xuất nhằm số hóa và chuẩn hóa quy trình giao--nhận task nội bộ, xây
+dựng marketplace chuyên biệt trong phạm vi trường đại học. Với phạm vi triển khai hẹp, chi
+phí vận hành thấp và nhu cầu thực tế cao, dự án có tính khả thi đáng kể cả về kỹ thuật, vận
+hành và chiến lược phát triển dài hạn.

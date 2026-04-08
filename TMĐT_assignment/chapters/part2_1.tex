@@ -1,0 +1,209 @@
+% ============================================================
+%  2.1 – Thiết kế giao diện người dùng (UI/UX)  (1.5 điểm)
+%  Trạng thái: ĐÃ HOÀN THIỆN
+% ============================================================
+
+\subsection{Phân tích người dùng}
+
+UniJob phục vụ mô hình \textbf{C2C} (Campus-to-Campus) trong hệ sinh thái HCMUT, kết nối
+hai nhóm sinh viên có nhu cầu bổ sung lẫn nhau. Qua khảo sát nhóm và tham khảo nhu cầu
+thực tế từ cộng đồng sinh viên Bách Khoa, nhóm xác định \textbf{hai personas chính}:
+
+\begin{table}[H]
+\centering
+\caption{Personas người dùng UniJob}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{|p{3.2cm}|X|X|}
+\hline
+\textbf{Tiêu chí} & \textbf{Persona A -- Người đăng task} & \textbf{Persona B -- Người tìm task} \\
+\hline
+\textbf{Đặc điểm} & SV năm 3--4, bận rộn với đồ án, cần outsource công việc nhỏ trong campus &
+  SV năm 1--3, có kỹ năng chuyên biệt (lập trình, thiết kế, gia sư...), muốn kiếm thêm thu nhập \\
+\hline
+\textbf{Nhu cầu} & Tìm được người có kỹ năng phù hợp nhanh trong cộng đồng đáng tin cậy &
+  Task phù hợp kỹ năng, địa điểm gần, thù lao rõ ràng, có thể tích lũy portfolio \\
+\hline
+\textbf{Điểm đau} & Không biết tìm ai trong mạng lưới; lo ngại về độ tin cậy và chất lượng &
+  Thiếu kênh chính thống để offer kỹ năng; không có reputation để chứng minh năng lực \\
+\hline
+\textbf{Mục tiêu UX} & Đăng task nhanh ($<$2 phút), theo dõi ứng viên, xác nhận hoàn thành dễ dàng &
+  Tìm và ứng tuyển task $<$3 bước, xây dựng hồ sơ uy tín, xuất CV Passport \\
+\hline
+\end{tabularx}
+\end{table}
+
+Hai personas này dẫn đến yêu cầu thiết kế cốt lõi: giao diện \textbf{dual-role} (cùng
+người dùng vừa đăng vừa tìm task), hệ thống \textbf{uy tín hai chiều} (rating sau khi
+hoàn thành), và tính năng \textbf{CV Passport} giúp sinh viên chuyển kinh nghiệm thực
+tế thành chứng nhận có thể chia sẻ.
+
+\subsection{Sitemap và luồng điều hướng}
+
+Dựa trên phân tích personas, nhóm thiết kế sitemap tối giản gồm \textbf{6 màn hình chính},
+tất cả truy cập từ Header navigation:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners, minimum width=2.5cm, minimum height=0.8cm,
+              fill=green!10, font=\small, align=center},
+  sbox/.style={draw, rounded corners, minimum width=2.5cm, minimum height=0.8cm,
+               fill=gray!10, font=\small, align=center},
+  arr/.style={->, thick, >=stealth}
+]
+  \node[box, fill=green!30, minimum width=3cm] (home) at (0,0) {Trang chủ (Home)};
+
+  \node[box]  (list)   at (-5.5,-2) {Danh sách\\việc làm};
+  \node[box]  (create) at (-2,-2)   {Đăng\\việc làm};
+  \node[box]  (prof)   at (2,-2)    {Hồ sơ\\cá nhân};
+  \node[sbox] (login)  at (5.5,-2)  {Đăng nhập\\(Google OAuth)};
+
+  \node[box]  (detail) at (-5.5,-4) {Chi tiết\\việc làm};
+  \node[box]  (cv)     at (2,-4)    {Xuất CV\\Passport};
+
+  \draw[arr] (home) -- (list);
+  \draw[arr] (home) -- (create);
+  \draw[arr] (home) -- (prof);
+  \draw[arr] (home) -- (login);
+  \draw[arr] (list) -- (detail);
+  \draw[arr] (prof) -- (cv);
+
+  \node[font=\scriptsize, gray] at (-1,-3) {\textit{(yêu cầu đăng nhập)}};
+\end{tikzpicture}
+\caption{Sitemap UniJob -- cấu trúc điều hướng 6 màn hình chính}
+\end{figure}
+
+Luồng người dùng chính theo persona:
+\begin{itemize}
+  \item \textbf{Tìm task:} Trang chủ \textrightarrow{} Danh sách \textrightarrow{}
+    Chi tiết \textrightarrow{} Ứng tuyển (inline form) \textrightarrow{} Hồ sơ \textrightarrow{}
+    Xuất CV Passport.
+  \item \textbf{Đăng task:} Trang chủ \textrightarrow{} Đăng việc làm \textrightarrow{}
+    Hồ sơ cá nhân (xem danh sách ứng viên, xác nhận hoàn thành).
+\end{itemize}
+
+\subsection{Tổng quan thiết kế}
+
+UniJob được thiết kế với triết lý \textbf{mobile-first, minimalist}, ưu tiên luồng người
+dùng rõ ràng và giảm tối đa số bước để hoàn thành một nhiệm vụ (đăng task hoặc ứng tuyển).
+Toàn bộ giao diện được thiết kế trên Figma và triển khai bằng
+\textbf{React 19 + Tailwind CSS v4}, đảm bảo tính nhất quán giữa bản thiết kế và sản phẩm
+thực tế.
+
+\subsection{Hệ thống màu sắc và Design Tokens}
+
+Nền tảng sử dụng một hệ màu xanh lá (\textit{emerald}) làm màu chủ đạo, thể hiện sự tin cậy
+và gần gũi với môi trường học thuật.
+
+\begin{table}[H]
+\centering
+\caption{Design tokens màu sắc chính của UniJob}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{|p{5.2cm}|p{3.3cm}|X|}
+\hline
+\textbf{Token} & \textbf{Giá trị} & \textbf{Sử dụng} \\
+\hline
+\texttt{--color-primary}     & \texttt{\#10b981} (emerald-500) & CTA buttons, badges, highlights \\
+\hline
+\texttt{--color-primary-dk}  & \texttt{\#059669} (emerald-600) & Hover state, accent \\
+\hline
+\texttt{--color-background}  & \texttt{\#ffffff}               & Nền trang chính \\
+\hline
+\texttt{--color-border}      & \texttt{\#e5e7eb} (gray-200)    & Viền card, divider \\
+\hline
+\texttt{--color-muted}       & \texttt{\#f9fafb} (gray-50)     & Card background \\
+\hline
+\texttt{--color-foreground}  & \texttt{\#111827} (gray-900)    & Text chính \\
+\hline
+\texttt{--color-muted-foreground} & \texttt{\#6b7280} (gray-500) & Text phụ, placeholder \\
+\hline
+\end{tabularx}
+\end{table}
+
+\subsection{Cấu trúc màn hình và luồng người dùng}
+
+\subsubsection{Màn hình trang chủ (Home)}
+
+Trang chủ chia thành các section theo thứ tự ưu tiên thông tin:
+
+\begin{enumerate}
+  \item \textbf{Hero Section:} Banner gradient xanh lá với headline ``Kết nối công việc ngay
+    trong campus'', nút CTA ``Tìm việc ngay'' và ``Bắt đầu miễn phí''. Sử dụng
+    \texttt{framer-motion} cho animation fade-in khi tải trang.
+
+  \item \textbf{Stats Bar:} 4 số liệu nổi bật (số task đang mở, số người dùng, tỷ lệ hoàn
+    thành, đánh giá trung bình) hiển thị ngay dưới hero để xây dựng tin cậy ngay lập tức.
+
+  \item \textbf{Đề xuất cho bạn (SuggestedJobs):} Chỉ hiển thị khi đăng nhập. Hiển thị
+    lưới 3 cột gồm 6 công việc gợi ý dựa trên thuật toán AI Matching (xem mục 5.1).
+
+  \item \textbf{How it works:} 3 bước trực quan (Đăng ký → Tìm task → Hoàn thành \&
+    Đánh giá) với icon và mô tả ngắn.
+
+  \item \textbf{CTA cuối trang:} Kêu gọi đăng ký hoặc đăng task lần cuối.
+\end{enumerate}
+
+\subsubsection{Màn hình danh sách công việc (JobList)}
+
+\begin{itemize}
+  \item Layout 2 cột: sidebar bộ lọc bên trái (categories, faculty, salary range, work mode,
+    urgent flag) + danh sách card bên phải.
+  \item Thanh tìm kiếm full-width với search real-time (client-side filtering).
+  \item Mỗi job card hiển thị: tiêu đề, tên người đăng, khoa, địa điểm, mức lương,
+    badge ``Khẩn cấp'' (nếu có), số ứng viên và thời gian đăng.
+  \item Nút ``Load more'' theo kiểu infinite scroll giả -- fetch thêm 10 records từ Firestore.
+\end{itemize}
+
+\subsubsection{Màn hình chi tiết công việc (JobDetail)}
+
+\begin{itemize}
+  \item Header: tiêu đề task, badge danh mục, badge khẩn cấp.
+  \item Thông tin người đăng: avatar, tên, khoa, điểm uy tín.
+  \item Chi tiết: mô tả đầy đủ, kỹ năng yêu cầu (tags), địa điểm, thời gian, mức hỗ trợ.
+  \item Nút ``Ứng tuyển ngay'' mở form nội tuyến (inline apply form) ngay trên trang -- không
+    chuyển trang. Form có textarea cho thư giới thiệu và guard chống ứng tuyển trùng lặp.
+\end{itemize}
+
+\subsubsection{Màn hình hồ sơ cá nhân (Profile)}
+
+\begin{itemize}
+  \item Cột trái: avatar (Google OAuth), tên, khoa, MSSV, điểm uy tín và nút
+    \textbf{``Xuất chứng nhận CV Passport''} màu xanh lá điều hướng đến \texttt{/cv-export}.
+  \item Cột phải: tab lịch sử hoạt động (Tất cả / Đã hoàn thành / Đánh giá từ người thuê).
+  \item Editable inline: skills (tags), bio.
+\end{itemize}
+
+\subsubsection{Màn hình xuất CV Passport (/cv-export)}
+
+Giao diện chia 2 cột (tỷ lệ 3:2):
+\begin{itemize}
+  \item \textbf{Cột trái:} Preview chứng nhận live với thanh xanh trên/dưới, logo, tên sinh
+    viên, 3 stat box (công việc / đánh giá / giờ làm), danh sách dự án.
+  \item \textbf{Cột phải:} Panel ``Tùy chọn xuất file'' -- nút ``Tải xuống PDF'' (emerald),
+    nút ``Chia sẻ LinkedIn'' (outline), toggle ``Hiển thị chi tiết đánh giá'', ghi chú xanh.
+\end{itemize}
+
+\subsubsection{Màn hình đăng nhập (Login)}
+
+Trang login đơn giản với một nút duy nhất:
+\textbf{``Đăng nhập bằng Google (Email Trường)''} -- thực hiện Google OAuth qua Firebase Auth,
+gắn với domain \texttt{@hcmut.edu.vn} để xác thực danh tính.
+
+\subsection{Responsive và Accessibility}
+
+\begin{itemize}
+  \item Tất cả layout dùng Tailwind CSS responsive breakpoints (\texttt{sm:}, \texttt{md:},
+    \texttt{lg:}); trên mobile sidebar bộ lọc collapse thành bottom sheet.
+  \item Color contrast ratio đạt WCAG AA cho text trên nền trắng và nền xanh.
+  \item Tất cả form input có \texttt{aria-label} và \texttt{placeholder} rõ ràng.
+  \item Toast notifications (\texttt{react-hot-toast}) thông báo kết quả mọi hành động.
+\end{itemize}
+
+\subsection{Công cụ và quy trình thiết kế}
+
+\begin{itemize}
+  \item \textbf{Figma:} thiết kế wireframe và mockup đầy đủ (file ID: \texttt{pNvShcrSUdVkdjTm8Pm4Bj}).
+  \item \textbf{Tailwind CSS v4:} utility-first CSS, CSS variables làm design tokens.
+  \item \textbf{Lucide React:} bộ icon nhất quán (Briefcase, Star, Zap, MapPin...).
+  \item \textbf{Framer Motion:} micro-animation cho Hero section, card hover.
+\end{itemize}

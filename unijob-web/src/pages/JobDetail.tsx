@@ -231,7 +231,7 @@ export default function JobDetail() {
                 </div>
                 {isAuthenticated && userProfile?.uid !== job.postedBy && (
                   <Link
-                    to="/profile"
+                    to={`/profile/${job.postedBy}`}
                     className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-secondary)]"
                   >
                     Xem hồ sơ

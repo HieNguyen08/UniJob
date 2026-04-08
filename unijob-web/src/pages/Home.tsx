@@ -1,160 +1,191 @@
-import { Link } from 'react-router-dom';
-import { useAuthStore } from '@/store/authStore';
-import { Briefcase, Search, Shield, Star, Zap, ArrowRight, Users, Clock } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import type { Timestamp } from 'firebase/firestore';
+import { Search, SlidersHorizontal, Zap, ArrowRight, Clock } from 'lucide-react';
+
 import SuggestedJobs from '@/components/job/SuggestedJobs';
+import { getJobs } from '@/services/job.service';
+import type { Job } from '@/types';
+import { formatCurrency } from '@/lib/utils';
+import { useJobStore } from '@/store/jobStore';
 
 export default function Home() {
-  const { isAuthenticated } = useAuthStore();
+  const navigate = useNavigate();
+  const setFilters = useJobStore((s) => s.setFilters);
+
+  const [search, setSearch] = useState('');
+  const [urgentJobs, setUrgentJobs] = useState<Job[]>([]);
+  const [urgentLoading, setUrgentLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchUrgent() {
+      try {
+        const jobs = await getJobs({ status: 'open', isUrgent: true, sortBy: 'newest' }, 3);
+        if (!cancelled) setUrgentJobs(jobs);
+      } catch (error) {
+        console.error('Error fetching urgent jobs:', error);
+      } finally {
+        if (!cancelled) setUrgentLoading(false);
+      }
+    }
+
+    fetchUrgent();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const urgentSorted = useMemo(() => {
+    // Prefer jobs with nearest deadline first.
+    const copy = [...urgentJobs];
+    copy.sort((a, b) => (a.deadline?.toMillis?.() ?? 0) - (b.deadline?.toMillis?.() ?? 0));
+    return copy;
+  }, [urgentJobs]);
+
+  const handleSearchSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    setFilters({ searchQuery: search, isUrgent: undefined });
+    navigate('/jobs');
+  };
+
+  const handleOpenFilters = () => {
+    navigate('/jobs');
+  };
+
+  const handleViewAllUrgent = () => {
+    setFilters({ isUrgent: true, searchQuery: '' });
+    navigate('/jobs');
+  };
+
+  const formatRemaining = (deadline?: Timestamp): string => {
+    if (!deadline) return 'Còn thời gian';
+    const diffMs = deadline.toDate().getTime() - Date.now();
+    if (diffMs <= 0) return 'Hết hạn';
+    const totalMinutes = Math.floor(diffMs / 60_000);
+    if (totalMinutes < 60) return `Còn ${totalMinutes} phút`;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours < 24) {
+      return minutes > 0 ? `Còn ${hours} giờ ${minutes} phút` : `Còn ${hours} giờ`;
+    }
+    const days = Math.floor(hours / 24);
+    return `Còn ${days} ngày`;
+  };
+
+  const paymentSuffix = (job: Job): string => {
+    switch (job.paymentType) {
+      case 'hourly':
+        return '/giờ';
+      case 'fixed':
+        return '/task';
+      case 'negotiable':
+      case 'volunteer':
+      default:
+        return '';
+    }
+  };
 
   return (
     <div>
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[color:var(--color-primary)] via-[color:var(--color-primary)] to-[color:var(--color-primary)] text-white">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iYSIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVHJhbnNmb3JtPSJyb3RhdGUoNDUpIj48cGF0aCBkPSJNLTEwIDMwaDYwdi0yMGgtNjB6IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDMpIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCBmaWxsPSJ1cmwoI2EpIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIi8+PC9zdmc+')] opacity-50" />
-        <div className="relative mx-auto max-w-7xl px-4 py-20 md:py-32">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center"
-          >
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm backdrop-blur-sm">
-              <Zap className="h-4 w-4 text-yellow-300" />
-              Campus Marketplace cho sinh viên
-            </div>
-            <h1 className="text-4xl font-bold leading-tight md:text-6xl">
-              Kết nối công việc
-              <br />
-              <span className="text-yellow-300">ngay trong campus</span>
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-white/80">
-              UniJob giúp sinh viên, giảng viên và CLB dễ dàng đăng & tìm kiếm công việc
-              ngắn hạn trong trường — nhanh chóng, minh bạch và uy tín.
+      {/* Hero: search */}
+      <section className="bg-[linear-gradient(180deg,var(--color-primary)_0%,var(--color-secondary)_100%)]">
+        <div className="mx-auto max-w-7xl px-4 py-12 md:py-16">
+          <div className="text-center text-[var(--color-foreground)]">
+            <h1 className="text-3xl font-bold md:text-4xl">Tìm công việc phù hợp với bạn</h1>
+            <p className="mt-2 text-sm text-[var(--color-muted-foreground)] md:text-base">
+              Khám phá hàng nghìn cơ hội việc làm từ sinh viên dành cho sinh viên
             </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link
-                to="/jobs"
-                className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-[var(--color-primary)] shadow-lg transition-transform hover:scale-105"
-              >
-                <Search className="h-5 w-5" />
-                Tìm việc ngay
-              </Link>
-              {!isAuthenticated && (
-                <Link
-                  to="/login"
-                  className="inline-flex items-center gap-2 rounded-xl border-2 border-white/30 px-6 py-3 font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/10"
-                >
-                  Bắt đầu miễn phí
-                  <ArrowRight className="h-5 w-5" />
-                </Link>
-              )}
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="border-b border-[var(--color-border)] bg-white py-8">
-        <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 px-4 md:grid-cols-4">
-          {[
-            { icon: Briefcase, label: 'Việc đăng mỗi tuần', value: '50+', note: '(mục tiêu)' },
-            { icon: Users, label: 'Sinh viên sử dụng', value: '500+', note: '(mục tiêu)' },
-            { icon: Star, label: 'Rating trung bình', value: '4.5', note: '(mục tiêu)' },
-            { icon: Clock, label: 'Thời gian match', value: '<2h', note: '(mục tiêu)' },
-          ].map((stat) => (
-            <div key={stat.label} className="text-center">
-              <stat.icon className="mx-auto mb-2 h-6 w-6 text-[var(--color-primary)]" />
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <div className="text-xs text-[var(--color-muted-foreground)]">{stat.label}</div>
-              <div className="text-[10px] text-[var(--color-muted-foreground)] opacity-60">{stat.note}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="py-16">
-        <div className="mx-auto max-w-7xl px-4">
-          <h2 className="mb-12 text-center text-3xl font-bold">
-            Tại sao chọn <span className="text-[var(--color-primary)]">UniJob</span>?
-          </h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            {[
-              {
-                icon: Search,
-                title: 'Tìm kiếm thông minh',
-                desc: 'Lọc theo khoa, loại việc, mức lương. Gợi ý job phù hợp dựa trên profile của bạn.',
-              },
-              {
-                icon: Shield,
-                title: 'An toàn & Uy tín',
-                desc: 'Xác thực qua email trường, hệ thống đánh giá gamification, xác nhận hoàn thành 2 bước.',
-              },
-              {
-                icon: Zap,
-                title: 'Nhanh chóng',
-                desc: 'Đăng việc khẩn cấp, match trong vòng 30 phút. Giao diện đơn giản, dễ sử dụng.',
-              },
-            ].map((feature) => (
-              <motion.div
-                key={feature.title}
-                whileHover={{ y: -4 }}
-                className="rounded-2xl border border-[var(--color-border)] bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-secondary)] text-[var(--color-primary)]">
-                  <feature.icon className="h-6 w-6" />
-                </div>
-                <h3 className="mb-2 text-lg font-semibold">{feature.title}</h3>
-                <p className="text-sm text-[var(--color-muted-foreground)]">{feature.desc}</p>
-              </motion.div>
-            ))}
           </div>
-        </div>
-      </section>
 
-      {/* How it works */}
-      <section className="bg-[var(--color-secondary)] py-16">
-        <div className="mx-auto max-w-7xl px-4">
-          <h2 className="mb-12 text-center text-3xl font-bold">Cách hoạt động</h2>
-          <div className="grid gap-8 md:grid-cols-4">
-            {[
-              { step: '1', title: 'Đăng nhập', desc: 'Sử dụng email trường để xác thực' },
-              { step: '2', title: 'Đăng / Tìm việc', desc: 'Đăng task hoặc tìm việc phù hợp' },
-              { step: '3', title: 'Thực hiện', desc: 'Nhận việc, hoàn thành và xác nhận' },
-              { step: '4', title: 'Đánh giá', desc: 'Đánh giá lẫn nhau, tích lũy uy tín' },
-            ].map((item) => (
-              <div key={item.step} className="text-center">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary)] text-lg font-bold text-white">
-                  {item.step}
-                </div>
-                <h3 className="mb-1 font-semibold">{item.title}</h3>
-                <p className="text-sm text-[var(--color-muted-foreground)]">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* AI Suggested Jobs (authenticated only) */}
-      <SuggestedJobs />
-
-      {/* CTA */}
-      <section className="py-16">
-        <div className="mx-auto max-w-3xl px-4 text-center">
-          <h2 className="mb-4 text-3xl font-bold">Sẵn sàng bắt đầu?</h2>
-          <p className="mb-8 text-[var(--color-muted-foreground)]">
-            Tham gia UniJob ngay hôm nay và khám phá hàng trăm cơ hội trong campus.
-          </p>
-          <Link
-            to={isAuthenticated ? '/jobs' : '/login'}
-            className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-8 py-3 text-lg font-semibold text-white shadow-lg transition-transform hover:scale-105"
+          <form
+            onSubmit={handleSearchSubmit}
+            className="mx-auto mt-7 flex max-w-3xl items-stretch gap-3"
           >
-            {isAuthenticated ? 'Khám phá việc làm' : 'Đăng nhập ngay'}
-            <ArrowRight className="h-5 w-5" />
-          </Link>
+            <div className="flex flex-1 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-white px-4 shadow-sm">
+              <Search className="h-5 w-5 text-[var(--color-muted-foreground)]" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Tìm kiếm công việc phù hợp..."
+                className="h-14 w-full bg-transparent text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenFilters}
+              className="inline-flex h-14 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-white px-5 text-sm font-medium text-[var(--color-foreground)] shadow-sm hover:bg-white/95"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Bộ lọc
+            </button>
+          </form>
         </div>
       </section>
+
+      {/* Urgent jobs */}
+      <section className="bg-white py-10">
+        <div className="mx-auto max-w-7xl px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-[var(--color-warning)]" />
+              <h2 className="text-xl font-bold">Việc khẩn cấp cần người ngay</h2>
+            </div>
+            <button
+              type="button"
+              onClick={handleViewAllUrgent}
+              className="text-sm font-medium text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
+            >
+              Xem tất cả <span aria-hidden>›</span>
+            </button>
+          </div>
+
+          <div className="mt-6 grid gap-6 md:grid-cols-3">
+            {urgentLoading && (
+              <div className="md:col-span-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-6 text-sm text-[var(--color-muted-foreground)]">
+                Đang tải việc khẩn cấp...
+              </div>
+            )}
+
+            {!urgentLoading && urgentSorted.length === 0 && (
+              <div className="md:col-span-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-secondary)] p-6 text-sm text-[var(--color-muted-foreground)]">
+                Chưa có việc khẩn cấp nào.
+              </div>
+            )}
+
+            {!urgentLoading &&
+              urgentSorted.map((job) => (
+                <Link
+                  key={job.id}
+                  to={`/jobs/${job.id}`}
+                  className="group relative overflow-hidden rounded-2xl bg-gradient-to-b from-orange-500 to-orange-600 p-6 text-white shadow-sm transition-transform hover:-translate-y-0.5"
+                >
+                  <div className="mb-4 inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+                    <Clock className="h-3.5 w-3.5" />
+                    {formatRemaining(job.deadline)}
+                  </div>
+
+                  <h3 className="text-lg font-bold leading-snug">{job.title}</h3>
+                  <p className="mt-1 text-xs text-white/80">{job.faculty}</p>
+
+                  <div className="mt-5 text-xl font-extrabold">
+                    {job.payment > 0 ? formatCurrency(job.payment) : 'Tình nguyện'}
+                    <span className="ml-1 text-sm font-semibold text-white/90">{paymentSuffix(job)}</span>
+                  </div>
+
+                  <div className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-orange-600 transition-colors group-hover:bg-white/95">
+                    Nhận ngay
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </div>
+                </Link>
+              ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Suggested jobs (personalized) */}
+      <SuggestedJobs />
     </div>
   );
 }

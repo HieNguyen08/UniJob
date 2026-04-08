@@ -322,13 +322,23 @@ export default function JobList() {
             {/* Salary */}
             <div className="border-b border-[var(--color-border)] pb-4">
               <h3 className="mb-3 text-sm font-semibold">Mức lương</h3>
-              <div className="relative mb-3 h-4">
+              <div className="relative mb-3 h-6">
+                {/* Visual track */}
+                <div className="pointer-events-none absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-gray-200">
+                  <div
+                    className="absolute h-full rounded-full bg-[var(--color-primary)]"
+                    style={{
+                      left: `${((salaryMinDraft - MIN_SALARY) / (MAX_SALARY - MIN_SALARY)) * 100}%`,
+                      right: `${100 - ((salaryMaxDraft - MIN_SALARY) / (MAX_SALARY - MIN_SALARY)) * 100}%`,
+                    }}
+                  />
+                </div>
                 <input
                   aria-label="Lương tối thiểu"
                   className="joblist-range absolute inset-x-0 top-1/2 w-full -translate-y-1/2"
                   type="range"
                   min={MIN_SALARY}
-                  max={salaryMaxDraft}
+                  max={MAX_SALARY}
                   step={10_000}
                   value={salaryMinDraft}
                   onChange={(e) => updateSalaryMinDraft(Number(e.target.value))}
@@ -337,7 +347,7 @@ export default function JobList() {
                   aria-label="Lương tối đa"
                   className="joblist-range absolute inset-x-0 top-1/2 w-full -translate-y-1/2"
                   type="range"
-                  min={salaryMinDraft}
+                  min={MIN_SALARY}
                   max={MAX_SALARY}
                   step={10_000}
                   value={salaryMaxDraft}

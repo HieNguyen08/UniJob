@@ -4,8 +4,9 @@
 @theme inline {
   --color-background: #ffffff;
   --color-foreground: #0a0a0a;
-  --color-primary: #008000;
+  --color-primary: #10B981;
   --color-primary-foreground: #ffffff;
+  --color-home-hero: #008000;
   --color-secondary: #EEF2FF;
   --color-secondary-foreground: #0f172a;
   --color-accent: #f1f5f9;
@@ -15,7 +16,7 @@
   --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
   --color-border: #e2e8f0;
-  --color-ring: #008000;
+  --color-ring: #10B981;
   --color-card: #ffffff;
   --color-card-foreground: #0a0a0a;
   --color-success: #22c55e;
@@ -49,38 +50,46 @@
 
 /* ===== JobList Range (scoped) ===== */
 .joblist-range {
-  accent-color: currentColor;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+  color: var(--color-primary);
 }
 
 .joblist-range::-webkit-slider-runnable-track {
-  height: 4px;
+  height: 6px;
   background: transparent;
 }
 
 .joblist-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  height: 14px;
-  width: 14px;
+  pointer-events: all;
+  height: 18px;
+  width: 18px;
   border-radius: 9999px;
-  background: currentColor;
-  border: 2px solid var(--color-background);
-  box-shadow: 0 0 0 1px rgba(226, 232, 240, 0.9), 0 4px 10px rgba(15, 23, 42, 0.08);
-  margin-top: -5px;
+  background: var(--color-primary);
+  border: 3px solid white;
+  box-shadow: 0 0 0 1.5px var(--color-primary);
+  cursor: pointer;
+  margin-top: -6px;
 }
 
 .joblist-range::-moz-range-track {
-  height: 4px;
+  height: 6px;
   background: transparent;
 }
 
 .joblist-range::-moz-range-thumb {
-  height: 14px;
-  width: 14px;
+  pointer-events: all;
+  height: 18px;
+  width: 18px;
   border-radius: 9999px;
-  background: currentColor;
-  border: 2px solid var(--color-background);
-  box-shadow: 0 0 0 1px rgba(226, 232, 240, 0.9), 0 4px 10px rgba(15, 23, 42, 0.08);
+  background: var(--color-primary);
+  border: 3px solid white;
+  box-shadow: 0 0 0 1.5px var(--color-primary);
+  cursor: pointer;
 }
 
 /* ===== Scrollbar ===== */

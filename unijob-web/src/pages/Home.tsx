@@ -90,7 +90,7 @@ export default function Home() {
   return (
     <div>
       {/* Hero: search */}
-      <section className="bg-[linear-gradient(180deg,var(--color-primary)_0%,var(--color-secondary)_100%)]">
+      <section className="bg-[linear-gradient(180deg,var(--color-home-hero)_0%,var(--color-secondary)_100%)]">
         <div className="mx-auto max-w-7xl px-4 py-12 md:py-16">
           <div className="text-center text-[var(--color-foreground)]">
             <h1 className="text-3xl font-bold md:text-4xl">Tìm công việc phù hợp với bạn</h1>

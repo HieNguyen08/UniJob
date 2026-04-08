@@ -59,22 +59,13 @@ export default function Header() {
           </Link>
 
           {isAuthenticated && (
-            <>
-              <Link
-                to="/create-job"
-                className="flex items-center gap-1 text-sm font-medium text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-foreground)]"
-              >
-                <PlusCircle className="h-4 w-4" />
-                Đăng việc
-              </Link>
-              <Link
-                to="/dashboard"
-                className="flex items-center gap-1 text-sm font-medium text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-foreground)]"
-              >
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </Link>
-            </>
+            <Link
+              to="/dashboard"
+              className="flex items-center gap-1 text-sm font-medium text-[var(--color-muted-foreground)] transition-colors hover:text-[var(--color-foreground)]"
+            >
+              <LayoutDashboard className="h-4 w-4" />
+              Dashboard
+            </Link>
           )}
         </nav>
 
@@ -98,12 +89,13 @@ export default function Header() {
                 )}
                 <span className="max-w-[120px] truncate">{userProfile.displayName}</span>
               </Link>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-secondary)]"
+              <Link
+                to="/create-job"
+                className="flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
               >
-                <LogOut className="h-4 w-4" />
-              </button>
+                <PlusCircle className="h-4 w-4" />
+                Đăng việc ngay
+              </Link>
             </div>
           ) : (
             <button

@@ -8,7 +8,7 @@ import type { Job } from '@/types/job';
 import type { Rating } from '@/types/rating';
 import type { User } from '@/types/user';
 import { getUserById } from '@/services/user.service';
-import { FileDown, Share2, Star, Briefcase, Clock } from 'lucide-react';
+import { FileDown, Share2, Star, Briefcase, Clock, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function CVExport() {
@@ -127,7 +127,7 @@ export default function CVExport() {
                     <Briefcase className="h-4 w-4 text-emerald-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-900">{completedJobs.length}</p>
-                  <p className="text-xs text-gray-500">Công việc</p>
+                  <p className="text-xs text-gray-500">Thực tập</p>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-4 text-center">
                   <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-100">
@@ -136,14 +136,14 @@ export default function CVExport() {
                   <p className="text-2xl font-bold text-gray-900">
                     {user?.ratingScore ? `${user.ratingScore}/5` : 'N/A'}
                   </p>
-                  <p className="text-xs text-gray-500">Đánh giá</p>
+                  <p className="text-xs text-gray-500">Đánh giá TB</p>
                 </div>
                 <div className="rounded-xl bg-gray-50 p-4 text-center">
                   <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
                     <Clock className="h-4 w-4 text-blue-600" />
                   </div>
                   <p className="text-2xl font-bold text-gray-900">{Math.round(totalHours)}</p>
-                  <p className="text-xs text-gray-500">Giờ làm việc</p>
+                  <p className="text-xs text-gray-500">Giờ thực tập</p>
                 </div>
               </div>
 
@@ -154,12 +154,10 @@ export default function CVExport() {
                 </p>
                 <div className="divide-y divide-gray-100">
                   {completedJobs.length > 0 ? (
-                    completedJobs.slice(0, 8).map((job, index) => (
+                    completedJobs.slice(0, 8).map((job) => (
                       <div key={job.id} className="flex items-center justify-between py-3">
                         <div className="flex items-center gap-3">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
-                            {index + 1}
-                          </span>
+                          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />
                           <div>
                             <p className="text-sm font-medium text-gray-800">{job.title}</p>
                             <p className="text-xs text-emerald-600">{job.category}</p>
@@ -225,12 +223,12 @@ export default function CVExport() {
               className="mb-6 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-500 px-6 py-3 font-medium text-emerald-600 transition-colors hover:bg-emerald-50"
             >
               <Share2 className="h-5 w-5" />
-              Chia sẻ LinkedIn
+              Chia sẻ lên LinkedIn
             </button>
 
             {/* Toggle */}
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-700">Hiển thị chi tiết đánh giá</span>
+              <span className="text-sm text-gray-700">Hiển thị đánh giá chi tiết khi chia sẻ</span>
               <button
                 onClick={() => setShowDetailedRatings(!showDetailedRatings)}
                 className={`relative h-6 w-11 rounded-full transition-colors ${

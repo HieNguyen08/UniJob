@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { getJobById, applyForJob } from '@/services/job.service';
+import { getJobById, applyForJob, getJobsByUser } from '@/services/job.service';
 import { getUserById } from '@/services/user.service';
 import { toggleBookmark, getBookmarkedJobIds } from '@/services/bookmark.service';
 import type { Job, User } from '@/types';
-import { JOB_CATEGORIES } from '@/lib/constants';
+import { JOB_CATEGORIES, PAYMENT_TYPES } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
 import {
   ArrowLeft,
@@ -19,8 +19,10 @@ import {
   Bookmark,
   BookmarkCheck,
   Share2,
-  CheckCircle2,
+  Check,
   Paperclip,
+  MapPin,
+  Briefcase,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -38,6 +40,7 @@ export default function JobDetail() {
   const [applying, setApplying] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [posterJobCount, setPosterJobCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -46,6 +49,7 @@ export default function JobDetail() {
         setLoading(false);
         if (data?.postedBy) {
           getUserById(data.postedBy).then(setPoster);
+          getJobsByUser(data.postedBy).then((jobs) => setPosterJobCount(jobs.length));
         }
       });
     }
@@ -123,7 +127,14 @@ export default function JobDetail() {
   }
 
   const categoryInfo = JOB_CATEGORIES.find((c) => c.value === job.category);
+  const paymentTypeInfo = PAYMENT_TYPES.find((p) => p.value === job.paymentType);
   const isOwner = userProfile?.uid === job.postedBy;
+
+  const locationLabel = job.location === 'online'
+    ? 'Online'
+    : job.location === 'offline' || job.location === 'onsite'
+      ? 'Tại chỗ'
+      : null;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -139,8 +150,9 @@ export default function JobDetail() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* ── Left column ── */}
         <div className="space-y-5 lg:col-span-2">
-          {/* Header card */}
+          {/* Card 1 — Header */}
           <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6">
+            {/* Badges */}
             <div className="mb-3 flex flex-wrap items-start gap-2">
               {job.isUrgent && (
                 <span className="flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">
@@ -153,7 +165,7 @@ export default function JobDetail() {
                 </span>
               )}
               <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium capitalize text-green-700">
-                {job.status}
+                {job.status === 'open' ? 'Open' : job.status === 'in-progress' ? 'Đang làm' : job.status === 'completed' ? 'Hoàn thành' : 'Đã huỷ'}
               </span>
             </div>
 
@@ -164,21 +176,41 @@ export default function JobDetail() {
               </p>
             )}
 
-            {/* Meta row */}
-            <div className="mb-5 flex flex-wrap gap-4 text-sm text-[var(--color-muted-foreground)]">
+            {/* Meta tags */}
+            <div className="flex flex-wrap gap-2">
               {categoryInfo && (
-                <span>{categoryInfo.icon} {categoryInfo.label}</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1 text-xs text-[var(--color-muted-foreground)]">
+                  {categoryInfo.icon} {categoryInfo.label}
+                </span>
               )}
-              {job.faculty && (
-                <span>📍 {job.faculty}</span>
+              {job.createdAt && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1 text-xs text-[var(--color-muted-foreground)]">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {format(job.createdAt.toDate(), 'dd/MM/yyyy', { locale: vi })}
+                </span>
+              )}
+              {locationLabel && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1 text-xs text-[var(--color-muted-foreground)]">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {locationLabel}
+                </span>
+              )}
+              {paymentTypeInfo && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1 text-xs text-[var(--color-muted-foreground)]">
+                  {paymentTypeInfo.label}
+                </span>
               )}
               {job.duration && (
-                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {job.duration}</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-3 py-1 text-xs text-[var(--color-muted-foreground)]">
+                  <Clock className="h-3.5 w-3.5" /> {job.duration}
+                </span>
               )}
             </div>
+          </div>
 
-            {/* Description */}
-            <h2 className="mb-2 text-base font-semibold">Mô tả công việc</h2>
+          {/* Card 2 — Description */}
+          <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6">
+            <h2 className="mb-3 text-base font-semibold">Mô tả công việc</h2>
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--color-muted-foreground)]">
               {job.description}
             </p>
@@ -210,14 +242,16 @@ export default function JobDetail() {
             )}
           </div>
 
-          {/* Skills / Requirements */}
+          {/* Card 3 — Skills / Requirements */}
           {job.tags && job.tags.length > 0 && (
             <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6">
-              <h2 className="mb-3 text-base font-semibold">Tiêu chí ứng tuyển</h2>
-              <ul className="space-y-2">
+              <h2 className="mb-3 text-base font-semibold">Yêu cầu kỹ năng</h2>
+              <ul className="space-y-2.5">
                 {job.tags.map((tag) => (
-                  <li key={tag} className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                  <li key={tag} className="flex items-center gap-2.5 text-sm">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+                      <Check className="h-3 w-3 text-white" />
+                    </div>
                     <span>{tag}</span>
                   </li>
                 ))}
@@ -225,10 +259,10 @@ export default function JobDetail() {
             </div>
           )}
 
-          {/* Poster info */}
+          {/* Card 4 — Poster info */}
           {!job.isAnonymous && (
             <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6">
-              <h2 className="mb-3 text-base font-semibold">Người đăng</h2>
+              <h2 className="mb-4 text-base font-semibold">Người đăng</h2>
               <div className="flex items-center gap-3">
                 {(poster?.photoURL || job.postedByPhoto) ? (
                   <img
@@ -241,14 +275,14 @@ export default function JobDetail() {
                     {job.postedByName.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <div className="flex-1">
+                <div>
                   <p className="font-semibold">{job.postedByName}</p>
                   {poster?.faculty && (
                     <p className="text-xs text-[var(--color-muted-foreground)]">{poster.faculty}</p>
                   )}
                   {poster?.ratingScore != null && poster.ratingScore > 0 && (
-                    <div className="mt-0.5 flex items-center gap-1 text-xs text-yellow-500">
-                      <Star className="h-3 w-3 fill-yellow-400" />
+                    <div className="mt-0.5 flex items-center gap-1 text-xs">
+                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                       <span className="font-medium">{poster.ratingScore.toFixed(1)}</span>
                       {poster.totalRatings > 0 && (
                         <span className="text-[var(--color-muted-foreground)]">({poster.totalRatings} đánh giá)</span>
@@ -256,15 +290,33 @@ export default function JobDetail() {
                     </div>
                   )}
                 </div>
-                {isAuthenticated && userProfile?.uid !== job.postedBy && (
-                  <Link
-                    to={`/profile/${job.postedBy}`}
-                    className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--color-secondary)]"
-                  >
-                    Xem hồ sơ
-                  </Link>
+              </div>
+
+              {/* Extra poster stats */}
+              <div className="mt-4 space-y-2 border-t border-[var(--color-border)] pt-4">
+                {posterJobCount != null && (
+                  <div className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
+                    <Briefcase className="h-4 w-4 shrink-0" />
+                    <span>Đã đăng <strong className="text-[var(--color-foreground)]">{posterJobCount}</strong> công việc</span>
+                  </div>
+                )}
+                {poster?.createdAt && (
+                  <div className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
+                    <Calendar className="h-4 w-4 shrink-0" />
+                    <span>Thành viên từ {format(poster.createdAt.toDate(), 'MM/yyyy', { locale: vi })}</span>
+                  </div>
                 )}
               </div>
+
+              {/* View profile button */}
+              {isAuthenticated && userProfile?.uid !== job.postedBy && (
+                <Link
+                  to={`/profile/${job.postedBy}`}
+                  className="mt-4 flex w-full items-center justify-center rounded-xl bg-[var(--color-primary)] py-2.5 text-sm font-medium text-white hover:opacity-90"
+                >
+                  Xem hồ sơ
+                </Link>
+              )}
             </div>
           )}
         </div>

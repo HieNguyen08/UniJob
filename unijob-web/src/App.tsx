@@ -17,6 +17,7 @@ import MyJobs from '@/pages/MyJobs';
 import MyJobCandidates from '@/pages/MyJobCandidates';
 import MyJobAcceptance from '@/pages/MyJobAcceptance';
 import CVExport from '@/pages/CVExport';
+import JobSearch from '@/pages/JobSearch';
 import NotFound from '@/pages/NotFound';
 
 const queryClient = new QueryClient({
@@ -90,6 +91,7 @@ function AppRoutes() {
           )}
         />
         <Route path="/jobs" element={<JobList />} />
+        <Route path="/search" element={<JobSearch />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route
           path="/create-job"

@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { createJob } from '@/services/job.service';
 import { uploadJobAttachments, validateFile } from '@/services/storage.service';
+import { getSmartMatchedWorkers, type SmartMatchWorker } from '@/services/workHistory.service';
+import { createNotification } from '@/services/notification.service';
 import { JOB_CATEGORIES, FACULTIES } from '@/lib/constants';
 import { Timestamp } from 'firebase/firestore';
-import { ArrowLeft, CheckCircle2, Lightbulb, Paperclip, X, FileText } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Lightbulb, Paperclip, X, FileText, Star, Send, Check } from 'lucide-react';
 import type { JobLocation } from '@/types/job';
 import toast from 'react-hot-toast';
 
@@ -45,6 +47,14 @@ export default function CreateJob() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Smart matching modal state
+  const [smartMatchModal, setSmartMatchModal] = useState<{
+    jobId: string;
+    jobTitle: string;
+    workers: SmartMatchWorker[];
+  } | null>(null);
+  const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -114,8 +124,14 @@ export default function CreateJob() {
         toast.success('Đã lưu nháp!');
         navigate('/dashboard');
       } else {
-        toast.success('Đăng việc thành công!');
-        navigate(`/jobs/${jobId}`);
+        // Fetch smart matches before navigating
+        const workers = await getSmartMatchedWorkers(userProfile.uid).catch(() => []);
+        if (workers.length > 0) {
+          setSmartMatchModal({ jobId, jobTitle: form.title, workers });
+        } else {
+          toast.success('Đăng việc thành công!');
+          navigate(`/jobs/${jobId}`);
+        }
       }
     } catch (error) {
       toast.error('Lỗi khi đăng việc');
@@ -124,6 +140,140 @@ export default function CreateJob() {
       setIsSubmitting(false);
     }
   };
+
+  const handleSendInvite = async (worker: SmartMatchWorker) => {
+    if (!smartMatchModal) return;
+    try {
+      await createNotification(
+        worker.uid,
+        'job_invite',
+        `${userProfile?.displayName} mời bạn ứng tuyển "${smartMatchModal.jobTitle}"`,
+        { jobId: smartMatchModal.jobId, jobTitle: smartMatchModal.jobTitle, fromName: userProfile?.displayName }
+      );
+      setInvitedIds((prev) => new Set(prev).add(worker.uid));
+      toast.success(`Đã gửi lời mời đến ${worker.displayName}!`);
+    } catch {
+      toast.error('Không thể gửi lời mời, thử lại');
+    }
+  };
+
+  const handleCloseSmartMatch = () => {
+    if (smartMatchModal) navigate(`/jobs/${smartMatchModal.jobId}`);
+  };
+
+  // ── Smart Match Modal ──
+  if (smartMatchModal) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+        <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+          {/* Close */}
+          <button
+            onClick={handleCloseSmartMatch}
+            className="absolute right-4 top-4 rounded-full p-1.5 text-gray-400 hover:bg-gray-100"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          <div className="p-8">
+            {/* Success header */}
+            <div className="mb-6 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500">
+                <Check className="h-7 w-7 text-white" />
+              </div>
+              <h2 className="text-xl font-bold">Đăng công việc thành công!</h2>
+              <p className="mt-2 text-sm text-gray-500">
+                Gợi ý: Dưới đây là những bạn sinh viên đã từng làm việc tốt với bạn.
+                Mời họ ngay để chốt job nhanh hơn.
+              </p>
+            </div>
+
+            {/* Worker cards */}
+            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+              {smartMatchModal.workers.map((worker) => {
+                const invited = invitedIds.has(worker.uid);
+                const initials = worker.displayName
+                  .trim().split(/\s+/).slice(0, 2).map((p) => p.charAt(0).toUpperCase()).join('');
+
+                return (
+                  <div key={worker.uid} className="flex items-start gap-4 rounded-2xl border border-[var(--color-border)] p-4">
+                    {/* Avatar */}
+                    <div className="shrink-0">
+                      {worker.photoURL ? (
+                        <img src={worker.photoURL} alt={worker.displayName} className="h-11 w-11 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-300 text-sm font-bold text-gray-600">
+                          {initials}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="font-semibold text-sm">{worker.displayName}</p>
+                          {worker.faculty && (
+                            <p className="text-xs text-gray-500">{worker.faculty}</p>
+                          )}
+                        </div>
+                        <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                          Đã hợp tác {worker.collaborationCount} lần
+                        </span>
+                      </div>
+
+                      {/* Past work */}
+                      <ul className="mt-2 space-y-1">
+                        {worker.pastWork.map((pw) => (
+                          <li key={pw.jobId} className="text-xs text-gray-500">
+                            <span className="mr-1">–</span>
+                            {pw.jobTitle}
+                            {pw.completedAt && (
+                              <span className="ml-1 text-gray-400">
+                                ({pw.completedAt.toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric' })})
+                              </span>
+                            )}
+                            <span className="ml-2 inline-flex items-center gap-0.5 text-yellow-500">
+                              <Star className="h-3 w-3 fill-yellow-400" />
+                              {worker.ratingScore.toFixed(1)}/5
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Invite button */}
+                    <div className="shrink-0 self-center">
+                      {invited ? (
+                        <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-600">
+                          <Check className="h-3.5 w-3.5" /> Đã mời
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleSendInvite(worker)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-primary)] px-3 py-2 text-xs font-medium text-white hover:opacity-90"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                          Gửi lời mời ngay
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Skip */}
+            <button
+              onClick={handleCloseSmartMatch}
+              className="mt-5 w-full rounded-xl border border-[var(--color-border)] py-2.5 text-sm text-gray-500 hover:bg-gray-50"
+            >
+              Bỏ qua, xem công việc vừa đăng
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">

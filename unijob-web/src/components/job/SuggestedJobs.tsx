@@ -156,7 +156,7 @@ export default function SuggestedJobs() {
 
               {/* Faculty badge */}
               {job.faculty && (
-                <span className="mb-3 inline-block rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                <span className="mb-3 inline-block rounded-full border border-[var(--color-border)] px-3 py-1 text-xs font-medium text-[var(--color-foreground)]">
                   {job.faculty}
                 </span>
               )}

@@ -1,14 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Timestamp } from 'firebase/firestore';
-import { Search, SlidersHorizontal, Zap, ArrowRight, Clock, X } from 'lucide-react';
+import { Search, SlidersHorizontal, Zap, ArrowRight, Clock } from 'lucide-react';
 
 import SuggestedJobs from '@/components/job/SuggestedJobs';
 import { getJobs } from '@/services/job.service';
 import type { Job } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { useJobStore } from '@/store/jobStore';
-import { JOB_CATEGORIES } from '@/lib/constants';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -17,23 +16,6 @@ export default function Home() {
   const [search, setSearch] = useState('');
   const [urgentJobs, setUrgentJobs] = useState<Job[]>([]);
   const [urgentLoading, setUrgentLoading] = useState(true);
-
-  // Filter popup state
-  const [showFilterPopup, setShowFilterPopup] = useState(false);
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterUrgent, setFilterUrgent] = useState(false);
-  const filterRef = useRef<HTMLDivElement>(null);
-
-  // Close popup on outside click
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
-        setShowFilterPopup(false);
-      }
-    }
-    if (showFilterPopup) document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, [showFilterPopup]);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,16 +47,6 @@ export default function Home() {
   const handleSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
     setFilters({ searchQuery: search, isUrgent: undefined });
-    navigate('/jobs');
-  };
-
-  const handleApplyFilter = () => {
-    setFilters({
-      searchQuery: search || undefined,
-      category: filterCategory || undefined,
-      isUrgent: filterUrgent || undefined,
-    });
-    setShowFilterPopup(false);
     navigate('/jobs');
   };
 
@@ -136,84 +108,13 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowFilterPopup((v) => !v)}
-                className={`inline-flex h-14 items-center gap-2 rounded-2xl border bg-white px-5 text-sm font-medium shadow-sm transition-colors ${
-                  showFilterPopup || filterCategory || filterUrgent
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                    : 'border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-white/95'
-                }`}
+                onClick={() => navigate('/search' + (search ? '?q=' + encodeURIComponent(search) : ''))}
+                className="inline-flex h-14 items-center gap-2 rounded-2xl border border-[var(--color-border)] bg-white px-5 text-sm font-medium text-[var(--color-foreground)] shadow-sm transition-colors hover:bg-white/95"
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Bộ lọc
-                {(filterCategory || filterUrgent) && (
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-[10px] font-bold text-white">
-                    {(filterCategory ? 1 : 0) + (filterUrgent ? 1 : 0)}
-                  </span>
-                )}
               </button>
             </form>
-
-            {/* Filter popup */}
-            {showFilterPopup && (
-              <div
-                ref={filterRef}
-                className="absolute right-0 top-[calc(100%+8px)] z-40 w-72 rounded-2xl border border-[var(--color-border)] bg-white p-4 shadow-xl"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-sm font-semibold">Bộ lọc nhanh</span>
-                  <button
-                    type="button"
-                    onClick={() => setShowFilterPopup(false)}
-                    className="text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {/* Category */}
-                <div className="mb-3">
-                  <label className="mb-1 block text-xs font-medium text-[var(--color-muted-foreground)]">Danh mục</label>
-                  <select
-                    value={filterCategory}
-                    onChange={(e) => setFilterCategory(e.target.value)}
-                    className="w-full rounded-xl border border-[var(--color-border)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--color-primary)]"
-                  >
-                    <option value="">Tất cả danh mục</option>
-                    {JOB_CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>{c.icon} {c.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Urgent toggle */}
-                <label className="mb-4 flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={filterUrgent}
-                    onChange={(e) => setFilterUrgent(e.target.checked)}
-                    className="h-4 w-4 accent-[var(--color-primary)]"
-                  />
-                  <span>Chỉ việc khẩn cấp</span>
-                </label>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setFilterCategory(''); setFilterUrgent(false); }}
-                    className="flex-1 rounded-xl border border-[var(--color-border)] py-2 text-sm hover:bg-[var(--color-secondary)]"
-                  >
-                    Đặt lại
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleApplyFilter}
-                    className="flex-1 rounded-xl bg-[var(--color-primary)] py-2 text-sm font-medium text-white hover:opacity-90"
-                  >
-                    Áp dụng
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </section>

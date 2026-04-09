@@ -8,7 +8,7 @@ import {
   getJobById,
   getApplicationsByJob,
 } from '@/services/job.service';
-import { getJobCompletion } from '@/services/rating.service';
+import { getJobCompletion, createJobCompletion, confirmCompletion } from '@/services/rating.service';
 import { workerCancelJob, posterCancelJob } from '@/services/cancel.service';
 
 import toast from 'react-hot-toast';
@@ -85,7 +85,36 @@ function StatCard({ icon, value, label, accent }: { icon: ReactNode; value: stri
   );
 }
 
-function ReportModal({ onClose }: { onClose: () => void }) {
+function ReportModal({ job, onClose, onSubmitted }: {
+  job: ReceivedJob;
+  onClose: () => void;
+  onSubmitted: () => void;
+}) {
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      const completion = await getJobCompletion(job.id);
+      let completionId: string;
+      if (completion) {
+        completionId = completion.id;
+      } else {
+        completionId = await createJobCompletion(job.id);
+      }
+      await confirmCompletion(completionId, 'worker');
+      toast.success('Đã gửi báo cáo hoàn thành! Chờ người đăng xác nhận.');
+      onSubmitted();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      toast.error('Có lỗi xảy ra, vui lòng thử lại.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="myjobs-modal-backdrop">
       <div className="myjobs-modal myjobs-modal-report">
@@ -98,16 +127,18 @@ function ReportModal({ onClose }: { onClose: () => void }) {
 
         <div className="myjobs-modal-body">
           <section className="myjobs-info-card">
-            <h3 className="myjobs-info-title">Thiết kế Slide Powerpoint thuyết trình</h3>
-            <p className="myjobs-muted">Người đăng: Trần Thị B</p>
-            <p className="myjobs-price-green">150.000đ</p>
-            <p className="myjobs-muted">Hạn chót: 20/02/2026</p>
+            <h3 className="myjobs-info-title">{job.title}</h3>
+            <p className="myjobs-muted">Người đăng: {job.postedBy}</p>
+            <p className="myjobs-price-green">{job.paymentLabel}</p>
+            <p className="myjobs-muted">{job.deadlineLabel}</p>
           </section>
 
           <section>
             <label className="myjobs-label">Lời nhắn / Mô tả kết quả</label>
             <textarea
               rows={4}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
               placeholder="VD: Em đã hoàn thành slide, link file gốc ở bên dưới..."
               className="myjobs-textarea"
             />
@@ -126,8 +157,13 @@ function ReportModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="myjobs-modal-footer">
-          <button className="myjobs-btn myjobs-btn-primary" type="button">
-            Gửi báo cáo & Hoàn tất
+          <button
+            className="myjobs-btn myjobs-btn-primary"
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? 'Đang gửi...' : 'Gửi báo cáo & Hoàn tất'}
           </button>
           <button onClick={onClose} className="myjobs-btn-link" type="button">
             Hủy bỏ
@@ -228,7 +264,7 @@ export default function MyJobs() {
   const [postedJobs, setPostedJobs] = useState<PostedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<WorkTab>('received');
-  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportJobTarget, setReportJobTarget] = useState<ReceivedJob | null>(null);
   const [cancelStep, setCancelStep] = useState<0 | 1>(0);
   const [cancelJobTarget, setCancelJobTarget] = useState<{ type: 'worker' | 'poster', job: ReceivedJob | PostedJob } | null>(null);
 
@@ -443,7 +479,7 @@ export default function MyJobs() {
                       <button
                         onClick={() => {
                           if (job.status === 'in-progress') {
-                            setShowReportModal(true);
+                            setReportJobTarget(job);
                             return;
                           }
                         }}
@@ -535,7 +571,13 @@ export default function MyJobs() {
         </div>
       </div>
 
-      {showReportModal ? <ReportModal onClose={() => setShowReportModal(false)} /> : null}
+      {reportJobTarget && (
+        <ReportModal
+          job={reportJobTarget}
+          onClose={() => setReportJobTarget(null)}
+          onSubmitted={loadJobs}
+        />
+      )}
       
       {cancelStep === 1 && cancelJobTarget ? (
         <CancelModal

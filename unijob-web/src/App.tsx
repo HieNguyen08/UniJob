@@ -1,4 +1,4 @@
-import { useEffect, type ReactElement } from 'react';
+import { useEffect, useRef, type ReactElement } from 'react';
 import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/authStore';
@@ -47,11 +47,24 @@ function PublicOnlyRoute({ children }: { children: ReactElement }) {
 function AppRoutes() {
   const initialize = useAuthStore((state) => state.initialize);
   const isLoading = useAuthStore((state) => state.isLoading);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const cleanupRan = useRef(false);
 
   useEffect(() => {
     const unsubscribe = initialize();
     return unsubscribe;
   }, [initialize]);
+
+  // Run expired-job cleanup once per session after auth is ready
+  useEffect(() => {
+    if (!isAuthenticated || cleanupRan.current) return;
+    cleanupRan.current = true;
+    import('@/services/cleanup.service').then(({ cleanupExpiredJobs }) => {
+      cleanupExpiredJobs().then((count) => {
+        if (count > 0) console.info(`[cleanup] Đã đóng ${count} công việc hết hạn.`);
+      }).catch(console.error);
+    });
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (

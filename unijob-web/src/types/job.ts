@@ -26,6 +26,7 @@ export interface Job {
   assignedTo: string[];
   applicants: string[];
   tags: string[];
+  attachments?: string[];   // Firebase Storage download URLs
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

@@ -20,6 +20,7 @@ import {
   BookmarkCheck,
   Share2,
   CheckCircle2,
+  Paperclip,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -181,6 +182,32 @@ export default function JobDetail() {
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--color-muted-foreground)]">
               {job.description}
             </p>
+
+            {/* Attachments */}
+            {job.attachments && job.attachments.length > 0 && (
+              <div className="mt-5">
+                <h2 className="mb-2 text-base font-semibold">Tài liệu đính kèm</h2>
+                <ul className="space-y-2">
+                  {job.attachments.map((url, i) => {
+                    const name = decodeURIComponent(url.split('%2F').pop()?.split('?')[0] ?? `file-${i + 1}`);
+                    return (
+                      <li key={i}>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm hover:bg-[var(--color-secondary)]"
+                        >
+                          <Paperclip className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                          <span className="flex-1 truncate">{name}</span>
+                          <span className="shrink-0 text-xs text-[var(--color-primary)]">Tải xuống ↓</span>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
           </div>
 
           {/* Skills / Requirements */}

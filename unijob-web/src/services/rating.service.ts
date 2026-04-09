@@ -13,6 +13,7 @@ import { db } from '@/lib/firebase';
 import type { Rating, JobCompletion } from '@/types';
 import { recordWorkHistory } from '@/services/workHistory.service';
 import { getJobById, updateJob } from '@/services/job.service';
+import { createNotification } from '@/services/notification.service';
 
 const ratingsCollection = collection(db, 'ratings');
 const completionsCollection = collection(db, 'jobCompletions');
@@ -102,12 +103,43 @@ export async function confirmCompletion(
 
   await updateDoc(completionRef, updates);
 
+  // Notify poster when worker submits completion
+  if (role === 'worker' && !isBothConfirmed) {
+    try {
+      const job = await getJobById(compData.jobId);
+      if (job?.postedBy) {
+        await createNotification(
+          job.postedBy,
+          'completion_requested',
+          `📋 Người làm đã báo cáo hoàn thành "${job.title}". Vui lòng kiểm tra và xác nhận.`,
+          { jobId: compData.jobId, jobTitle: job.title }
+        );
+      }
+    } catch { /* non-critical */ }
+  }
+
   if (isBothConfirmed) {
     // Lưu work history
     const job = await getJobById(compData.jobId);
     if (job && job.assignedTo && job.assignedTo.length > 0) {
       await recordWorkHistory(job.postedBy, job.assignedTo[0], job.id);
       await updateJob(job.id, { status: 'completed' });
+
+      // Notify both parties
+      try {
+        await createNotification(
+          job.assignedTo[0],
+          'job_completed',
+          `🎉 Công việc "${job.title}" đã hoàn thành! Hãy để lại đánh giá.`,
+          { jobId: job.id, jobTitle: job.title }
+        );
+        await createNotification(
+          job.postedBy,
+          'job_completed',
+          `✅ Công việc "${job.title}" đã được xác nhận hoàn thành.`,
+          { jobId: job.id, jobTitle: job.title }
+        );
+      } catch { /* non-critical */ }
     }
   }
 }

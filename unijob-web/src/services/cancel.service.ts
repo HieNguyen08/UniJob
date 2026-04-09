@@ -1,7 +1,7 @@
 
 import { getUserById, updateUserProfile } from '@/services/user.service';
-import { updateJob } from '@/services/job.service';
-import { updateApplicationStatus } from '@/services/job.service';
+import { getJobById, updateJob, updateApplicationStatus } from '@/services/job.service';
+import { createNotification } from '@/services/notification.service';
 
 export type CancelReason =
   | 'Không thể hoàn thành đúng deadline'
@@ -52,7 +52,20 @@ export async function workerCancelJob(
   await updateApplicationStatus(applicationId, 'rejected');
 
   // Đổi job về open để tìm người khác
+  const job = await getJobById(jobId);
   await updateJob(jobId, { status: 'open' });
+
+  // Notify poster that worker cancelled
+  try {
+    if (job?.postedBy) {
+      await createNotification(
+        job.postedBy,
+        'job_cancelled',
+        `Người nhận việc đã hủy "${job.title}". Công việc đang tìm người mới.`,
+        { jobId, jobTitle: job.title }
+      );
+    }
+  } catch { /* non-critical */ }
 
   return {
     penaltyPoints,
@@ -84,7 +97,22 @@ export async function posterCancelJob(
     }
   }
 
+  const cancelledJob = await getJobById(jobId);
   await updateJob(jobId, { status: 'cancelled' });
+
+  // Notify assigned worker if any
+  try {
+    if (cancelledJob?.assignedTo?.length) {
+      for (const workerId of cancelledJob.assignedTo) {
+        await createNotification(
+          workerId,
+          'job_cancelled',
+          `Công việc "${cancelledJob.title}" đã bị người đăng hủy.`,
+          { jobId, jobTitle: cancelledJob.title }
+        );
+      }
+    }
+  } catch { /* non-critical */ }
 
   return {
     penaltyPoints,

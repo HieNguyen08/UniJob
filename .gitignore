@@ -27,6 +27,9 @@ unijob-web/.docker/
 *.log
 npm-debug.log*
 
+# Firebase service account (never commit!)
+unijob-web/scripts/service-account.json
+
 # Reports & Slides
 Report/
 Report-Assignment/

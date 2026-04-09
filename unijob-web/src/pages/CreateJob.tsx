@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { createJob } from '@/services/job.service';
+import { uploadJobAttachments, validateFile } from '@/services/storage.service';
 import { JOB_CATEGORIES, FACULTIES } from '@/lib/constants';
 import { Timestamp } from 'firebase/firestore';
-import { ArrowLeft, CheckCircle2, Lightbulb } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Lightbulb, Paperclip, X, FileText } from 'lucide-react';
 import type { JobLocation } from '@/types/job';
 import toast from 'react-hot-toast';
 
@@ -42,6 +43,8 @@ export default function CreateJob() {
     tags: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -51,6 +54,22 @@ export default function CreateJob() {
       ...prev,
       [name]: type === 'number' ? Number(value) : value,
     }));
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files ?? []);
+    const errors: string[] = [];
+    const valid: File[] = [];
+    for (const f of selected) {
+      const err = validateFile(f);
+      if (err) errors.push(err);
+      else if (!attachmentFiles.find((x) => x.name === f.name && x.size === f.size)) {
+        valid.push(f);
+      }
+    }
+    if (errors.length) errors.forEach((e) => toast.error(e));
+    setAttachmentFiles((prev) => [...prev, ...valid]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSubmit = async (e: React.FormEvent, isDraft = false) => {
@@ -63,6 +82,7 @@ export default function CreateJob() {
 
     setIsSubmitting(true);
     try {
+      // Create job first to get the ID, then upload attachments
       const jobId = await createJob({
         title: form.title,
         description: form.description,
@@ -77,10 +97,18 @@ export default function CreateJob() {
         isUrgent: form.isUrgent,
         isAnonymous: form.isAnonymous,
         tags: form.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        attachments: [],
         postedBy: userProfile.uid,
         postedByName: form.isAnonymous ? 'Ẩn danh' : userProfile.displayName,
         postedByPhoto: form.isAnonymous ? '' : userProfile.photoURL,
       });
+
+      // Upload attachments after job is created
+      if (attachmentFiles.length > 0) {
+        const urls = await uploadJobAttachments(jobId, attachmentFiles);
+        const { updateJob } = await import('@/services/job.service');
+        await updateJob(jobId, { attachments: urls });
+      }
 
       if (isDraft) {
         toast.success('Đã lưu nháp!');
@@ -232,6 +260,52 @@ export default function CreateJob() {
                   className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]"
                 />
               </div>
+            </section>
+
+            {/* Tài liệu đính kèm */}
+            <section className="rounded-2xl border border-[var(--color-border)] bg-white p-6">
+              <h2 className="mb-1 font-semibold text-gray-800">Tài liệu đính kèm</h2>
+              <p className="mb-4 text-xs text-[var(--color-muted-foreground)]">Hỗ trợ ảnh, PDF, ZIP, Word, Excel — tối đa 10MB/file</p>
+
+              {/* Drop zone */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-[var(--color-border)] py-6 text-sm text-[var(--color-muted-foreground)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+              >
+                <Paperclip className="h-6 w-6" />
+                <span>Nhấn để chọn file đính kèm</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.zip,.doc,.docx,.xls,.xlsx"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+
+              {/* File list */}
+              {attachmentFiles.length > 0 && (
+                <ul className="mt-3 space-y-2">
+                  {attachmentFiles.map((f, i) => (
+                    <li key={i} className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm">
+                      <FileText className="h-4 w-4 shrink-0 text-[var(--color-primary)]" />
+                      <span className="flex-1 truncate">{f.name}</span>
+                      <span className="shrink-0 text-xs text-[var(--color-muted-foreground)]">
+                        {(f.size / 1024 / 1024).toFixed(1)} MB
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAttachmentFiles((prev) => prev.filter((_, j) => j !== i))}
+                        className="shrink-0 rounded-full p-0.5 hover:bg-red-50 hover:text-red-500"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
 
             {/* Ngân sách & Thời gian */}

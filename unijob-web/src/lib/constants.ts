@@ -69,7 +69,7 @@ export const SORT_OPTIONS = [
 ] as const;
 
 // ===== Pagination =====
-export const ITEMS_PER_PAGE = 12;
+export const ITEMS_PER_PAGE = 200;
 
 // ===== Urgent Job Config =====
 export const URGENT_DURATION_MINUTES = 60; // 1 hour max for urgent jobs

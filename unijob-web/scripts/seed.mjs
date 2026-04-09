@@ -6,41 +6,33 @@
  *        jobCompletions (10), workHistory (10)
  */
 
-import { initializeApp } from 'firebase/app';
-import {
-  getFirestore,
-  collection,
-  doc,
-  setDoc,
-  addDoc,
-  Timestamp,
-} from 'firebase/firestore';
-import { readFileSync } from 'fs';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
-// ── Load Firebase config from .env.local ─────────────────────────────────────
+// ── Load service account (Admin SDK — bypasses Firestore security rules) ──────
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const envFile = readFileSync(resolve(__dirname, '../.env.local'), 'utf8');
-const env = Object.fromEntries(
-  envFile
-    .split('\n')
-    .filter((l) => l && !l.startsWith('#') && l.includes('='))
-    .map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim()])
-);
+const SA_PATH = resolve(__dirname, 'service-account.json');
+if (!existsSync(SA_PATH)) {
+  console.error(`
+❌  scripts/service-account.json không tìm thấy.
 
-const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: env.VITE_FIREBASE_APP_ID,
-  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID,
-};
+👉  Làm theo các bước sau:
+    1. Mở Firebase Console → Chọn project UniJob
+    2. Vào Project Settings → Service Accounts
+    3. Nhấn "Generate new private key" → Tải file JSON về
+    4. Đặt tên lại thành service-account.json
+    5. Đặt vào thư mục: unijob-web/scripts/
+    6. Chạy lại: npm run seed
+`);
+  process.exit(1);
+}
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app, 'kirigitejkf8095h');
+const serviceAccount = JSON.parse(readFileSync(SA_PATH, 'utf8'));
+initializeApp({ credential: cert(serviceAccount) });
+const db = getFirestore('kirigitejkf8095h');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const daysFromNow = (n) => Timestamp.fromDate(new Date(Date.now() + n * 86_400_000));
@@ -1755,6 +1747,845 @@ const JOBS = [
     tags: ['dịch thuật', 'localisation', 'mobile app', 'tiếng việt'],
     createdAt: daysAgo(25), updatedAt: daysAgo(10),
   },
+
+  // ══════════════ EXTRA 80 JOBS (v4) ══════════════
+
+  // ── OPEN: Tutoring (12) ──
+  {
+    title: 'Gia sư Đại số tuyến tính cho sinh viên năm 2',
+    description: 'Cần gia sư dạy kèm môn Đại số tuyến tính (MT1007) cho sinh viên năm 2 ngành Điện. 2 buổi/tuần, 1.5 tiếng/buổi. Tập trung phần không gian vectơ và ma trận.',
+    category: 'tutoring', faculty: 'Điện - Điện tử', isUrgent: false, isAnonymous: false,
+    payment: 130000, paymentType: 'hourly', duration: '3 giờ/tuần', deadline: daysFromNow(16),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-020', postedByName: 'Hoàng Thị Dung', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dung20',
+    assignedTo: [], applicants: [], tags: ['đại số tuyến tính', 'gia sư', 'MT1007', 'toán'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Dạy kèm lập trình Web HTML/CSS/JavaScript cơ bản',
+    description: 'Cần người dạy kèm làm web từ đầu: HTML cấu trúc, CSS layout (flexbox/grid), JavaScript DOM. Học qua 5 buổi online.',
+    category: 'tutoring', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: false,
+    payment: 150000, paymentType: 'hourly', duration: '7.5 giờ (5 buổi)', deadline: daysFromNow(14),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-016', postedByName: 'Trần Ngọc Ánh', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anh16',
+    assignedTo: [], applicants: [], tags: ['HTML', 'CSS', 'JavaScript', 'web', 'gia sư'],
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Gia sư môn Điện tử cơ bản cho nhóm 4 sinh viên',
+    description: 'Nhóm 4 SV Điện-Điện tử năm 2 cần gia sư dạy kèm Điện tử cơ bản (EE2010). Học cuối tuần tại BK, phòng C4. Ưu tiên anh/chị SV giỏi đã qua môn.',
+    category: 'tutoring', faculty: 'Điện - Điện tử', isUrgent: false, isAnonymous: false,
+    payment: 140000, paymentType: 'hourly', duration: '4 giờ/tuần', deadline: daysFromNow(12),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-002', postedByName: 'Trần Thị Bích', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=bich',
+    assignedTo: [], applicants: [], tags: ['điện tử', 'gia sư', 'EE2010', 'nhóm', 'offline'],
+    createdAt: daysAgo(1), updatedAt: daysAgo(1),
+  },
+  {
+    title: 'Dạy kèm luyện thi TOEIC 600+ (Reading & Listening)',
+    description: 'Cần tutor luyện thi TOEIC đạt 600+. Tập trung phần Reading và Listening. 3 buổi/tuần online hoặc offline tại BK.',
+    category: 'tutoring', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 170000, paymentType: 'hourly', duration: '4.5 giờ/tuần', deadline: daysFromNow(20),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-017', postedByName: 'Nguyễn Văn Bình', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=binh17',
+    assignedTo: [], applicants: [], tags: ['TOEIC', 'tiếng anh', 'luyện thi', 'gia sư'],
+    createdAt: daysAgo(4), updatedAt: daysAgo(4),
+  },
+  {
+    title: 'Gia sư môn Kỹ thuật điều khiển tự động',
+    description: 'Cần gia sư dạy kèm môn Điều khiển tự động (EE3012). Tập trung vẽ quỹ đạo nghiệm số, phân tích đặc tính tần số. 2 buổi/tuần offline.',
+    category: 'tutoring', faculty: 'Điện - Điện tử', isUrgent: false, isAnonymous: false,
+    payment: 145000, paymentType: 'hourly', duration: '3 giờ/tuần', deadline: daysFromNow(18),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-020', postedByName: 'Hoàng Thị Dung', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dung20',
+    assignedTo: [], applicants: [], tags: ['điều khiển', 'tự động hóa', 'EE3012', 'gia sư'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Dạy kèm môn Cơ học lưu chất (Thủy lực)',
+    description: 'Sinh viên Cơ khí năm 3 cần gia sư dạy kèm Thủy lực (ME2005). Phần bài tập tính toán đường ống và máy bơm. Học trực tiếp tại BK.',
+    category: 'tutoring', faculty: 'Cơ khí', isUrgent: false, isAnonymous: false,
+    payment: 130000, paymentType: 'hourly', duration: '3 giờ/tuần', deadline: daysFromNow(10),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-009', postedByName: 'Trần Quốc Bảo', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=bao',
+    assignedTo: [], applicants: [], tags: ['thủy lực', 'cơ học', 'ME2005', 'gia sư', 'cơ khí'],
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Gia sư lập trình MATLAB cho SV Điện-Điện tử',
+    description: 'Dạy kèm MATLAB cơ bản đến nâng cao: lập trình ma trận, vẽ đồ thị, Simulink. Ứng dụng trong xử lý tín hiệu số. Online Zoom.',
+    category: 'tutoring', faculty: 'Điện - Điện tử', isUrgent: false, isAnonymous: false,
+    payment: 160000, paymentType: 'hourly', duration: '3 giờ/tuần', deadline: daysFromNow(15),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-021', postedByName: 'Vũ Quốc Hùng', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=hung21',
+    assignedTo: [], applicants: [], tags: ['MATLAB', 'Simulink', 'lập trình', 'gia sư', 'DSP'],
+    createdAt: daysAgo(1), updatedAt: daysAgo(1),
+  },
+  {
+    title: 'Dạy kèm môn Kỹ thuật phần mềm (Software Engineering)',
+    description: 'Cần gia sư hướng dẫn các phần: yêu cầu phần mềm, kiến trúc hệ thống, thiết kế pattern và kiểm thử. Ưu tiên anh/chị năm 4 KHMT.',
+    category: 'tutoring', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 160000, paymentType: 'hourly', duration: '4 giờ/tuần', deadline: daysFromNow(13),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-023', postedByName: 'Trần Minh Quân', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=quan23',
+    assignedTo: [], applicants: [], tags: ['software engineering', 'design pattern', 'kiểm thử', 'gia sư'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Gia sư Kinh tế lượng (Econometrics) cho nhóm 2 người',
+    description: 'Nhóm 2 SV Quản lý năm 4 cần gia sư Kinh tế lượng. Sử dụng STATA hoặc R. Chủ đề: OLS, GLS, mô hình dữ liệu bảng.',
+    category: 'tutoring', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: false,
+    payment: 180000, paymentType: 'hourly', duration: '3 giờ/tuần', deadline: daysFromNow(11),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-025', postedByName: 'Lê Ngọc Trâm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=tram25',
+    assignedTo: [], applicants: [], tags: ['econometrics', 'STATA', 'kinh tế lượng', 'gia sư'],
+    createdAt: daysAgo(4), updatedAt: daysAgo(4),
+  },
+  {
+    title: 'Dạy kèm AutoCAD 2D cơ bản cho SV Xây dựng',
+    description: 'Cần người dạy vẽ AutoCAD 2D từ đầu: lệnh cơ bản, layer, hatch, dim, in bản vẽ. 5 buổi học, mỗi buổi 2 tiếng.',
+    category: 'tutoring', faculty: 'Xây dựng', isUrgent: false, isAnonymous: false,
+    payment: 120000, paymentType: 'hourly', duration: '10 giờ (5 buổi)', deadline: daysFromNow(17),
+    maxApplicants: 3, status: 'open',
+    postedBy: 'seed-user-009', postedByName: 'Trần Quốc Bảo', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=bao',
+    assignedTo: [], applicants: [], tags: ['AutoCAD', '2D', 'gia sư', 'xây dựng', 'vẽ kỹ thuật'],
+    createdAt: daysAgo(5), updatedAt: daysAgo(5),
+  },
+  {
+    title: 'Gia sư môn Kế toán tài chính cho SV Quản lý CN',
+    description: 'Cần gia sư dạy kèm Kế toán tài chính. Tập trung vào hạch toán các nghiệp vụ và lập báo cáo tài chính. Học online Zoom 2 buổi/tuần.',
+    category: 'tutoring', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: false,
+    payment: 125000, paymentType: 'hourly', duration: '3 giờ/tuần', deadline: daysFromNow(14),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-018', postedByName: 'Lê Thị Cẩm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=cam18',
+    assignedTo: [], applicants: [], tags: ['kế toán', 'tài chính', 'gia sư', 'quản lý'],
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Dạy kèm môn Nhập môn trí tuệ nhân tạo (AI cơ bản)',
+    description: 'Cần gia sư giải thích rõ các thuật toán tìm kiếm, CSP, Bayesian network và Machine Learning cơ bản. SV KHMT năm 3.',
+    category: 'tutoring', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 170000, paymentType: 'hourly', duration: '3 giờ/tuần', deadline: daysFromNow(9),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-001', postedByName: 'Nguyễn Văn An', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=an',
+    assignedTo: [], applicants: [], tags: ['AI', 'trí tuệ nhân tạo', 'machine learning', 'gia sư', 'KHMT'],
+    createdAt: daysAgo(1), updatedAt: daysAgo(1),
+  },
+
+  // ── OPEN: Teaching Assistant (4) ──
+  {
+    title: 'Trợ giảng môn Lập trình Python cơ bản (IT1010)',
+    description: 'Cần trợ giảng hỗ trợ thầy giảng dạy môn IT1010 cho ~60 SV. Nhiệm vụ: giải đáp thắc mắc bài lab, chấm bài tập tuần, giúp SV debug.',
+    category: 'teaching-assistant', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 120000, paymentType: 'hourly', duration: '6 giờ/tuần', deadline: daysFromNow(25),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-005', postedByName: 'Hoàng Minh Đức', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=duc',
+    assignedTo: [], applicants: [], tags: ['trợ giảng', 'python', 'IT1010', 'teaching assistant'],
+    createdAt: daysAgo(5), updatedAt: daysAgo(5),
+  },
+  {
+    title: 'Trợ giảng Thực hành AutoCAD cho lớp Xây dựng (30 SV)',
+    description: 'Cần trợ giảng hướng dẫn thực hành AutoCAD cho 30 SV Xây dựng năm 1. Buổi thực hành 3 tiếng mỗi tuần, 6 tuần liên tiếp.',
+    category: 'teaching-assistant', faculty: 'Xây dựng', isUrgent: false, isAnonymous: false,
+    payment: 110000, paymentType: 'hourly', duration: '3 giờ/tuần x 6 tuần', deadline: daysFromNow(42),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-021', postedByName: 'Vũ Quốc Hùng', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=hung21',
+    assignedTo: [], applicants: [], tags: ['trợ giảng', 'AutoCAD', 'xây dựng', 'thực hành'],
+    createdAt: daysAgo(7), updatedAt: daysAgo(7),
+  },
+  {
+    title: 'Hỗ trợ chấm bài tiểu luận môn Marketing (200 bài)',
+    description: 'Cần 2 SV hỗ trợ chấm sơ bộ 200 bài tiểu luận Marketing theo rubric cho sẵn. Có thể làm tại nhà, deadline 1 tuần.',
+    category: 'teaching-assistant', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: false,
+    payment: 3000, paymentType: 'hourly', duration: '20 giờ', deadline: daysFromNow(7),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-004', postedByName: 'Phạm Ngọc Diễm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=diem',
+    assignedTo: [], applicants: [], tags: ['chấm bài', 'marketing', 'teaching assistant', 'tiểu luận'],
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Trợ giảng môn Cơ sở dữ liệu (Database Systems)',
+    description: 'Tìm trợ giảng cho môn CO3021 Cơ sở dữ liệu. Hỗ trợ hướng dẫn thực hành SQL, chấm bài lab và hỗ trợ SV ngoài giờ qua Discord.',
+    category: 'teaching-assistant', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 130000, paymentType: 'hourly', duration: '4 giờ/tuần', deadline: daysFromNow(30),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-019', postedByName: 'Phạm Thanh Long', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=long19',
+    assignedTo: [], applicants: [], tags: ['SQL', 'database', 'CO3021', 'trợ giảng'],
+    createdAt: daysAgo(6), updatedAt: daysAgo(6),
+  },
+
+  // ── OPEN: Research (5) ──
+  {
+    title: 'Hỗ trợ nghiên cứu: xây dựng dataset annotation NLP',
+    description: 'Cần 3 SV hỗ trợ annotation ~2000 câu tiếng Việt cho bài toán phân tích cảm xúc (sentiment). Làm online, trả theo số câu annotated.',
+    category: 'research', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 1500, paymentType: 'hourly', duration: '15 giờ', deadline: daysFromNow(10),
+    maxApplicants: 3, status: 'open',
+    postedBy: 'seed-user-007', postedByName: 'Võ Thành Tùng', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=tung',
+    assignedTo: [], applicants: [], tags: ['NLP', 'annotation', 'dataset', 'AI', 'nghiên cứu'],
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Tổng quan tài liệu về vật liệu composite trong xây dựng',
+    description: 'Cần SV Xây dựng hoặc Vật liệu hỗ trợ viết phần tổng quan tài liệu (literature review) về vật liệu composite trong kết cấu xây dựng. ~20 trang.',
+    category: 'research', faculty: 'Xây dựng', isUrgent: false, isAnonymous: false,
+    payment: 500000, paymentType: 'fixed', duration: '5 ngày', deadline: daysFromNow(8),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-021', postedByName: 'Vũ Quốc Hùng', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=hung21',
+    assignedTo: [], applicants: [], tags: ['composite', 'xây dựng', 'literature review', 'vật liệu'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Hỗ trợ chạy mô phỏng COMSOL Multiphysics',
+    description: 'Cần SV có kinh nghiệm COMSOL hỗ trợ thiết lập và chạy mô phỏng truyền nhiệt trong pin lithium. Cần báo cáo kết quả chi tiết.',
+    category: 'research', faculty: 'Cơ khí', isUrgent: false, isAnonymous: false,
+    payment: 600000, paymentType: 'fixed', duration: '4 ngày', deadline: daysFromNow(7),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-024', postedByName: 'Đỗ Thanh Sơn', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=son24',
+    assignedTo: [], applicants: [], tags: ['COMSOL', 'mô phỏng', 'truyền nhiệt', 'nghiên cứu'],
+    createdAt: daysAgo(1), updatedAt: daysAgo(1),
+  },
+  {
+    title: 'Điều tra và phân tích thị trường app học tập tại Việt Nam',
+    description: 'Nghiên cứu 5 ứng dụng học tập phổ biến tại Việt Nam: phân tích tính năng, user review, mô hình kinh doanh. Output: báo cáo 15 trang + slide.',
+    category: 'research', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: false,
+    payment: 400000, paymentType: 'fixed', duration: '4 ngày', deadline: daysFromNow(9),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-016', postedByName: 'Trần Ngọc Ánh', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anh16',
+    assignedTo: [], applicants: [], tags: ['market research', 'app học tập', 'edtech', 'phân tích'],
+    createdAt: daysAgo(4), updatedAt: daysAgo(4),
+  },
+  {
+    title: 'Hỗ trợ phân tích ảnh kính hiển vi điện tử (SEM)',
+    description: 'Cần SV Vật liệu hoặc Hóa học hỗ trợ phân tích và đo đạc kích thước hạt từ ảnh SEM. ~100 ảnh, dùng phần mềm ImageJ.',
+    category: 'research', faculty: 'Khoa học Ứng dụng', isUrgent: false, isAnonymous: false,
+    payment: 350000, paymentType: 'fixed', duration: '3 ngày', deadline: daysFromNow(6),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-013', postedByName: 'Nguyễn Đức Huy', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=huy',
+    assignedTo: [], applicants: [], tags: ['SEM', 'ImageJ', 'vật liệu', 'phân tích ảnh', 'nghiên cứu'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+
+  // ── OPEN: Data Entry (5) ──
+  {
+    title: 'Nhập liệu danh sách thiết bị y tế vào Google Sheets',
+    description: 'Nhập ~400 thiết bị y tế từ file PDF (tên, mã, số seri, năm sản xuất, nhà cung cấp) vào Google Sheets. Cần cẩn thận và chính xác.',
+    category: 'data-entry', faculty: 'Khác', isUrgent: false, isAnonymous: true,
+    payment: 220000, paymentType: 'fixed', duration: '2 ngày', deadline: daysFromNow(4),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-014', postedByName: 'Bùi Ngọc Hân', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=han',
+    assignedTo: [], applicants: [], tags: ['nhập liệu', 'google sheets', 'y tế', 'thiết bị'],
+    createdAt: daysAgo(1), updatedAt: daysAgo(1),
+  },
+  {
+    title: 'Xử lý và làm sạch dữ liệu CSV bằng Python',
+    description: 'Có 3 file CSV dữ liệu khảo sát ~5000 dòng, nhiều giá trị thiếu và lỗi format. Cần làm sạch, chuẩn hóa và merge thành 1 file sạch.',
+    category: 'data-entry', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 300000, paymentType: 'fixed', duration: '2 ngày', deadline: daysFromNow(5),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-007', postedByName: 'Võ Thành Tùng', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=tung',
+    assignedTo: [], applicants: [], tags: ['python', 'data cleaning', 'csv', 'pandas'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Cập nhật và đồng bộ hóa danh bạ CLB (500 thành viên)',
+    description: 'Cập nhật thông tin liên lạc 500 thành viên CLB: email, SĐT, năm học. Dữ liệu cũ từ 2023, cần verify qua Facebook group và form mới.',
+    category: 'data-entry', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 250000, paymentType: 'fixed', duration: '3 ngày', deadline: daysFromNow(7),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-004', postedByName: 'Phạm Ngọc Diễm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=diem',
+    assignedTo: [], applicants: [], tags: ['nhập liệu', 'danh bạ', 'CLB', 'cập nhật'],
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Phân loại và tag 1000 ảnh sản phẩm thủ công',
+    description: 'Xem và phân loại 1000 ảnh sản phẩm handmade theo danh mục (trang sức, đồ gốm, túi vải...) và thêm tag mô tả. Làm online.',
+    category: 'data-entry', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 200000, paymentType: 'fixed', duration: '2 ngày', deadline: daysFromNow(4),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-022', postedByName: 'Nguyễn Bích Ngọc', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ngoc22',
+    assignedTo: [], applicants: [], tags: ['phân loại', 'tagging', 'ảnh sản phẩm', 'handmade'],
+    createdAt: daysAgo(1), updatedAt: daysAgo(1),
+  },
+  {
+    title: 'Nhập điểm thi và tổng hợp kết quả học kỳ cho BCS lớp',
+    description: 'Ban cán sự lớp cần người nhập điểm 8 môn của 50 SV vào template Excel, tính GPA, xếp loại và tạo biểu đồ phân phối điểm.',
+    category: 'data-entry', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 150000, paymentType: 'fixed', duration: '1 ngày', deadline: daysFromNow(3),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-011', postedByName: 'Phạm Minh Khoa', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=khoa',
+    assignedTo: [], applicants: [], tags: ['excel', 'điểm thi', 'GPA', 'BCS', 'tổng hợp'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+
+  // ── OPEN: Design (6) ──
+  {
+    title: 'Thiết kế áo thun sự kiện Tech Festival BK 2026',
+    description: 'Cần thiết kế mẫu áo thun sự kiện Tech Festival BK. 2 mẫu màu sắc khác nhau, in lụa. Cung cấp brief và logo BK. Bàn giao file AI và mock-up.',
+    category: 'design', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 400000, paymentType: 'fixed', duration: '3 ngày', deadline: daysFromNow(8),
+    maxApplicants: 3, status: 'open',
+    postedBy: 'seed-user-004', postedByName: 'Phạm Ngọc Diễm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=diem',
+    assignedTo: [], applicants: [], tags: ['áo thun', 'thiết kế', 'sự kiện', 'merch', 'AI file'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Vẽ icon set (30 icon) cho ứng dụng quản lý học tập',
+    description: 'Cần bộ 30 icon tùy chỉnh theo phong cách flat design cho app mobile quản lý học tập. Icon SVG, 2 màu sắc (outline và filled).',
+    category: 'design', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 450000, paymentType: 'fixed', duration: '4 ngày', deadline: daysFromNow(9),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-015', postedByName: 'Lý Thanh Đạt', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dat',
+    assignedTo: [], applicants: [], tags: ['icon', 'SVG', 'flat design', 'mobile', 'thiết kế'],
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Thiết kế newsletter email template cho CLB Startup',
+    description: 'Thiết kế 1 template email newsletter đẹp cho CLB Khởi nghiệp BK. File HTML responsive, tương thích Mailchimp. Có brief và brand guideline.',
+    category: 'design', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: false,
+    payment: 300000, paymentType: 'fixed', duration: '2 ngày', deadline: daysFromNow(5),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-019', postedByName: 'Phạm Thanh Long', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=long19',
+    assignedTo: [], applicants: [], tags: ['email', 'newsletter', 'HTML', 'mailchimp', 'thiết kế'],
+    createdAt: daysAgo(1), updatedAt: daysAgo(1),
+  },
+  {
+    title: 'Làm motion graphics intro video 5 giây cho YouTube channel',
+    description: 'Cần làm intro animation 5 giây cho YouTube channel kỹ thuật. Phong cách: sạch sẽ, chuyên nghiệp, có logo animate. Bàn giao file MP4 + After Effects.',
+    category: 'design', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 500000, paymentType: 'fixed', duration: '4 ngày', deadline: daysFromNow(10),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-010', postedByName: 'Lê Hoàng Phúc', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=phuc',
+    assignedTo: [], applicants: [], tags: ['motion graphics', 'after effects', 'youtube', 'animation', 'intro'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Thiết kế bản đồ hướng dẫn tham quan khuôn viên BK',
+    description: 'Cần thiết kế bản đồ minh họa dẫn đường trong khuôn viên BK (cơ sở 2). Style: flat illustration, có icon điểm nổi bật. Bàn giao PNG + AI.',
+    category: 'design', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 600000, paymentType: 'fixed', duration: '5 ngày', deadline: daysFromNow(12),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-004', postedByName: 'Phạm Ngọc Diễm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=diem',
+    assignedTo: [], applicants: [], tags: ['bản đồ', 'illustration', 'flat design', 'BK', 'campus'],
+    createdAt: daysAgo(4), updatedAt: daysAgo(4),
+  },
+  {
+    title: 'Thiết kế card tên (name tag) và thẻ tham dự hội nghị',
+    description: 'Cần thiết kế thẻ tên cho 200 đại biểu hội nghị sinh viên nghiên cứu khoa học HCMUT 2026. Kích thước A6, in 2 mặt.',
+    category: 'design', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 250000, paymentType: 'fixed', duration: '2 ngày', deadline: daysFromNow(6),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-022', postedByName: 'Nguyễn Bích Ngọc', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ngoc22',
+    assignedTo: [], applicants: [], tags: ['name tag', 'card', 'hội nghị', 'thiết kế', 'in ấn'],
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  },
+
+  // ── OPEN: Translation (4) ──
+  {
+    title: 'Dịch tóm tắt 10 bài báo khoa học Anh-Việt',
+    description: 'Dịch phần abstract và conclusions của 10 bài báo khoa học ISI về lĩnh vực điều khiển và tự động hóa. Mỗi bài khoảng 400 từ.',
+    category: 'translation', faculty: 'Điện - Điện tử', isUrgent: false, isAnonymous: false,
+    payment: 300000, paymentType: 'fixed', duration: '2 ngày', deadline: daysFromNow(5),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-020', postedByName: 'Hoàng Thị Dung', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dung20',
+    assignedTo: [], applicants: [], tags: ['dịch thuật', 'khoa học', 'tiếng anh', 'abstract'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Dịch tài liệu hướng dẫn sử dụng thiết bị Hóa học (tiếng Đức-Việt)',
+    description: 'Dịch 12 trang hướng dẫn vận hành máy phân tích quang phổ từ tiếng Đức sang tiếng Việt. Yêu cầu DELF B2+ và am hiểu thuật ngữ.',
+    category: 'translation', faculty: 'Kỹ thuật Hóa học', isUrgent: false, isAnonymous: false,
+    payment: 700000, paymentType: 'fixed', duration: '5 ngày', deadline: daysFromNow(9),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-008', postedByName: 'Nguyễn Thị Mai', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mai',
+    assignedTo: [], applicants: [], tags: ['dịch thuật', 'tiếng đức', 'hóa học', 'DELF'],
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Biên dịch nội dung website sang tiếng Anh (15 trang)',
+    description: 'Dịch 15 trang web tiếng Việt của phòng lab nghiên cứu sang tiếng Anh học thuật chuẩn. Bao gồm bio nghiên cứu viên, mô tả dự án.',
+    category: 'translation', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 400000, paymentType: 'fixed', duration: '3 ngày', deadline: daysFromNow(7),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-023', postedByName: 'Trần Minh Quân', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=quan23',
+    assignedTo: [], applicants: [], tags: ['dịch thuật', 'tiếng anh', 'website', 'học thuật'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Dịch hợp đồng hợp tác Việt-Hàn (10 trang)',
+    description: 'Cần dịch hợp đồng hợp tác học thuật song ngữ Việt-Hàn, 10 trang. Yêu cầu TOPIK 5+ và am hiểu pháp lý cơ bản. Bảo mật thông tin.',
+    category: 'translation', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: true,
+    payment: 800000, paymentType: 'fixed', duration: '4 ngày', deadline: daysFromNow(8),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-012', postedByName: 'Đỗ Thùy Linh', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=linh',
+    assignedTo: [], applicants: [], tags: ['dịch thuật', 'tiếng hàn', 'hợp đồng', 'TOPIK', 'ẩn danh'],
+    createdAt: daysAgo(1), updatedAt: daysAgo(1),
+  },
+
+  // ── OPEN: Event & Office (5) ──
+  {
+    title: 'Tình nguyện viên check-in Hội thảo Khởi nghiệp BK 2026',
+    description: 'Cần 4 TVV check-in và hỗ trợ đăng ký cho Hội thảo Khởi nghiệp BK (dự kiến 300 người tham dự). Ngày 25/4/2026 tại hội trường B.',
+    category: 'event', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 0, paymentType: 'volunteer', duration: '1 ngày (8h–17h)', deadline: daysFromNow(16),
+    maxApplicants: 4, status: 'open',
+    postedBy: 'seed-user-016', postedByName: 'Trần Ngọc Ánh', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anh16',
+    assignedTo: [], applicants: [], tags: ['tình nguyện', 'hội thảo', 'khởi nghiệp', 'check-in'],
+    createdAt: daysAgo(5), updatedAt: daysAgo(5),
+  },
+  {
+    title: 'MC sự kiện Giao lưu Sinh viên Quốc tế BK',
+    description: 'Cần 1 MC tự tin, năng động dẫn chương trình Giao lưu Sinh viên Quốc tế. Song ngữ Việt-Anh. Thời lượng 3 tiếng, tối 15/4/2026.',
+    category: 'event', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 500000, paymentType: 'fixed', duration: '3 giờ', deadline: daysFromNow(6),
+    maxApplicants: 2, status: 'open',
+    postedBy: 'seed-user-004', postedByName: 'Phạm Ngọc Diễm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=diem',
+    assignedTo: [], applicants: [], tags: ['MC', 'sự kiện', 'giao lưu', 'song ngữ', 'dẫn chương trình'],
+    createdAt: daysAgo(4), updatedAt: daysAgo(4),
+  },
+  {
+    title: 'Hỗ trợ tổ chức Ngày hội Việc làm BK (Job Fair)',
+    description: 'Cần 8 TVV hỗ trợ setup gian hàng, hướng dẫn sinh viên và doanh nghiệp tại Job Fair BK 2026. 2 ngày 18-19/4. Có phụ cấp ăn và áo đồng phục.',
+    category: 'event', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 200000, paymentType: 'fixed', duration: '2 ngày (16 giờ)', deadline: daysFromNow(9),
+    maxApplicants: 8, status: 'open',
+    postedBy: 'seed-user-004', postedByName: 'Phạm Ngọc Diễm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=diem',
+    assignedTo: [], applicants: [], tags: ['job fair', 'sự kiện', 'tình nguyện viên', 'việc làm'],
+    createdAt: daysAgo(6), updatedAt: daysAgo(6),
+  },
+  {
+    title: 'Hỗ trợ văn phòng Phòng Đào tạo (part-time buổi chiều)',
+    description: 'Cần 1 SV hỗ trợ VP Phòng Đào tạo buổi chiều (13h30–17h) từ T2–T6. Nhiệm vụ: photocopy tài liệu, phân loại hồ sơ, hỗ trợ tiếp nhận đơn.',
+    category: 'office', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 75000, paymentType: 'hourly', duration: '17.5 giờ/tuần', deadline: daysFromNow(30),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-013', postedByName: 'Nguyễn Đức Huy', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=huy',
+    assignedTo: [], applicants: [], tags: ['văn phòng', 'part-time', 'hành chính', 'phòng đào tạo'],
+    createdAt: daysAgo(7), updatedAt: daysAgo(7),
+  },
+  {
+    title: 'Soạn thảo biên bản họp và báo cáo định kỳ cho CLB',
+    description: 'Cần 1 SV làm thư ký cho CLB Kỹ thuật: soạn biên bản họp, cập nhật kế hoạch, gửi thông báo qua email hàng tuần. Họp online qua Zoom.',
+    category: 'office', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 100000, paymentType: 'hourly', duration: '3 giờ/tuần', deadline: daysFromNow(28),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-003', postedByName: 'Lê Quốc Cường', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=cuong',
+    assignedTo: [], applicants: [], tags: ['biên bản', 'thư ký', 'CLB', 'họp', 'hành chính'],
+    createdAt: daysAgo(4), updatedAt: daysAgo(4),
+  },
+
+  // ── OPEN: Volunteer (3) ──
+  {
+    title: 'Tình nguyện dạy kỹ năng sống cho trẻ em mồ côi',
+    description: 'CLB Từ thiện BK cần 5 TNV dạy kỹ năng sống (vệ sinh cá nhân, kỹ năng học tập) cho 30 trẻ em tại Mái ấm Thủ Đức. Thứ 7 hàng tuần, 8h-12h.',
+    category: 'volunteer', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 0, paymentType: 'volunteer', duration: '4 giờ/tuần', deadline: daysFromNow(14),
+    maxApplicants: 5, status: 'open',
+    postedBy: 'seed-user-014', postedByName: 'Bùi Ngọc Hân', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=han',
+    assignedTo: [], applicants: [], tags: ['tình nguyện', 'trẻ em', 'kỹ năng sống', 'từ thiện'],
+    createdAt: daysAgo(5), updatedAt: daysAgo(5),
+  },
+  {
+    title: 'Tình nguyện hướng dẫn sử dụng máy tính cho người cao tuổi',
+    description: 'Cần 4 TNV dạy người cao tuổi tại phường 12, Q. Bình Thạnh cách dùng điện thoại và máy tính cơ bản. CN hàng tuần buổi sáng.',
+    category: 'volunteer', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 0, paymentType: 'volunteer', duration: '3 giờ/tuần', deadline: daysFromNow(21),
+    maxApplicants: 4, status: 'open',
+    postedBy: 'seed-user-022', postedByName: 'Nguyễn Bích Ngọc', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ngoc22',
+    assignedTo: [], applicants: [], tags: ['tình nguyện', 'IT', 'người cao tuổi', 'cộng đồng'],
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Tình nguyện thu gom và phân loại rác tái chế tại BK',
+    description: 'Chiến dịch Xanh BK cần 15 TNV phân loại và thu gom rác tái chế tại các điểm trong khuôn viên BK. 2 buổi liên tiếp vào 20-21/4.',
+    category: 'volunteer', faculty: 'Môi trường & Tài nguyên', isUrgent: false, isAnonymous: false,
+    payment: 0, paymentType: 'volunteer', duration: '2 ngày (8 giờ)', deadline: daysFromNow(11),
+    maxApplicants: 15, status: 'open',
+    postedBy: 'seed-user-014', postedByName: 'Bùi Ngọc Hân', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=han',
+    assignedTo: [], applicants: [], tags: ['tình nguyện', 'môi trường', 'tái chế', 'xanh BK'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+
+  // ── OPEN: Other/Tech (5) ──
+  {
+    title: 'Phát triển chatbot Telegram thông báo lịch học tự động',
+    description: 'Cần SV lập trình bot Telegram đọc dữ liệu từ Google Sheets (lịch học/thi) và gửi thông báo tự động cho nhóm lớp. Dùng Python + Telegram Bot API.',
+    category: 'other', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 400000, paymentType: 'fixed', duration: '3 ngày', deadline: daysFromNow(7),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-001', postedByName: 'Nguyễn Văn An', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=an',
+    assignedTo: [], applicants: [], tags: ['telegram bot', 'python', 'automation', 'lịch học'],
+    createdAt: daysAgo(1), updatedAt: daysAgo(1),
+  },
+  {
+    title: 'Viết tài liệu hướng dẫn sử dụng hệ thống quản lý lab',
+    description: 'Cần viết user manual cho hệ thống quản lý phòng lab (đặt lịch, mượn thiết bị). ~25 trang, có ảnh minh họa từng bước. Bàn giao file Word + PDF.',
+    category: 'other', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 350000, paymentType: 'fixed', duration: '3 ngày', deadline: daysFromNow(6),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-019', postedByName: 'Phạm Thanh Long', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=long19',
+    assignedTo: [], applicants: [], tags: ['technical writing', 'user manual', 'tài liệu', 'phòng lab'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Tối ưu hiệu năng website (PageSpeed Score 90+)',
+    description: 'Website React hiện tại PageSpeed 55. Cần tối ưu: lazy loading, image compression, code splitting, caching. Target 90+ mobile và desktop.',
+    category: 'other', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 600000, paymentType: 'fixed', duration: '4 ngày', deadline: daysFromNow(8),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-015', postedByName: 'Lý Thanh Đạt', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dat',
+    assignedTo: [], applicants: [], tags: ['performance', 'PageSpeed', 'React', 'optimization', 'web'],
+    createdAt: daysAgo(3), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Kiểm thử bảo mật (penetration testing) cho web app sinh viên',
+    description: 'Cần SV an toàn thông tin thực hiện pentest cơ bản cho web app quản lý CLB: OWASP Top 10, XSS, SQL injection, authentication bypass.',
+    category: 'other', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 800000, paymentType: 'fixed', duration: '5 ngày', deadline: daysFromNow(10),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-011', postedByName: 'Phạm Minh Khoa', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=khoa',
+    assignedTo: [], applicants: [], tags: ['pentest', 'security', 'OWASP', 'cybersecurity', 'web'],
+    createdAt: daysAgo(2), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Cài đặt và cấu hình CI/CD pipeline với GitHub Actions',
+    description: 'Cần SV DevOps setup CI/CD cho project NodeJS trên GitHub: auto test, build Docker image, deploy lên VPS. Có sẵn server Ubuntu 22.04.',
+    category: 'other', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 500000, paymentType: 'fixed', duration: '3 ngày', deadline: daysFromNow(7),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-001', postedByName: 'Nguyễn Văn An', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=an',
+    assignedTo: [], applicants: [], tags: ['CI/CD', 'GitHub Actions', 'Docker', 'DevOps', 'deploy'],
+    createdAt: daysAgo(1), updatedAt: daysAgo(1),
+  },
+
+  // ── URGENT OPEN (8) ──
+  {
+    title: 'Gấp: Debug lỗi crash app React Native trước demo 9h sáng',
+    description: 'App React Native crash khi navigate sang màn hình Profile trên Android. Lỗi "undefined is not an object". Cần sửa gấp trước 9h sáng mai. Repo có sẵn.',
+    category: 'other', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: true, isAnonymous: false,
+    payment: 350000, paymentType: 'fixed', duration: '2-3 giờ', deadline: hoursFromNow(8),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-015', postedByName: 'Lý Thanh Đạt', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dat',
+    assignedTo: [], applicants: [], tags: ['React Native', 'bug fix', 'Android', 'khẩn cấp', 'mobile'],
+    createdAt: daysAgo(0), updatedAt: daysAgo(0),
+  },
+  {
+    title: 'Cần gấp: Gia sư giải bài MATLAB Simulink trước nộp 18h',
+    description: 'Bài tập Simulink: mô phỏng hệ điều khiển PID cho động cơ DC. Cần giải thích và hướng dẫn hoàn thiện mô hình. Deadline nộp 18h hôm nay.',
+    category: 'tutoring', faculty: 'Điện - Điện tử', isUrgent: true, isAnonymous: false,
+    payment: 200000, paymentType: 'fixed', duration: '2 giờ', deadline: hoursFromNow(5),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-002', postedByName: 'Trần Thị Bích', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=bich',
+    assignedTo: [], applicants: [], tags: ['MATLAB', 'Simulink', 'PID', 'khẩn cấp', 'bài tập'],
+    createdAt: daysAgo(0), updatedAt: daysAgo(0),
+  },
+  {
+    title: 'Khẩn: Thiết kế banner digital sự kiện chiều nay (6 tiếng)',
+    description: 'Cần 1 banner kỹ thuật số 1920x1080px cho sự kiện trao giải nghiên cứu khoa học chiều nay. Có logo và thông tin sự kiện. Bàn giao file PNG trước 15h.',
+    category: 'design', faculty: 'Khác', isUrgent: true, isAnonymous: false,
+    payment: 200000, paymentType: 'fixed', duration: '2 giờ', deadline: hoursFromNow(6),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-022', postedByName: 'Nguyễn Bích Ngọc', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ngoc22',
+    assignedTo: [], applicants: [], tags: ['banner', 'thiết kế', 'sự kiện', 'khẩn cấp', 'digital'],
+    createdAt: daysAgo(0), updatedAt: daysAgo(0),
+  },
+  {
+    title: 'Cần ngay: Người lấy tài liệu từ thư viện trung tâm',
+    description: 'Cần người chạy ra thư viện trung tâm BK (cơ sở 1, Q.10) lấy 2 quyển sách đặt chờ và đem về cơ sở 2 trước 14h. Có thể đi xe bus 19.',
+    category: 'other', faculty: 'Khác', isUrgent: true, isAnonymous: false,
+    payment: 80000, paymentType: 'fixed', duration: '2 giờ', deadline: hoursFromNow(3),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-024', postedByName: 'Đỗ Thanh Sơn', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=son24',
+    assignedTo: [], applicants: [], tags: ['chạy việc', 'thư viện', 'khẩn cấp', 'giao nhận'],
+    createdAt: daysAgo(0), updatedAt: daysAgo(0),
+  },
+  {
+    title: 'Gấp: Dịch 5 trang CV tiếng Việt sang tiếng Anh ngay hôm nay',
+    description: 'Cần dịch CV + cover letter (tổng 5 trang) sang tiếng Anh chuẩn để nộp internship trước 23h59 hôm nay. Trả thêm 50% nếu xong trước 20h.',
+    category: 'translation', faculty: 'Khác', isUrgent: true, isAnonymous: false,
+    payment: 250000, paymentType: 'fixed', duration: '2-3 giờ', deadline: hoursFromNow(9),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-017', postedByName: 'Nguyễn Văn Bình', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=binh17',
+    assignedTo: [], applicants: [], tags: ['dịch thuật', 'CV', 'tiếng anh', 'khẩn cấp', 'intern'],
+    createdAt: daysAgo(0), updatedAt: daysAgo(0),
+  },
+  {
+    title: 'Cần gấp: Viết script và chạy test unit cho 5 function Python',
+    description: 'Cần viết unit test (pytest) cho 5 function xử lý dữ liệu Python. Cần đạt coverage 90%. Có file code sẵn trên GitHub. Xong trước 16h.',
+    category: 'other', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: true, isAnonymous: false,
+    payment: 200000, paymentType: 'fixed', duration: '3 giờ', deadline: hoursFromNow(5),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-019', postedByName: 'Phạm Thanh Long', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=long19',
+    assignedTo: [], applicants: [], tags: ['pytest', 'unit test', 'python', 'testing', 'khẩn cấp'],
+    createdAt: daysAgo(0), updatedAt: daysAgo(0),
+  },
+  {
+    title: 'Khẩn: Cần người chụp nhanh 20 ảnh sản phẩm trong 2 tiếng',
+    description: 'Cần photographer đến phòng C407 chụp nhanh 20 mẫu sản phẩm (phông nền trắng có sẵn). Giao ảnh đã chỉnh màu cơ bản qua Google Drive trong 2 tiếng.',
+    category: 'other', faculty: 'Khác', isUrgent: true, isAnonymous: false,
+    payment: 300000, paymentType: 'fixed', duration: '2 giờ', deadline: hoursFromNow(3),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-025', postedByName: 'Lê Ngọc Trâm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=tram25',
+    assignedTo: [], applicants: [], tags: ['chụp ảnh', 'sản phẩm', 'khẩn cấp', 'photography'],
+    createdAt: daysAgo(0), updatedAt: daysAgo(0),
+  },
+  {
+    title: 'Cần gấp: Sửa lỗi CSS layout mobile cho website đồ án nhóm',
+    description: 'Website đồ án nhóm bị vỡ layout trên màn hình mobile 375px (iPhone SE). Bảo vệ đồ án lúc 14h chiều nay. Cần sửa ngay bây giờ, Tailwind CSS.',
+    category: 'other', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: true, isAnonymous: false,
+    payment: 150000, paymentType: 'fixed', duration: '1-2 giờ', deadline: hoursFromNow(4),
+    maxApplicants: 1, status: 'open',
+    postedBy: 'seed-user-023', postedByName: 'Trần Minh Quân', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=quan23',
+    assignedTo: [], applicants: [], tags: ['CSS', 'Tailwind', 'responsive', 'mobile', 'khẩn cấp'],
+    createdAt: daysAgo(0), updatedAt: daysAgo(0),
+  },
+
+  // ── IN-PROGRESS (10) ──
+  {
+    title: 'Xây dựng hệ thống API quản lý thư viện sách CLB',
+    description: 'Xây dựng REST API với FastAPI (Python) quản lý sách, thành viên mượn/trả. Có ERD sẵn. Triển khai lên Railway.',
+    category: 'other', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 1000000, paymentType: 'fixed', duration: '1 tuần', deadline: daysFromNow(4),
+    maxApplicants: 1, status: 'in-progress',
+    postedBy: 'seed-user-011', postedByName: 'Phạm Minh Khoa', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=khoa',
+    assignedTo: ['seed-user-019'], applicants: ['seed-user-019', 'seed-user-001'],
+    tags: ['FastAPI', 'python', 'REST API', 'thư viện', 'Railway'],
+    createdAt: daysAgo(8), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Gia sư Đại số tuyến tính cho 3 sinh viên Cơ khí',
+    description: 'Dạy kèm Đại số tuyến tính cho nhóm 3 SV Cơ khí năm 1. Buổi học 2 tiếng offline tại BK 3 buổi/tuần.',
+    category: 'tutoring', faculty: 'Cơ khí', isUrgent: false, isAnonymous: false,
+    payment: 150000, paymentType: 'hourly', duration: '6 giờ/tuần', deadline: daysFromNow(21),
+    maxApplicants: 2, status: 'in-progress',
+    postedBy: 'seed-user-003', postedByName: 'Lê Quốc Cường', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=cuong',
+    assignedTo: ['seed-user-018'], applicants: ['seed-user-018', 'seed-user-013'],
+    tags: ['đại số', 'gia sư', 'cơ khí', 'nhóm', 'MT1007'],
+    createdAt: daysAgo(9), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Tạo bộ flashcard Quizlet cho môn Hóa đại cương',
+    description: 'Tạo 300 flashcard Quizlet (câu hỏi + đáp án) cho Hóa đại cương học kỳ này từ slide và sách giáo trình.',
+    category: 'data-entry', faculty: 'Kỹ thuật Hóa học', isUrgent: false, isAnonymous: false,
+    payment: 250000, paymentType: 'fixed', duration: '3 ngày', deadline: daysFromNow(2),
+    maxApplicants: 1, status: 'in-progress',
+    postedBy: 'seed-user-008', postedByName: 'Nguyễn Thị Mai', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mai',
+    assignedTo: ['seed-user-018'], applicants: ['seed-user-018'],
+    tags: ['quizlet', 'flashcard', 'hóa học', 'ôn tập', 'nhập liệu'],
+    createdAt: daysAgo(6), updatedAt: daysAgo(1),
+  },
+  {
+    title: 'Biên tập và thiết kế nội dung ấn phẩm nội san CLB',
+    description: 'Biên tập nội dung và thiết kế nội san số 3 của CLB Kỹ thuật (20 trang). Layout bằng Adobe InDesign hoặc Canva Pro.',
+    category: 'design', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 700000, paymentType: 'fixed', duration: '5 ngày', deadline: daysFromNow(3),
+    maxApplicants: 1, status: 'in-progress',
+    postedBy: 'seed-user-004', postedByName: 'Phạm Ngọc Diễm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=diem',
+    assignedTo: ['seed-user-006'], applicants: ['seed-user-006', 'seed-user-010'],
+    tags: ['InDesign', 'nội san', 'thiết kế', 'biên tập', 'CLB'],
+    createdAt: daysAgo(9), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Dịch và hiệu đính bài báo khoa học Việt-Anh (10 trang)',
+    description: 'Dịch bài báo khoa học từ tiếng Việt sang tiếng Anh và hiệu đính ngôn ngữ trước khi submit lên tạp chí ISI.',
+    category: 'translation', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 1200000, paymentType: 'fixed', duration: '5 ngày', deadline: daysFromNow(4),
+    maxApplicants: 1, status: 'in-progress',
+    postedBy: 'seed-user-007', postedByName: 'Võ Thành Tùng', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=tung',
+    assignedTo: ['seed-user-008'], applicants: ['seed-user-008'],
+    tags: ['dịch thuật', 'hiệu đính', 'ISI', 'khoa học', 'tiếng anh'],
+    createdAt: daysAgo(7), updatedAt: daysAgo(1),
+  },
+  {
+    title: 'Trợ giảng và soạn đề cương bài giảng Cơ lý thuyết',
+    description: 'Hỗ trợ thầy soạn đề cương chi tiết 15 tuần và 6 bài tập thực hành cho môn Cơ lý thuyết. Có kiến thức vững về cơ học.',
+    category: 'teaching-assistant', faculty: 'Cơ khí', isUrgent: false, isAnonymous: false,
+    payment: 600000, paymentType: 'fixed', duration: '10 ngày', deadline: daysFromNow(5),
+    maxApplicants: 1, status: 'in-progress',
+    postedBy: 'seed-user-024', postedByName: 'Đỗ Thanh Sơn', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=son24',
+    assignedTo: ['seed-user-003'], applicants: ['seed-user-003'],
+    tags: ['cơ lý thuyết', 'trợ giảng', 'đề cương', 'cơ khí'],
+    createdAt: daysAgo(10), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Xây dựng mô hình ML dự đoán điểm thi cho SV',
+    description: 'Dùng scikit-learn xây dựng mô hình dự đoán điểm thi cuối kỳ dựa trên điểm giữa kỳ, số buổi vắng, bài tập. Dataset 500 SV từ 3 khóa.',
+    category: 'research', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 700000, paymentType: 'fixed', duration: '6 ngày', deadline: daysFromNow(3),
+    maxApplicants: 1, status: 'in-progress',
+    postedBy: 'seed-user-005', postedByName: 'Hoàng Minh Đức', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=duc',
+    assignedTo: ['seed-user-007'], applicants: ['seed-user-007', 'seed-user-023'],
+    tags: ['machine learning', 'scikit-learn', 'python', 'dự đoán', 'nghiên cứu'],
+    createdAt: daysAgo(10), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Hỗ trợ tổ chức và điều phối Hội thảo Ngành học (200 người)',
+    description: 'Hỗ trợ chạy hậu trường Hội thảo Ngành: sắp xếp phòng, đón tiếp diễn giả, điều phối time schedule. Diễn ra 12/4/2026.',
+    category: 'event', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: false,
+    payment: 300000, paymentType: 'fixed', duration: '1 ngày', deadline: daysFromNow(3),
+    maxApplicants: 3, status: 'in-progress',
+    postedBy: 'seed-user-016', postedByName: 'Trần Ngọc Ánh', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anh16',
+    assignedTo: ['seed-user-014', 'seed-user-022'], applicants: ['seed-user-014', 'seed-user-022', 'seed-user-004'],
+    tags: ['sự kiện', 'hội thảo', 'điều phối', 'quản lý'],
+    createdAt: daysAgo(7), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Phân tích và tối ưu quy trình xuất kho cho đề tài logistics',
+    description: 'Phân tích quy trình xuất kho thực tế tại kho mô phỏng BK, vẽ BPMN, tìm bottleneck và đề xuất giải pháp. Báo cáo 10 trang + slide.',
+    category: 'research', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: false,
+    payment: 500000, paymentType: 'fixed', duration: '7 ngày', deadline: daysFromNow(4),
+    maxApplicants: 1, status: 'in-progress',
+    postedBy: 'seed-user-025', postedByName: 'Lê Ngọc Trâm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=tram25',
+    assignedTo: ['seed-user-012'], applicants: ['seed-user-012'],
+    tags: ['logistics', 'BPMN', 'quy trình', 'xuất kho', 'tối ưu'],
+    createdAt: daysAgo(8), updatedAt: daysAgo(2),
+  },
+  {
+    title: 'Quay và dựng video recap sự kiện Kỹ thuật số BK',
+    description: 'Quay và dựng video recap 3 phút cho sự kiện Kỹ thuật số BK. Bao gồm B-roll, phỏng vấn nhanh, highlight. Nhạc nền được cấp phép.',
+    category: 'other', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 700000, paymentType: 'fixed', duration: '4 ngày', deadline: daysFromNow(2),
+    maxApplicants: 1, status: 'in-progress',
+    postedBy: 'seed-user-011', postedByName: 'Phạm Minh Khoa', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=khoa',
+    assignedTo: ['seed-user-010'], applicants: ['seed-user-010'],
+    tags: ['video', 'dựng phim', 'recap', 'sự kiện', 'premiere'],
+    createdAt: daysAgo(6), updatedAt: daysAgo(1),
+  },
+
+  // ── COMPLETED (12) ──
+  {
+    title: 'Xây dựng landing page sản phẩm bằng Next.js',
+    description: 'Landing page responsive cho sản phẩm IoT smart home. 5 section, animation scroll, form liên hệ. Có Figma design sẵn.',
+    category: 'other', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 1000000, paymentType: 'fixed', duration: '5 ngày', deadline: daysAgo(4),
+    maxApplicants: 1, status: 'completed',
+    postedBy: 'seed-user-007', postedByName: 'Võ Thành Tùng', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=tung',
+    assignedTo: ['seed-user-015'], applicants: ['seed-user-015'],
+    tags: ['Next.js', 'landing page', 'responsive', 'frontend', 'animation'],
+    createdAt: daysAgo(22), updatedAt: daysAgo(4),
+  },
+  {
+    title: 'Gia sư Phương trình vi phân — 6 buổi',
+    description: 'Dạy kèm Phương trình vi phân (MT2001) cho SV Cơ khí năm 3. Tập trung phần phương trình vi phân tuyến tính và ứng dụng.',
+    category: 'tutoring', faculty: 'Cơ khí', isUrgent: false, isAnonymous: false,
+    payment: 700000, paymentType: 'fixed', duration: '9 giờ (6 buổi)', deadline: daysAgo(6),
+    maxApplicants: 1, status: 'completed',
+    postedBy: 'seed-user-003', postedByName: 'Lê Quốc Cường', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=cuong',
+    assignedTo: ['seed-user-024'], applicants: ['seed-user-024'],
+    tags: ['phương trình vi phân', 'gia sư', 'MT2001', 'cơ khí'],
+    createdAt: daysAgo(25), updatedAt: daysAgo(6),
+  },
+  {
+    title: 'Thiết kế bộ slide pitch deck cho startup EdTech',
+    description: 'Thiết kế 15 slide pitch deck chuyên nghiệp cho startup EdTech. Bao gồm: problem, solution, market, traction, team. Template đơn giản và sạch.',
+    category: 'design', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: false,
+    payment: 600000, paymentType: 'fixed', duration: '4 ngày', deadline: daysAgo(5),
+    maxApplicants: 1, status: 'completed',
+    postedBy: 'seed-user-016', postedByName: 'Trần Ngọc Ánh', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=anh16',
+    assignedTo: ['seed-user-006'], applicants: ['seed-user-006'],
+    tags: ['pitch deck', 'thiết kế', 'startup', 'powerpoint', 'edtech'],
+    createdAt: daysAgo(20), updatedAt: daysAgo(5),
+  },
+  {
+    title: 'Viết báo cáo tổng kết hoạt động CLB học kỳ 2',
+    description: 'Tổng hợp và viết báo cáo tổng kết hoạt động học kỳ 2 cho CLB Khởi nghiệp. ~15 trang bao gồm số liệu, hình ảnh, kế hoạch kỳ tới.',
+    category: 'office', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 300000, paymentType: 'fixed', duration: '3 ngày', deadline: daysAgo(3),
+    maxApplicants: 1, status: 'completed',
+    postedBy: 'seed-user-019', postedByName: 'Phạm Thanh Long', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=long19',
+    assignedTo: ['seed-user-025'], applicants: ['seed-user-025'],
+    tags: ['báo cáo', 'CLB', 'tổng kết', 'viết lách', 'hành chính'],
+    createdAt: daysAgo(18), updatedAt: daysAgo(3),
+  },
+  {
+    title: 'Thu thập và phân tích review sản phẩm từ Shopee (500 review)',
+    description: 'Thu thập 500 review sản phẩm điện tử từ Shopee bằng scraper, phân tích sentiment và từ khóa phổ biến. Báo cáo dạng Jupyter Notebook.',
+    category: 'research', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: false,
+    payment: 600000, paymentType: 'fixed', duration: '5 ngày', deadline: daysAgo(7),
+    maxApplicants: 1, status: 'completed',
+    postedBy: 'seed-user-012', postedByName: 'Đỗ Thùy Linh', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=linh',
+    assignedTo: ['seed-user-007'], applicants: ['seed-user-007'],
+    tags: ['scraping', 'sentiment', 'shopee', 'python', 'review analysis'],
+    createdAt: daysAgo(22), updatedAt: daysAgo(7),
+  },
+  {
+    title: 'Dịch 20 trang tài liệu pháp luật môi trường Anh-Việt',
+    description: 'Dịch tài liệu pháp luật môi trường 20 trang từ tiếng Anh sang tiếng Việt. Yêu cầu am hiểu thuật ngữ pháp lý và môi trường.',
+    category: 'translation', faculty: 'Môi trường & Tài nguyên', isUrgent: false, isAnonymous: false,
+    payment: 500000, paymentType: 'fixed', duration: '4 ngày', deadline: daysAgo(8),
+    maxApplicants: 1, status: 'completed',
+    postedBy: 'seed-user-014', postedByName: 'Bùi Ngọc Hân', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=han',
+    assignedTo: ['seed-user-008'], applicants: ['seed-user-008'],
+    tags: ['dịch thuật', 'pháp luật', 'môi trường', 'tiếng anh'],
+    createdAt: daysAgo(23), updatedAt: daysAgo(8),
+  },
+  {
+    title: 'Trợ giảng môn Nhập môn Lập trình — 1 học kỳ',
+    description: 'Trợ giảng 16 tuần cho môn IT1010. Hỗ trợ giải đáp thắc mắc trong giờ lab và qua nhóm Zalo. Chấm 8 bài tập lớn.',
+    category: 'teaching-assistant', faculty: 'Khoa học & Kỹ thuật Máy tính', isUrgent: false, isAnonymous: false,
+    payment: 2000000, paymentType: 'fixed', duration: '1 học kỳ', deadline: daysAgo(5),
+    maxApplicants: 2, status: 'completed',
+    postedBy: 'seed-user-005', postedByName: 'Hoàng Minh Đức', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=duc',
+    assignedTo: ['seed-user-013', 'seed-user-001'], applicants: ['seed-user-013', 'seed-user-001'],
+    tags: ['trợ giảng', 'IT1010', 'python', 'lập trình', '1 học kỳ'],
+    createdAt: daysAgo(120), updatedAt: daysAgo(5),
+  },
+  {
+    title: 'Nhập và xử lý dữ liệu khảo sát luận văn (400 phiếu)',
+    description: 'Nhập 400 phiếu khảo sát giấy vào SPSS và làm sạch dữ liệu. Chạy thống kê mô tả cơ bản theo yêu cầu.',
+    category: 'data-entry', faculty: 'Quản lý Công nghiệp', isUrgent: false, isAnonymous: false,
+    payment: 500000, paymentType: 'fixed', duration: '4 ngày', deadline: daysAgo(9),
+    maxApplicants: 1, status: 'completed',
+    postedBy: 'seed-user-018', postedByName: 'Lê Thị Cẩm', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=cam18',
+    assignedTo: ['seed-user-012'], applicants: ['seed-user-012'],
+    tags: ['SPSS', 'nhập liệu', 'khảo sát', 'luận văn', 'thống kê'],
+    createdAt: daysAgo(24), updatedAt: daysAgo(9),
+  },
+  {
+    title: 'Hỗ trợ tình nguyện Hiến máu nhân đạo BK (2 ngày)',
+    description: 'Hỗ trợ đăng ký, theo dõi y tế và tiếp đón người hiến máu tại ngày hội Hiến máu nhân đạo BK. Đã hoàn thành xuất sắc.',
+    category: 'volunteer', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 0, paymentType: 'volunteer', duration: '2 ngày', deadline: daysAgo(11),
+    maxApplicants: 6, status: 'completed',
+    postedBy: 'seed-user-014', postedByName: 'Bùi Ngọc Hân', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=han',
+    assignedTo: ['seed-user-022', 'seed-user-013', 'seed-user-018'],
+    applicants: ['seed-user-022', 'seed-user-013', 'seed-user-018', 'seed-user-017'],
+    tags: ['tình nguyện', 'hiến máu', 'sức khỏe', 'nhân đạo'],
+    createdAt: daysAgo(28), updatedAt: daysAgo(11),
+  },
+  {
+    title: 'Chụp ảnh và quay highlight sự kiện Lễ trao giải NCKH',
+    description: 'Ghi lại toàn bộ lễ trao giải NCKH BK: chụp ảnh chân dung nhóm đoạt giải, quay moment trao giải, dựng clip 1 phút.',
+    category: 'other', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 650000, paymentType: 'fixed', duration: '1 ngày + 2 ngày dựng', deadline: daysAgo(6),
+    maxApplicants: 1, status: 'completed',
+    postedBy: 'seed-user-022', postedByName: 'Nguyễn Bích Ngọc', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ngoc22',
+    assignedTo: ['seed-user-010'], applicants: ['seed-user-010'],
+    tags: ['chụp ảnh', 'quay phim', 'NCKH', 'lễ trao giải', 'sự kiện'],
+    createdAt: daysAgo(20), updatedAt: daysAgo(6),
+  },
+  {
+    title: 'Làm bài tập lớn thiết kế mạch khuếch đại OA',
+    description: 'Thiết kế mạch khuếch đại dùng Op-Amp (khuếch đại không đảo, đảo, bộ tổng). Mô phỏng trên Multisim, viết báo cáo 10 trang.',
+    category: 'other', faculty: 'Điện - Điện tử', isUrgent: false, isAnonymous: false,
+    payment: 300000, paymentType: 'fixed', duration: '3 ngày', deadline: daysAgo(4),
+    maxApplicants: 1, status: 'completed',
+    postedBy: 'seed-user-020', postedByName: 'Hoàng Thị Dung', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dung20',
+    assignedTo: ['seed-user-002'], applicants: ['seed-user-002'],
+    tags: ['Op-Amp', 'Multisim', 'mạch điện', 'điện tử', 'bài tập lớn'],
+    createdAt: daysAgo(18), updatedAt: daysAgo(4),
+  },
+  {
+    title: 'Viết kịch bản và dẫn chương trình Đêm văn nghệ CLB',
+    description: 'Viết kịch bản dẫn chương trình (MC script) cho Đêm văn nghệ cuối năm CLB Kỹ thuật, 2 tiếng. Dẫn cùng MC nữ, phong cách vui tươi, hài hước.',
+    category: 'event', faculty: 'Khác', isUrgent: false, isAnonymous: false,
+    payment: 400000, paymentType: 'fixed', duration: '3 ngày soạn + 2 giờ dẫn', deadline: daysAgo(3),
+    maxApplicants: 1, status: 'completed',
+    postedBy: 'seed-user-003', postedByName: 'Lê Quốc Cường', postedByPhoto: 'https://api.dicebear.com/7.x/avataaars/svg?seed=cuong',
+    assignedTo: ['seed-user-004'], applicants: ['seed-user-004'],
+    tags: ['MC', 'kịch bản', 'văn nghệ', 'sự kiện', 'CLB'],
+    createdAt: daysAgo(20), updatedAt: daysAgo(3),
+  },
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1988,7 +2819,7 @@ async function seedUsers() {
   console.log('\n--- Seeding users...');
   for (const user of USERS) {
     const now = Timestamp.now();
-    await setDoc(doc(db, 'users', user.uid), { ...user, createdAt: now, updatedAt: now });
+    await db.collection('users').doc(user.uid).set({ ...user, createdAt: now, updatedAt: now });
     console.log(`  + ${user.displayName} (${user.uid})`);
   }
 }
@@ -1997,7 +2828,7 @@ async function seedJobs() {
   console.log('\n--- Seeding jobs...');
   const jobIds = {};
   for (const job of JOBS) {
-    const ref = await addDoc(collection(db, 'jobs'), job);
+    const ref = await db.collection('jobs').add(job);
     jobIds[job.title] = ref.id;
     const tag = job.isUrgent ? 'URGENT' : job.status.toUpperCase();
     console.log(`  + [${tag}] ${job.title}`);
@@ -2012,7 +2843,7 @@ async function seedApplications(jobIds) {
     const jobId = jobIds[app.jobTitle];
     if (!jobId) { console.warn(`  ! Job not found: ${app.jobTitle}`); continue; }
     const now = Timestamp.now();
-    await addDoc(collection(db, 'applications'), {
+    await db.collection('applications').add({
       jobId,
       applicantId: app.applicantId,
       applicantName: app.applicantName,
@@ -2035,7 +2866,7 @@ async function seedRatingsAndCompletions(jobIds) {
   for (const title of completedTitles) {
     const jobId = jobIds[title];
     if (!jobId) continue;
-    await addDoc(collection(db, 'jobCompletions'), {
+    await db.collection('jobCompletions').add({
       jobId,
       workerConfirmed: true,
       posterConfirmed: true,
@@ -2049,7 +2880,7 @@ async function seedRatingsAndCompletions(jobIds) {
   for (const r of RATINGS_DATA) {
     const jobId = jobIds[r.jobTitle];
     if (!jobId) continue;
-    await addDoc(collection(db, 'ratings'), {
+    await db.collection('ratings').add({
       jobId,
       fromUserId: r.fromUserId,
       toUserId: r.toUserId,
@@ -2070,7 +2901,7 @@ async function seedWorkHistory(jobIds) {
   for (const wh of WORK_HISTORY) {
     const jobId = jobIds[wh.jobTitle];
     if (!jobId) continue;
-    await addDoc(collection(db, 'workHistory'), {
+    await db.collection('workHistory').add({
       user1: wh.user1,
       user2: wh.user2,
       jobId,

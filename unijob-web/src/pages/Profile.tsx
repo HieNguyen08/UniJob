@@ -5,7 +5,8 @@ import { updateUserProfile, getUserById } from '@/services/user.service';
 import Avatar from '@/components/Avatar';
 import { getJobsByUser } from '@/services/job.service';
 import { getRatingsByUser } from '@/services/rating.service';
-import { FACULTIES } from '@/lib/constants';
+import { computeGamification } from '@/services/gamification.service';
+import { FACULTIES, LEVELS } from '@/lib/constants';
 import type { Job, Rating } from '@/types';
 import {
   Star,
@@ -20,6 +21,9 @@ import {
   Calendar,
   ShieldCheck,
   ChevronLeft,
+  Trophy,
+  Zap,
+  TrendingUp,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -122,6 +126,11 @@ export default function Profile() {
     if (!displayProfile?.totalRatings) return 0;
     return Math.max(0, Math.min(100, Math.round((displayProfile.ratingScore / 5) * 100)));
   }, [displayProfile?.ratingScore, displayProfile?.totalRatings]);
+
+  const gamification = useMemo(
+    () => computeGamification(displayProfile ?? null, myJobs, myRatings),
+    [displayProfile, myJobs, myRatings],
+  );
 
   if (!userProfile) {
     return (
@@ -354,6 +363,99 @@ export default function Profile() {
               <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">Đã hoàn thành</p>
               <p className="mt-3 text-4xl font-bold tracking-tight leading-none">{completedJobs.length}</p>
               <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">Công việc</p>
+            </div>
+          </div>
+
+          {/* ══ Gamification: Level & Badges ══ */}
+          <div className="overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.12)] transition-shadow duration-300">
+            {/* Level bar */}
+            <div className="border-b border-gray-100 p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${gamification.level.bgColor}`}>
+                    <Trophy className={`h-5 w-5 ${gamification.level.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">
+                      Level {gamification.level.level} — {gamification.level.name}
+                    </p>
+                    <p className="text-xs text-[var(--color-muted-foreground)]">
+                      {gamification.xp} XP
+                      {gamification.level.level < LEVELS.length && (
+                        <> · {gamification.level.maxXP + 1 - gamification.xp} XP đến level tiếp</>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${gamification.level.bgColor} ${gamification.level.color}`}>
+                  Lv.{gamification.level.level}
+                </span>
+              </div>
+              <div className="h-2.5 rounded-full bg-gray-100">
+                <div
+                  className={`h-2.5 rounded-full transition-all duration-700 ${
+                    gamification.level.level >= 5
+                      ? 'bg-gradient-to-r from-yellow-400 to-amber-500'
+                      : gamification.level.level >= 4
+                        ? 'bg-gradient-to-r from-purple-400 to-purple-500'
+                        : gamification.level.level >= 3
+                          ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                          : gamification.level.level >= 2
+                            ? 'bg-gradient-to-r from-blue-400 to-blue-500'
+                            : 'bg-gradient-to-r from-gray-300 to-gray-400'
+                  }`}
+                  style={{ width: `${gamification.xpProgress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Badges grid */}
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Award className="h-4 w-4 text-amber-500" />
+                  Huy hiệu ({gamification.badges.length})
+                </h3>
+                {gamification.nextBadgeHint && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    {gamification.nextBadgeHint}
+                  </p>
+                )}
+              </div>
+
+              {gamification.badges.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {gamification.badges.map((badge) => (
+                    <div
+                      key={badge.id}
+                      className={`group relative flex flex-col items-center rounded-xl border p-3 text-center transition-all duration-200 hover:shadow-md ${
+                        badge.tier === 'platinum'
+                          ? 'border-yellow-300 bg-gradient-to-b from-yellow-50 to-amber-50'
+                          : badge.tier === 'gold'
+                            ? 'border-amber-200 bg-amber-50/50'
+                            : badge.tier === 'silver'
+                              ? 'border-blue-200 bg-blue-50/50'
+                              : 'border-gray-200 bg-gray-50/50'
+                      }`}
+                    >
+                      <span className="text-2xl mb-1.5">{badge.icon}</span>
+                      <p className="text-xs font-bold text-gray-900">{badge.name}</p>
+                      <p className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">{badge.earnedAt}</p>
+                      {/* Tooltip on hover */}
+                      <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-1.5 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100 whitespace-nowrap z-10">
+                        {badge.description}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center">
+                  <Zap className="mx-auto h-8 w-8 text-gray-300 mb-2" />
+                  <p className="text-sm text-[var(--color-muted-foreground)]">Chưa có huy hiệu nào</p>
+                  <p className="text-xs text-[var(--color-muted-foreground)] mt-1">Hoàn thành công việc để nhận huy hiệu đầu tiên!</p>
+                </div>
+              )}
             </div>
           </div>
 

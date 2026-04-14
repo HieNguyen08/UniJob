@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, FileText, Star, UserRound } from 'lucide-react';
+import { ChevronLeft, FileText, Star } from 'lucide-react';
+import Avatar from '@/components/Avatar';
 import { getJobById, updateApplicationStatus, subscribeToJobApplications } from '@/services/job.service';
 import { getUserById } from '@/services/user.service';
 import type { Application, Job } from '@/types';
@@ -137,11 +138,7 @@ export default function MyJobCandidates() {
                 <article key={app.id} className="candidate-card">
                   <div className="candidate-left">
                     <div className="candidate-avatar-wrap">
-                      {profile?.photoURL ? (
-                        <img src={profile.photoURL} alt={app.applicantName} className="candidate-avatar rounded-full" />
-                      ) : (
-                        <div className="candidate-avatar"><UserRound className="h-10 w-10" /></div>
-                      )}
+                      <Avatar src={profile?.photoURL} name={app.applicantName} size="md" className="candidate-avatar" />
                     </div>
                     <h3 className="candidate-name">{app.applicantName}</h3>
                     <p className="candidate-faculty">{profile?.faculty || 'Chưa cập nhật'}</p>

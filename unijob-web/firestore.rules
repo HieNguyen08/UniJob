@@ -67,5 +67,13 @@ service cloud.firestore {
       allow create: if isAuth();
       allow update, delete: if false;
     }
+
+    // NOTIFICATIONS: chỉ chủ sở hữu đọc/update, ai auth cũng tạo được
+    match /notifications/{notifId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth();
+      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
   }
 }

@@ -59,9 +59,11 @@ function AppRoutes() {
   // Run expired-job cleanup once per session after auth is ready
   useEffect(() => {
     if (!isAuthenticated || cleanupRan.current) return;
+    const uid = useAuthStore.getState().userProfile?.uid;
+    if (!uid) return;
     cleanupRan.current = true;
     import('@/services/cleanup.service').then(({ cleanupExpiredJobs }) => {
-      cleanupExpiredJobs().then((count) => {
+      cleanupExpiredJobs(uid).then((count) => {
         if (count > 0) console.info(`[cleanup] Đã đóng ${count} công việc hết hạn.`);
       }).catch(console.error);
     });

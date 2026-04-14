@@ -1,6 +1,8 @@
 {
   "firestore": {
-    "rules": "firestore.rules"
+    "database": "kirigitejkf8095h",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   },
   "hosting": {
     "public": "dist",

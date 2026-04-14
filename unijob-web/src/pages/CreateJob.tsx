@@ -9,6 +9,7 @@ import { JOB_CATEGORIES, FACULTIES } from '@/lib/constants';
 import { Timestamp } from 'firebase/firestore';
 import { ArrowLeft, CheckCircle2, Lightbulb, Paperclip, X, FileText, Star, Send, Check } from 'lucide-react';
 import type { JobLocation } from '@/types/job';
+import Avatar from '@/components/Avatar';
 import toast from 'react-hot-toast';
 
 const LOCATION_OPTIONS: { value: JobLocation; label: string }[] = [
@@ -191,20 +192,11 @@ export default function CreateJob() {
             <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
               {smartMatchModal.workers.map((worker) => {
                 const invited = invitedIds.has(worker.uid);
-                const initials = worker.displayName
-                  .trim().split(/\s+/).slice(0, 2).map((p) => p.charAt(0).toUpperCase()).join('');
-
                 return (
                   <div key={worker.uid} className="flex items-start gap-4 rounded-2xl border border-[var(--color-border)] p-4">
                     {/* Avatar */}
                     <div className="shrink-0">
-                      {worker.photoURL ? (
-                        <img src={worker.photoURL} alt={worker.displayName} className="h-11 w-11 rounded-full object-cover" />
-                      ) : (
-                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-300 text-sm font-bold text-gray-600">
-                          {initials}
-                        </div>
-                      )}
+                      <Avatar src={worker.photoURL} name={worker.displayName} size="md" className="h-11 w-11" />
                     </div>
 
                     {/* Info */}

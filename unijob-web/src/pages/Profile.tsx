@@ -2,6 +2,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { updateUserProfile, getUserById } from '@/services/user.service';
+import Avatar from '@/components/Avatar';
 import { getJobsByUser } from '@/services/job.service';
 import { getRatingsByUser } from '@/services/rating.service';
 import { FACULTIES } from '@/lib/constants';
@@ -197,17 +198,12 @@ export default function Profile() {
             {/* Avatar + Header Info - Centered in Box */}
             <div className="mb-6 flex flex-col items-center text-center">
               <div className="relative mb-4 h-32 w-32 sm:h-36 sm:w-36">
-                {displayProfile!.photoURL ? (
-                  <img
-                    src={displayProfile!.photoURL}
-                    alt={displayProfile!.displayName}
-                    className="h-full w-full rounded-full border-4 border-emerald-100 object-cover shadow-lg"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center rounded-full border-4 border-emerald-100 bg-emerald-50 text-6xl font-semibold text-emerald-600 shadow-lg">
-                    {displayProfile!.displayName?.charAt(0) || '?'}
-                  </div>
-                )}
+                <Avatar
+                  src={displayProfile!.photoURL}
+                  name={displayProfile!.displayName}
+                  size="xl"
+                  className="h-full w-full border-4 border-emerald-100 shadow-lg text-6xl"
+                />
                 <div className="absolute right-0 bottom-2 rounded-full bg-emerald-500 p-2 text-white shadow-lg">
                   <BadgeCheck className="h-5 w-5" />
                 </div>

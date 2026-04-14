@@ -3,8 +3,6 @@ import { useAuthStore } from '@/store/authStore';
 import {
   Briefcase,
   LogIn,
-  LogOut,
-  User,
   PlusCircle,
   LayoutDashboard,
   Menu,
@@ -12,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import Avatar from '@/components/Avatar';
 import NotificationBell from './NotificationBell';
 
 export default function Header() {
@@ -78,15 +77,7 @@ export default function Header() {
                 to="/profile"
                 className="flex items-center gap-2 rounded-full border border-[var(--color-border)] px-3 py-1.5 text-sm transition-colors hover:bg-[var(--color-secondary)]"
               >
-                {userProfile.photoURL ? (
-                  <img
-                    src={userProfile.photoURL}
-                    alt={userProfile.displayName}
-                    className="h-6 w-6 rounded-full"
-                  />
-                ) : (
-                  <User className="h-4 w-4" />
-                )}
+                <Avatar src={userProfile.photoURL} name={userProfile.displayName} size="sm" className="h-6 w-6" />
                 <span className="max-w-[120px] truncate">{userProfile.displayName}</span>
               </Link>
               <Link

@@ -122,7 +122,7 @@ export async function confirmCompletion(
     // Lưu work history
     const job = await getJobById(compData.jobId);
     if (job && job.assignedTo && job.assignedTo.length > 0) {
-      await recordWorkHistory(job.postedBy, job.assignedTo[0], job.id);
+      await recordWorkHistory(job.postedBy, job.assignedTo[0], job.id, job.title, job.category);
       await updateJob(job.id, { status: 'completed' });
 
       // Notify both parties

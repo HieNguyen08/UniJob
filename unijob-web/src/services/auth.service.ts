@@ -31,6 +31,7 @@ export async function signInWithGoogle(): Promise<FirebaseUser> {
       phone: '',
       bio: '',
       skills: [],
+      bookmarks: [],
       ratingScore: 0,
       totalRatings: 0,
       activeJobCount: 0,

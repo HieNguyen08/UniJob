@@ -49,6 +49,9 @@ export function subscribeToNotifications(
       ...d.data(),
     })) as Notification[];
     onUpdate(notifications);
+  }, (error) => {
+    // Silently handle permission errors (e.g. index not ready, auth not loaded)
+    console.warn('[notifications] Listener error:', error.code);
   });
 }
 

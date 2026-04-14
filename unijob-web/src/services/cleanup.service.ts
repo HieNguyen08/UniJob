@@ -12,21 +12,22 @@ import { createNotification } from '@/services/notification.service';
 import type { Job } from '@/types';
 
 /**
- * Marks all open jobs with a passed deadline as 'cancelled'
+ * Marks the current user's open jobs with a passed deadline as 'cancelled'
  * and notifies the poster of each expired job.
  *
  * NOTE: This runs client-side on auth. For production, move to a
  * Firebase Cloud Function scheduled with Cloud Scheduler.
  *
- * Firestore rules must allow authenticated users to update jobs
- * where deadline < now && status == 'open', or restrict to admin role.
+ * Only updates jobs posted by the given userId to comply with Firestore
+ * security rules (only the poster may change job status).
  */
-export async function cleanupExpiredJobs(): Promise<number> {
+export async function cleanupExpiredJobs(userId: string): Promise<number> {
   const jobsCollection = collection(db, 'jobs');
   const now = Timestamp.now();
 
   const q = query(
     jobsCollection,
+    where('postedBy', '==', userId),
     where('status', '==', 'open'),
     where('deadline', '<', now)
   );
@@ -45,16 +46,14 @@ export async function cleanupExpiredJobs(): Promise<number> {
       updatedAt: now,
     });
 
-    if (job.postedBy) {
-      notificationPromises.push(
-        createNotification(
-          job.postedBy,
-          'deadline_expired',
-          `⏰ Công việc "${job.title}" đã hết hạn và được đóng tự động.`,
-          { jobId: job.id, jobTitle: job.title }
-        )
-      );
-    }
+    notificationPromises.push(
+      createNotification(
+        job.postedBy,
+        'deadline_expired',
+        `⏰ Công việc "${job.title}" đã hết hạn và được đóng tự động.`,
+        { jobId: job.id, jobTitle: job.title }
+      )
+    );
   });
 
   await batch.commit();

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { getJobById, applyForJob, getJobsByUser } from '@/services/job.service';
+import Avatar from '@/components/Avatar';
 import { getUserById } from '@/services/user.service';
 import { toggleBookmark, getBookmarkedJobIds } from '@/services/bookmark.service';
 import type { Job, User } from '@/types';
@@ -264,17 +265,12 @@ export default function JobDetail() {
             <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6">
               <h2 className="mb-4 text-base font-semibold">Người đăng</h2>
               <div className="flex items-center gap-3">
-                {(poster?.photoURL || job.postedByPhoto) ? (
-                  <img
-                    src={poster?.photoURL || job.postedByPhoto}
-                    alt={job.postedByName}
-                    className="h-12 w-12 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--color-primary)] text-lg font-bold text-white">
-                    {job.postedByName.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <Avatar
+                  src={poster?.photoURL || job.postedByPhoto}
+                  name={job.postedByName}
+                  size="lg"
+                  className="h-12 w-12"
+                />
                 <div>
                   <p className="font-semibold">{job.postedByName}</p>
                   {poster?.faculty && (

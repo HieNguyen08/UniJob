@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { getJobById, applyForJob, getJobsByUser } from '@/services/job.service';
+import { getPaymentByJob } from '@/services/payment.service';
 import Avatar from '@/components/Avatar';
 import { getUserById } from '@/services/user.service';
 import { toggleBookmark, getBookmarkedJobIds } from '@/services/bookmark.service';
-import type { Job, User } from '@/types';
+import type { Job, User, Payment } from '@/types';
 import { JOB_CATEGORIES, PAYMENT_TYPES } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -24,6 +25,7 @@ import {
   Paperclip,
   MapPin,
   Briefcase,
+  ShieldCheck,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -42,6 +44,7 @@ export default function JobDetail() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [posterJobCount, setPosterJobCount] = useState<number | null>(null);
+  const [payment, setPayment] = useState<Payment | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -53,6 +56,7 @@ export default function JobDetail() {
           getJobsByUser(data.postedBy).then((jobs) => setPosterJobCount(jobs.length));
         }
       });
+      getPaymentByJob(id).then(setPayment).catch(() => {});
     }
   }, [id]);
 
@@ -395,6 +399,50 @@ export default function JobDetail() {
               </button>
             </div>
           </div>
+
+          {/* Payment status card */}
+          {(payment || (job.status !== 'open' && job.paymentType !== 'volunteer')) && (
+            <div className="rounded-2xl border border-[var(--color-border)] bg-white p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Thanh toán</h3>
+                {payment && (
+                  <Link
+                    to={`/jobs/${id}/payment`}
+                    className="text-xs text-[var(--color-primary)] hover:underline"
+                  >
+                    Xem chi tiết →
+                  </Link>
+                )}
+              </div>
+              {payment ? (
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-[var(--color-primary)]" />
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        payment.status === 'held' ? 'bg-blue-100 text-blue-700' :
+                        payment.status === 'released' ? 'bg-green-100 text-green-700' :
+                        payment.status === 'refunded' ? 'bg-gray-100 text-gray-600' :
+                        payment.status === 'disputed' ? 'bg-red-100 text-red-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}
+                    >
+                      {payment.status === 'held' ? '🔒 Đang ký quỹ' :
+                       payment.status === 'released' ? '✅ Đã thanh toán' :
+                       payment.status === 'refunded' ? '↩ Đã hoàn tiền' :
+                       payment.status === 'disputed' ? '⚠ Tranh chấp' : 'Chờ xử lý'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs text-[var(--color-muted-foreground)]">
+                    <span>Người nhận</span>
+                    <span className="font-medium text-[var(--color-foreground)]">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(payment.netAmount)}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--color-muted-foreground)]">Chưa có giao dịch</p>
+              )}
+            </div>
+          )}
 
           {/* Details card */}
           <div className="rounded-2xl border border-[var(--color-border)] bg-white p-5">

@@ -14,6 +14,7 @@ import type { Rating, JobCompletion } from '@/types';
 import { recordWorkHistory } from '@/services/workHistory.service';
 import { getJobById, updateJob } from '@/services/job.service';
 import { createNotification } from '@/services/notification.service';
+import { getPaymentByJob, releasePayment } from '@/services/payment.service';
 
 const ratingsCollection = collection(db, 'ratings');
 const completionsCollection = collection(db, 'jobCompletions');
@@ -124,6 +125,14 @@ export async function confirmCompletion(
     if (job && job.assignedTo && job.assignedTo.length > 0) {
       await recordWorkHistory(job.postedBy, job.assignedTo[0], job.id, job.title, job.category);
       await updateJob(job.id, { status: 'completed' });
+
+      // Tự động giải phóng tiền ký quỹ cho worker
+      try {
+        const payment = await getPaymentByJob(job.id);
+        if (payment && (payment.status === 'held' || payment.status === 'pending')) {
+          await releasePayment(payment.id);
+        }
+      } catch { /* non-critical */ }
 
       // Notify both parties
       try {

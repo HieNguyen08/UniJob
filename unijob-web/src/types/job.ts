@@ -1,4 +1,5 @@
 import type { Timestamp } from 'firebase/firestore';
+import type { PaymentStatus } from './payment';
 
 export type JobStatus = 'open' | 'in-progress' | 'completed' | 'cancelled';
 export type PaymentType = 'fixed' | 'hourly' | 'negotiable' | 'volunteer';
@@ -27,6 +28,7 @@ export interface Job {
   applicants: string[];
   tags: string[];
   attachments?: string[];   // Firebase Storage download URLs
+  paymentStatus?: PaymentStatus; // trạng thái thanh toán ký quỹ
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

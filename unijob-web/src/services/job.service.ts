@@ -20,6 +20,15 @@ import { db } from '@/lib/firebase';
 import type { Job, JobCreateInput, JobFilter, Application } from '@/types';
 import { ITEMS_PER_PAGE } from '@/lib/constants';
 import { createNotification } from '@/services/notification.service';
+// Lazy-import để tránh circular dependency
+let _createPayment: typeof import('@/services/payment.service').createPayment | null = null;
+async function getCreatePayment() {
+  if (!_createPayment) {
+    const mod = await import('@/services/payment.service');
+    _createPayment = mod.createPayment;
+  }
+  return _createPayment;
+}
 
 const jobsCollection = collection(db, 'jobs');
 const applicationsCollection = collection(db, 'applications');
@@ -215,7 +224,8 @@ export async function updateApplicationStatus(
     if (appSnap.exists()) {
       const app = appSnap.data() as Application;
       const jobSnap = await getDoc(doc(db, 'jobs', app.jobId));
-      const jobTitle = jobSnap.exists() ? (jobSnap.data() as Job).title : 'công việc';
+      const jobData = jobSnap.exists() ? (jobSnap.data() as Job) : null;
+      const jobTitle = jobData?.title ?? 'công việc';
       await createNotification(
         app.applicantId,
         status === 'accepted' ? 'application_accepted' : 'application_rejected',
@@ -224,6 +234,23 @@ export async function updateApplicationStatus(
           : `Đơn ứng tuyển "${jobTitle}" không được chấp nhận`,
         { jobId: app.jobId, jobTitle }
       );
+
+      // Khi chấp nhận ứng viên, tạo bản ghi thanh toán ký quỹ
+      if (status === 'accepted' && jobData && jobData.paymentType !== 'volunteer') {
+        try {
+          const createPaymentFn = await getCreatePayment();
+          await createPaymentFn(
+            app.jobId,
+            jobTitle,
+            jobData.postedBy,        // payer = poster
+            app.applicantId,          // payee = worker
+            jobData.payment ?? 0,
+            'platform_escrow'
+          );
+        } catch (payErr) {
+          console.warn('[payment] Không tạo được bản ghi thanh toán:', payErr);
+        }
+      }
     }
   } catch {
     // Non-critical — ignore notification errors

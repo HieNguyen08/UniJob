@@ -75,5 +75,19 @@ service cloud.firestore {
       allow update: if isAuth() && resource.data.userId == request.auth.uid;
       allow delete: if false;
     }
+
+    // PAYMENTS: payer hoặc payee mới đọc được, hệ thống (auth user) mới tạo/update được
+    match /payments/{paymentId} {
+      allow read: if isAuth() && (
+        resource.data.payerId == request.auth.uid ||
+        resource.data.payeeId == request.auth.uid
+      );
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        resource.data.payerId == request.auth.uid ||
+        resource.data.payeeId == request.auth.uid
+      );
+      allow delete: if false;
+    }
   }
 }

@@ -46,3 +46,14 @@ test('fingerprint does not touch the real index', () => {
   workingTreeFingerprint(repo);
   assert.equal(git(repo, ['diff', '--cached', '--name-only']), '');
 });
+
+test('changedFiles returns exact UTF-8 names for non-ASCII paths', () => {
+  writeFileSync(join(repo, 'việc làm.ts'), 'x\n');
+  git(repo, ['add', '-A']);
+  git(repo, ['commit', '-q', '-m', 'viet']);
+  writeFileSync(join(repo, 'việc làm.ts'), 'y\n');
+  writeFileSync(join(repo, 'mới.txt'), 'n\n');
+  const files = changedFiles(repo, 'HEAD');
+  assert.ok(files.includes('việc làm.ts'), JSON.stringify(files));
+  assert.ok(files.includes('mới.txt'), JSON.stringify(files));
+});

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { budgetCheck, coverageViolations, findSecrets, toRepoRelative } from './checks.mjs';
+import { budgetCheck, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, toRepoRelative } from './checks.mjs';
 
 test('coverage: new in-scope file below 70% is a violation', () => {
   const v = coverageViolations(['unijob-web/src/services/new.service.ts'], { 'unijob-web/src/services/new.service.ts': 40 }, []);
@@ -45,4 +45,27 @@ test('secrets: detects private keys and service accounts, ignores normal code', 
 
 test('toRepoRelative normalises separators', () => {
   assert.equal(toRepoRelative('C:\\r\\unijob-web\\src\\a.ts'.replace(/\\/g, '/'), 'C:/r'), 'unijob-web/src/a.ts');
+});
+
+test('patch scan: added private-key line is a hit with its line', () => {
+  const key = '-----BEGIN ' + 'PRIVATE KEY-----';
+  const patch = ['diff --git a/k b/k', '--- /dev/null', '+++ b/k', '@@ -0,0 +1 @@', `+${key}`].join('\n');
+  assert.deepEqual(findSecretsInPatch(patch), [{ name: 'private-key', line: `+${key}` }]);
+});
+
+test('patch scan: removed secret is not a hit', () => {
+  const key = '-----BEGIN ' + 'PRIVATE KEY-----';
+  const patch = ['--- a/k', '+++ /dev/null', '@@ -1 +0,0 @@', `-${key}`].join('\n');
+  assert.deepEqual(findSecretsInPatch(patch), []);
+});
+
+test('patch scan: +++ header lines are ignored', () => {
+  const sa = '"type": "service' + '_account"';
+  assert.deepEqual(findSecretsInPatch(`+++ b/${sa}`), []);
+});
+
+test('entryChunkFromHtml: finds the module script src', () => {
+  const html = '<script type="module" crossorigin src="/assets/index-5e2VBsR0.js"></script><link rel="modulepreload" href="/assets/vendor-1.js">';
+  assert.equal(entryChunkFromHtml(html), 'index-5e2VBsR0.js');
+  assert.equal(entryChunkFromHtml('<html></html>'), null);
 });

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // UniJob local CI. Same script runs in GitHub Actions. See CLAUDE.md "CI".
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { budgetCheck, coverageViolations, findSecrets, toRepoRelative } from './ci/checks.mjs';
-import { changedFiles, mergeBase, repoRoot, workingTreeFingerprint } from './ci/git.mjs';
+import { budgetCheck, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, toRepoRelative } from './ci/checks.mjs';
+import { changedFiles, git, mergeBase, repoRoot, workingTreeFingerprint } from './ci/git.mjs';
 
 const mode = process.argv.includes('--full') ? 'full' : 'quick';
 const updateBudget = process.argv.includes('--update-budget');
@@ -23,9 +23,17 @@ const toolingChanged = changed.some((f) => f.startsWith('scripts/') || f.startsW
 const quote = (f) => `"${f}"`;
 
 function run(cmd, cwd = web) {
-  const r = spawnSync(cmd, { cwd, shell: true, encoding: 'utf8', env: { ...process.env, FORCE_COLOR: '0', CI: '1' } });
-  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
-  return { ok: r.status === 0, tail: out.trim().split('\n').slice(-40).join('\n') };
+  const r = spawnSync(cmd, {
+    cwd,
+    shell: true,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: 15 * 60 * 1000,
+    env: { ...process.env, FORCE_COLOR: '0', CI: '1' },
+  });
+  const spawnError = r.error ? `\nspawn error: ${r.error.message}` : '';
+  const out = `${r.stdout ?? ''}${r.stderr ?? ''}${spawnError}`;
+  return { ok: r.status === 0 && !r.error, status: r.status, error: r.error, tail: out.trim().split('\n').slice(-40).join('\n') };
 }
 
 const gates = [];
@@ -100,9 +108,10 @@ if (mode === 'full') {
 
   gate('bundle-budget', () => {
     const assets = join(web, 'dist', 'assets');
-    const entries = existsSync(assets) ? readdirSync(assets).filter((f) => /^index-.*\.js$/.test(f)) : [];
-    if (entries.length === 0) return { ok: false, summary: 'no dist/assets/index-*.js — did build fail?' };
-    const bytes = Math.max(...entries.map((f) => gzipSync(readFileSync(join(assets, f))).length));
+    const htmlPath = join(web, 'dist', 'index.html');
+    const entry = existsSync(htmlPath) ? entryChunkFromHtml(readFileSync(htmlPath, 'utf8')) : null;
+    if (!entry || !existsSync(join(assets, entry))) return { ok: false, summary: 'entry chunk not found via dist/index.html module script — did build fail?' };
+    const bytes = gzipSync(readFileSync(join(assets, entry))).length;
     const budgetPath = join(root, 'ci', 'budget.json');
     if (updateBudget) writeFileSync(budgetPath, `${JSON.stringify({ entryGzipBytes: bytes }, null, 2)}\n`);
     const { entryGzipBytes } = JSON.parse(readFileSync(budgetPath, 'utf8'));
@@ -117,13 +126,22 @@ if (mode === 'full') {
 
   gate('secret-scan', () => {
     const scannable = changed.filter((f) => statSync(join(root, f)).size < 1_000_000);
+    const tooBig = changed.filter((f) => !scannable.includes(f));
     const hits = [];
     for (const f of scannable) {
       for (const name of findSecrets(readFileSync(join(root, f), 'utf8'))) hits.push(`${f}: ${name}`);
     }
+    // History: a secret added in one commit and removed in a later one still lands in remote history.
+    const patch = git(root, ['log', '-p', '--format=', `${base}..HEAD`]);
+    for (const h of findSecretsInPatch(patch)) hits.push(`history: ${h.name}`);
     let gitleaks = 'gitleaks skipped (docker unavailable)';
     const docker = spawnSync('docker', ['info'], { stdio: 'ignore', timeout: 10_000 });
-    if (docker.status === 0 && scannable.length > 0) {
+    const dockerUp = docker.status === 0;
+    if (!dockerUp && process.env.GITHUB_ACTIONS === 'true') {
+      hits.push('gitleaks required in CI (docker unavailable)');
+      gitleaks = 'gitleaks required in CI but docker is unavailable';
+    }
+    if (dockerUp && scannable.length > 0) {
       const scanDir = mkdtempSync(join(tmpdir(), 'uj-scan-'));
       try {
         for (const f of scannable) {
@@ -131,13 +149,20 @@ if (mode === 'full') {
           copyFileSync(join(root, f), join(scanDir, f));
         }
         const r = run(`docker run --rm -v "${scanDir}:/scan" ghcr.io/gitleaks/gitleaks:v8.21.2 dir /scan --no-banner --redact`, root);
-        gitleaks = r.ok ? 'gitleaks: clean' : `gitleaks findings:\n${r.tail}`;
-        if (!r.ok) hits.push('gitleaks: findings (see summary)');
+        if (r.ok) {
+          gitleaks = 'gitleaks: clean';
+        } else if (r.error || [125, 126, 127].includes(r.status)) {
+          gitleaks = `gitleaks could not run: ${r.error?.message ?? `exit ${r.status}`}\n${r.tail}`;
+          hits.push('gitleaks: could not run');
+        } else {
+          gitleaks = `gitleaks findings:\n${r.tail}`;
+          hits.push('gitleaks: findings');
+        }
       } finally {
         rmSync(scanDir, { recursive: true, force: true });
       }
     }
-    return { ok: hits.length === 0, summary: [...hits, gitleaks].join('\n'), files: hits.map((h) => h.split(':')[0]) };
+    return { ok: hits.length === 0, summary: [...hits, gitleaks, ...(tooBig.length ? [`skipped (>=1 MB): ${tooBig.join(', ')}`] : [])].join('\n'), files: hits.map((h) => h.split(':')[0]) };
   });
 }
 

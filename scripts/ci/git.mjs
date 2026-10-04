@@ -8,6 +8,7 @@ export function git(cwd, args, env) {
     cwd,
     env: env ?? process.env,
     encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'pipe'],
   }).trim();
 }
@@ -49,7 +50,8 @@ export function mergeBase(root) {
 }
 
 export function changedFiles(root, since) {
-  const tracked = git(root, ['diff', '--name-only', since]).split('\n');
-  const untracked = git(root, ['ls-files', '--others', '--exclude-standard']).split('\n');
+  // -z: git would otherwise C-quote non-ASCII paths ("TM\304\220T_...")
+  const tracked = git(root, ['diff', '--name-only', '-z', since]).split('\0');
+  const untracked = git(root, ['ls-files', '--others', '--exclude-standard', '-z']).split('\0');
   return [...new Set([...tracked, ...untracked].filter(Boolean))];
 }

@@ -38,3 +38,23 @@ export function findSecrets(text) {
 export function toRepoRelative(absPath, root) {
   return relative(root, absPath).split(sep).join('/').replace(/\\/g, '/');
 }
+
+/** Secrets introduced by a unified diff: only added lines (not +++ headers) are scanned. */
+export function findSecretsInPatch(patchText) {
+  const hits = [];
+  for (const line of patchText.split('\n')) {
+    if (!line.startsWith('+') || line.startsWith('+++')) continue;
+    for (const name of findSecrets(line)) hits.push({ name, line });
+  }
+  return hits;
+}
+
+/** File name (no directory) of the entry module script in a built index.html, or null. */
+export function entryChunkFromHtml(html) {
+  for (const tag of html.match(/<script\b[^>]*>/g) ?? []) {
+    if (!/\btype\s*=\s*["']module["']/.test(tag)) continue;
+    const m = tag.match(/\bsrc\s*=\s*["']\/?assets\/([^"']+\.js)["']/);
+    if (m) return m[1];
+  }
+  return null;
+}

@@ -9,7 +9,7 @@ import {
   getApplicationsByJob,
 } from '@/services/job.service';
 import { getJobCompletion, createJobCompletion, confirmCompletion } from '@/services/rating.service';
-import { workerCancelJob, posterCancelJob } from '@/services/cancel.service';
+import { workerCancelJob, posterCancelJob, type CancelReason } from '@/services/cancel.service';
 
 import toast from 'react-hot-toast';
 import {
@@ -594,7 +594,7 @@ export default function MyJobs() {
                   wJob.id,
                   wJob.applicationId,
                   userProfile!.uid,
-                  reason as any,
+                  reason as CancelReason,
                   wJob.rawDeadline
                 );
                 toast.success(result.message);

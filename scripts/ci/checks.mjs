@@ -35,6 +35,11 @@ export function findSecrets(text) {
   return SECRET_PATTERNS.filter((p) => p.re.test(text)).map((p) => p.name);
 }
 
+/** File names are interpolated into shell commands; only allow letters, digits and _ . / @ space + - . */
+export function isShellSafePath(p) {
+  return /^[\p{L}\p{N}_./@ +-]+$/u.test(p);
+}
+
 export function toRepoRelative(absPath, root) {
   return relative(root, absPath).split(sep).join('/').replace(/\\/g, '/');
 }

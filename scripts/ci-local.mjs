@@ -5,7 +5,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync,
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { budgetCheck, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, toRepoRelative } from './ci/checks.mjs';
+import { budgetCheck, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, isShellSafePath, toRepoRelative } from './ci/checks.mjs';
 import { changedFiles, git, mergeBase, repoRoot, workingTreeFingerprint } from './ci/git.mjs';
 
 const mode = process.argv.includes('--full') ? 'full' : 'quick';
@@ -21,6 +21,8 @@ const webTs = webChanged.filter((f) => /\.(ts|tsx)$/.test(f));
 const webSrc = webTs.filter((f) => f.startsWith('src/'));
 const toolingChanged = changed.some((f) => f.startsWith('scripts/') || f.startsWith('.claude/'));
 const quote = (f) => `"${f}"`;
+const unsafeFiles = (files) => files.filter((f) => !isShellSafePath(f));
+const unsafeResult = (files) => ({ ok: false, summary: unsafeFiles(files).map((f) => `unsafe file name for shell: ${f}`).join('\n'), files: unsafeFiles(files) });
 
 function run(cmd, cwd = web) {
   const r = spawnSync(cmd, {
@@ -60,6 +62,7 @@ gate('typecheck', () => {
 
 gate('lint', () => {
   if (mode === 'quick' && webTs.length === 0) return { ok: true, skipped: true, summary: 'no changed TS files' };
+  if (mode === 'quick' && unsafeFiles(webTs).length) return unsafeResult(webTs);
   const r = run(mode === 'full' ? 'npx eslint .' : `npx eslint ${webTs.map(quote).join(' ')}`);
   return { ok: r.ok, summary: r.tail, files: webTs };
 });
@@ -67,6 +70,7 @@ gate('lint', () => {
 gate('unit-tests', () => {
   if (mode === 'quick') {
     if (webSrc.length === 0) return { ok: true, skipped: true, summary: 'no changed src files' };
+    if (unsafeFiles(webSrc).length) return unsafeResult(webSrc);
     const r = run(`npx vitest related --run --project unit --passWithNoTests ${webSrc.map(quote).join(' ')}`);
     return { ok: r.ok, summary: r.tail, files: webSrc };
   }

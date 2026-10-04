@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { budgetCheck, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, toRepoRelative } from './checks.mjs';
+import { budgetCheck, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, isShellSafePath, toRepoRelative } from './checks.mjs';
 
 test('coverage: new in-scope file below 70% is a violation', () => {
   const v = coverageViolations(['unijob-web/src/services/new.service.ts'], { 'unijob-web/src/services/new.service.ts': 40 }, []);
@@ -68,4 +68,17 @@ test('entryChunkFromHtml: finds the module script src', () => {
   const html = '<script type="module" crossorigin src="/assets/index-5e2VBsR0.js"></script><link rel="modulepreload" href="/assets/vendor-1.js">';
   assert.equal(entryChunkFromHtml(html), 'index-5e2VBsR0.js');
   assert.equal(entryChunkFromHtml('<html></html>'), null);
+});
+
+test('isShellSafePath: accepts ordinary names incl. spaces and Vietnamese', () => {
+  assert.equal(isShellSafePath('src/a b.ts'), true);
+  assert.equal(isShellSafePath('src/vi\u1ec7c l\u00e0m.ts'), true);
+  assert.equal(isShellSafePath('src/@scope/x+y_z-1.tsx'), true);
+});
+
+test('isShellSafePath: rejects shell metacharacters', () => {
+  assert.equal(isShellSafePath('src/$(rm -rf).ts'), false);
+  assert.equal(isShellSafePath('src/`x`.ts'), false);
+  assert.equal(isShellSafePath('src/a";b.ts'), false);
+  assert.equal(isShellSafePath('src/%PATH%.ts'), false);
 });

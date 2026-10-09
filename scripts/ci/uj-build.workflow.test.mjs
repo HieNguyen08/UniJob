@@ -167,3 +167,45 @@ test('CI red once then green: one fix-ci, done', async () => {
   assert.equal(count('uj-ci-runner'), 2);
   assert.equal(calls.filter((c) => c.label?.startsWith('fix-ci')).length, 1);
 });
+
+test('implementer reporting done without a new commit stops with error (implement)', async () => {
+  const { result, count } = await runWorkflow({ ...green, 'uj-implementer': () => ({ ...done, headSha: 'b' }) });
+  assert.equal(result.status, 'error');
+  assert.match(result.reason, /without a new commit/);
+  assert.equal(count('uj-code-reviewer'), 0);
+});
+
+test('implementer reporting done without a new commit stops with error (review fix)', async () => {
+  const { result } = await runWorkflow({
+    ...green,
+    'uj-implementer': (p, o) => (o.label.startsWith('fix-') ? { ...done, baseSha: 'h', headSha: 'h' } : done),
+    'uj-code-reviewer': () => ({ findings: [finding()] }),
+  });
+  assert.equal(result.status, 'error');
+  assert.match(result.reason, /without a new commit/);
+});
+
+test('implementer reporting done without a new commit stops with error (CI fix)', async () => {
+  const { result, count } = await runWorkflow({
+    ...green,
+    'uj-implementer': (p, o) => (o.label.startsWith('fix-ci') ? { ...done, baseSha: 'h', headSha: 'h' } : done),
+    'uj-ci-runner': () => ({ ok: false, failures: [{ gate: 'build', cause: 'x', files: [] }] }),
+  });
+  assert.equal(result.status, 'error');
+  assert.match(result.reason, /without a new commit/);
+  assert.equal(count('uj-ci-runner'), 1);
+});
+
+test('resume with no tasks skips implementation and runs CI + branch review', async () => {
+  const { result, count } = await runWorkflow(green, { ...ARGS, tasks: [], resume: true });
+  assert.equal(result.status, 'done');
+  assert.equal(count('uj-implementer'), 0);
+  assert.equal(count('uj-ci-runner'), 1);
+  assert.equal(count('pr-review-toolkit:pr-test-analyzer'), 1);
+});
+
+test('empty tasks without resume is still an error', async () => {
+  const { result, count } = await runWorkflow(green, { ...ARGS, tasks: [] });
+  assert.equal(result.status, 'error');
+  assert.equal(count('uj-ci-runner'), 0);
+});

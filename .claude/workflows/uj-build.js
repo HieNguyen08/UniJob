@@ -15,6 +15,7 @@ const A = args || {}
 const WT = A.worktree
 const PLAN = A.plan
 const TASKS = Array.isArray(A.tasks) ? A.tasks : []
+const RESUME = A.resume === true
 const MAX_ROUNDS = typeof A.maxRounds === 'number' ? A.maxRounds : 3
 const MAX_CI_ROUNDS = 2
 const MIN_CONFIDENCE = 80
@@ -109,6 +110,11 @@ function keepFollowUps(findings) {
   }
 }
 
+const NO_COMMIT = 'implementer reported done without a new commit'
+// 'done' with an unchanged HEAD means the work is uncommitted (or never happened): reviewing
+// baseSha..HEAD would see an empty diff and wave it through.
+const noNewCommit = (res) => res.status === 'done' && res.headSha === res.baseSha
+
 const results = []
 const stop = (status, extra) => ({ status, tasks: results, followUps, ...extra })
 
@@ -149,14 +155,16 @@ async function reviewUntilClean(kinds, range, what, labelFor, phaseName, maxRoun
     const res = await fix(fixLabelFor(rounds + 1), `Fix these review findings:\n${JSON.stringify(blocking, null, 2)}`)
     if (!res) return { error: 'implementer returned nothing during fix' }
     if (res.status === 'blocked') return { blocked: res.blockedReason || 'blocked during fix' }
+    if (noNewCommit(res)) return { error: NO_COMMIT }
     fixed += blocking.length
     rounds += 1
     active = [...new Set(blocking.map((f) => f.reviewer))]
   }
 }
 
-if (!WT || !PLAN || TASKS.length === 0) {
-  return stop('error', { reason: 'uj-build needs args {worktree, plan, branch, tasks:[{id,title}]}' })
+// resume: every task is already on the branch (a previous run stopped in CI/branch review)
+if (!WT || !PLAN || (TASKS.length === 0 && !RESUME)) {
+  return stop('error', { reason: 'uj-build needs args {worktree, plan, branch, tasks:[{id,title}]} (tasks may be [] only with resume: true)' })
 }
 
 for (const task of TASKS) {
@@ -164,6 +172,7 @@ for (const task of TASKS) {
   const impl = await implement(task)
   if (!impl) return stop('error', { stoppedAt: task.id, reason: 'implementer returned nothing' })
   if (impl.status === 'blocked') return stop('blocked', { stoppedAt: task.id, reason: impl.blockedReason || 'blocked' })
+  if (noNewCommit(impl)) return stop('error', { stoppedAt: task.id, reason: NO_COMMIT })
 
   const outcome = await reviewUntilClean(
     ['code', 'security'],
@@ -191,6 +200,7 @@ for (let n = 1; ci && !ci.ok && n <= MAX_CI_ROUNDS; n++) {
   const res = await fix(`fix-ci#${n}`, `Full CI failed. Failures:\n${JSON.stringify(ci.failures, null, 2)}\nAlso read ci/last-run.json.`)
   if (!res) return stop('error', { reason: 'implementer returned nothing during CI fix', ci })
   if (res.status === 'blocked') return stop('blocked', { reason: res.blockedReason || 'implementer could not fix CI', ci })
+  if (noNewCommit(res)) return stop('error', { reason: NO_COMMIT, ci })
   ci = await runCi(n)
 }
 if (!ci) return stop('error', { reason: 'ci-runner returned nothing' })

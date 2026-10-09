@@ -202,3 +202,39 @@ test('hook process: PowerShell tool input is evaluated (trailer blocked)', () =>
   assert.equal(r.status, 2);
   assert.match(r.stderr, /Co-Authored-By/);
 });
+
+test('git behind shell keywords and script blocks is still guarded', () => {
+  // quick-only CI: every push must block
+  assert.equal(ps('node scripts/ci-local.mjs --quick; if ($?) { git push }').block, true);
+  assert.equal(ps('git add -A; if ($?) { git commit -m "x Co-Authored-By: a" }').block, true);
+  assert.equal(ps('if ($?) { git status } else { git push }').block, true);
+  assert.equal(ps('foreach ($b in $x) { git push origin $b }').block, true);
+  assert.equal(run('if git diff --quiet; then git push; fi').block, true);
+  assert.equal(run('if ! git push; then echo no; fi').block, true);
+  assert.equal(run('! git push').block, true);
+  assert.equal(run('{ git push; }').block, true);
+  assert.equal(run('while true; do git push; done').block, true);
+  assert.equal(run('{ git commit -m a; }', { readLastRun: () => null }).block, true);
+});
+
+test('git commit/push through a nested shell fails closed', () => {
+  for (const cmd of ['bash -c "git push"', 'sh -lc "git commit -m a"', 'echo x | xargs git push', 'cmd /c git push']) {
+    const r = run(cmd, { readLastRun: fullOk });
+    assert.equal(r.block, true, cmd);
+    assert.match(r.reason, /nested shell/, cmd);
+  }
+  for (const cmd of ['Invoke-Expression "git push"', 'iex "git commit -m a"', 'pwsh -Command "git push"', 'powershell.exe -c "git push"']) {
+    const r = ps(cmd, { readLastRun: fullOk });
+    assert.equal(r.block, true, cmd);
+    assert.match(r.reason, /nested shell/, cmd);
+  }
+});
+
+test('keywords and nested shells without commit/push are allowed', () => {
+  const none = { readLastRun: () => null };
+  assert.equal(ps('if ($?) { git status }', none).block, false);
+  assert.equal(run('bash -c "echo hi"', none).block, false);
+  assert.equal(run('{ git log; }', none).block, false);
+  assert.equal(run('if git diff --quiet; then echo same; fi', none).block, false);
+  assert.equal(run('echo x | xargs git log', none).block, false);
+});

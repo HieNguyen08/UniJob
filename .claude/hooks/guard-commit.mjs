@@ -141,7 +141,7 @@ function splitPowerShell(command) {
         i++;
       }
     } else if (c === ' ' || c === '\t' || c === '\r') pushToken();
-    else if (SEPARATORS.has(c)) endSegment();
+    else if (SEPARATORS.has(c) || c === '{' || c === '}') endSegment(); // script blocks: if (…) { git … }
     else {
       cur += c;
       has = true;
@@ -197,6 +197,19 @@ function hasMessageArg(args) {
   return args.some((a) => a === '--message' || a.startsWith('--message=') || a === '--file' || a.startsWith('--file=') || /^-[a-zA-Z]*[mF]/.test(a) && !a.startsWith('--'));
 }
 
+// Leading shell keywords / block openers: the command that follows them is what runs.
+// (Bash `{` `}` arrive as their own tokens; PowerShell `{` `}` `(` `)` are segment separators.)
+const CONTROL_TOKENS = new Set(['if', 'then', 'else', 'elif', 'elseif', 'do', 'while', 'until', '!', '{', '}', 'try', 'finally', 'foreach']);
+const NESTED_SHELLS = new Set(['bash', 'sh', 'zsh', 'pwsh', 'powershell', 'cmd']);
+const NESTED_GIT_OP = /\bgit(\.exe)?\b[^|;&]*\b(commit|push)\b/i;
+
+/** A segment that hands a command string to another interpreter, which this parser cannot follow. */
+function isNestedShell(toks) {
+  const base = toks[0].replace(/^.*[\\/]/, '').replace(/\.exe$/i, '').toLowerCase();
+  if (base === 'xargs' || base === 'invoke-expression' || base === 'iex') return true;
+  return NESTED_SHELLS.has(base) && toks.slice(1).some((t) => /^-[a-z]*c$/i.test(t) || /^-command$/i.test(t) || /^\/c$/i.test(t));
+}
+
 /** Every `git commit` / `git push` in the command, with the directory each one runs in. */
 export function parseGitOps(command, cwd, opts = {}) {
   const platform = opts.platform ?? process.platform;
@@ -210,8 +223,14 @@ export function parseGitOps(command, cwd, opts = {}) {
 
   for (const raw of splitSegments(command, shell)) {
     const toks = [...raw];
-    while (toks.length && (/^[A-Za-z_]\w*=/.test(toks[0]) || WRAPPERS.has(toks[0]))) toks.shift();
+    const lead = (t) => (shell === 'powershell' ? t.toLowerCase() : t);
+    while (toks.length && (/^[A-Za-z_]\w*=/.test(toks[0]) || WRAPPERS.has(toks[0]) || CONTROL_TOKENS.has(lead(toks[0])))) toks.shift();
     if (!toks.length) continue;
+
+    if (isNestedShell(toks) && NESTED_GIT_OP.test(toks.slice(1).join(' '))) {
+      ops.push({ kind: 'nested', dir: current, explicit, messageFiles: [], amendWithoutMessage: false });
+      continue;
+    }
 
     const head = shell === 'powershell' ? toks[0].toLowerCase() : toks[0];
     if (DIR_CHANGERS[shell].has(head)) {
@@ -262,6 +281,9 @@ const TRAILER = /co-authored-by/i;
 export function evaluate({ command, cwd, shell }, deps) {
   const ops = parseGitOps(command, cwd, { platform: deps.platform, homedir: deps.homedir, shell });
   if (ops.length === 0) return { block: false };
+  if (ops.some((o) => o.kind === 'nested')) {
+    return block('cannot verify a git commit/push run through a nested shell (bash -c, cmd /c, pwsh -Command, xargs, Invoke-Expression); run git directly');
+  }
 
   const commits = ops.filter((o) => o.kind === 'commit');
   if (commits.length > 0) {

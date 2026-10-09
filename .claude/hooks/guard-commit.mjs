@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// PreToolUse(Bash) guard: no Co-Authored-By; commit only after a green ci-local run on the
-// exact working tree; push only after a green --full run on the exact HEAD tree.
+// PreToolUse(Bash|PowerShell) guard: no Co-Authored-By; commit only after a green ci-local run
+// on the exact working tree; push only after a green --full run on the exact HEAD tree.
 // Fails closed: any internal error exits 2 (the only exit code Claude Code treats as blocking).
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir as osHomedir } from 'node:os';
@@ -13,8 +13,13 @@ const SHELL_SPECIAL = new Set([' ', '\t', '"', "'", '$', '`', '\\', ';', '&', '|
 const WRAPPERS = new Set(['env', 'command', 'exec', 'sudo', 'time', 'nohup', 'builtin']);
 const VALUE_OPTIONS = new Set(['-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path']);
 
-/** Quote-aware split of a shell command line into segments of tokens (quotes stripped). */
-export function splitSegments(command) {
+/**
+ * Quote-aware split of a command line into segments of tokens (quotes stripped).
+ * `shell` is 'bash' (default) or 'powershell' (backtick escapes, literal backslashes,
+ * '' / "" doubled quotes, @'…'@ / @"…"@ here-strings).
+ */
+export function splitSegments(command, shell = 'bash') {
+  if (shell === 'powershell') return splitPowerShell(command);
   const segments = [];
   let tokens = [];
   let cur = '';
@@ -71,6 +76,97 @@ export function splitSegments(command) {
   return segments;
 }
 
+function splitPowerShell(command) {
+  const segments = [];
+  let tokens = [];
+  let cur = '';
+  let has = false;
+  const pushToken = () => {
+    if (has) tokens.push(cur);
+    cur = '';
+    has = false;
+  };
+  const endSegment = () => {
+    pushToken();
+    if (tokens.length) segments.push(tokens);
+    tokens = [];
+  };
+  for (let i = 0; i < command.length; i++) {
+    const c = command[i];
+    const next = command[i + 1];
+    if (c === '@' && (next === "'" || next === '"') && /^[ \t]*\r?\n/.test(command.slice(i + 2))) {
+      // here-string: everything up to a line that starts with the closing quote + @ is literal
+      const close = new RegExp(`\\r?\\n${next}@`, 'g');
+      const bodyStart = command.indexOf('\n', i + 2) + 1;
+      close.lastIndex = bodyStart - 1;
+      const m = close.exec(command);
+      const end = m ? m.index : command.length;
+      cur += command.slice(bodyStart, end);
+      has = true;
+      i = m ? m.index + m[0].length - 1 : command.length;
+      continue;
+    }
+    if (c === "'") {
+      has = true;
+      for (i++; i < command.length; i++) {
+        if (command[i] === "'") {
+          if (command[i + 1] === "'") {
+            cur += "'";
+            i++;
+          } else break;
+        } else cur += command[i];
+      }
+      continue;
+    }
+    if (c === '"') {
+      has = true;
+      for (i++; i < command.length; i++) {
+        const d = command[i];
+        if (d === '`' && i + 1 < command.length) cur += command[++i];
+        else if (d === '"') {
+          if (command[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else break;
+        } else cur += d;
+      }
+      continue;
+    }
+    if (c === '`') {
+      if (next === '\n') i++; // line continuation
+      else if (next === '\r' && command[i + 2] === '\n') i += 2;
+      else if (next !== undefined) {
+        cur += next;
+        has = true;
+        i++;
+      }
+    } else if (c === ' ' || c === '\t' || c === '\r') pushToken();
+    else if (SEPARATORS.has(c)) endSegment();
+    else {
+      cur += c;
+      has = true;
+    }
+  }
+  endSegment();
+  return segments;
+}
+
+const DIR_CHANGERS = {
+  bash: new Set(['cd', 'pushd']),
+  powershell: new Set(['cd', 'chdir', 'sl', 'set-location', 'pushd', 'push-location']),
+};
+
+/** Target directory of a cd-like command, or undefined (no argument, `-`, unknown form). */
+function dirChangeTarget(args, shell) {
+  for (let j = 0; j < args.length; j++) {
+    const a = args[j];
+    if (shell === 'powershell' && /^-(path|literalpath)$/i.test(a)) return args[j + 1];
+    if (a === '-') return undefined;
+    if (!a.startsWith('-')) return a;
+  }
+  return undefined;
+}
+
 function pathApiFor(platform) {
   return platform === 'win32' ? path.win32 : path.posix;
 }
@@ -105,20 +201,22 @@ function hasMessageArg(args) {
 export function parseGitOps(command, cwd, opts = {}) {
   const platform = opts.platform ?? process.platform;
   const homedir = opts.homedir ?? osHomedir();
+  const shell = opts.shell === 'powershell' ? 'powershell' : 'bash';
   const api = pathApiFor(platform);
   const norm = (d) => normalizeDir(d, { platform, homedir });
   let current = api.resolve(cwd); // hook cwd is already native
   let explicit = false;
   const ops = [];
 
-  for (const raw of splitSegments(command)) {
+  for (const raw of splitSegments(command, shell)) {
     const toks = [...raw];
     while (toks.length && (/^[A-Za-z_]\w*=/.test(toks[0]) || WRAPPERS.has(toks[0]))) toks.shift();
     if (!toks.length) continue;
 
-    if (toks[0] === 'cd') {
-      const target = toks[1];
-      if (target !== undefined && target !== '-') {
+    const head = shell === 'powershell' ? toks[0].toLowerCase() : toks[0];
+    if (DIR_CHANGERS[shell].has(head)) {
+      const target = dirChangeTarget(toks.slice(1), shell);
+      if (target !== undefined) {
         current = api.resolve(current, norm(target));
         explicit = true;
       }
@@ -161,8 +259,8 @@ export function parseGitOps(command, cwd, opts = {}) {
 const block = (reason) => ({ block: true, reason });
 const TRAILER = /co-authored-by/i;
 
-export function evaluate({ command, cwd }, deps) {
-  const ops = parseGitOps(command, cwd, { platform: deps.platform, homedir: deps.homedir });
+export function evaluate({ command, cwd, shell }, deps) {
+  const ops = parseGitOps(command, cwd, { platform: deps.platform, homedir: deps.homedir, shell });
   if (ops.length === 0) return { block: false };
 
   const commits = ops.filter((o) => o.kind === 'commit');
@@ -236,10 +334,11 @@ const realDeps = {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const input = JSON.parse(readFileSync(0, 'utf8') || '{}');
-    if (input.tool_name === 'Bash' && typeof input.tool_input?.command === 'string') {
+    const shell = { Bash: 'bash', PowerShell: 'powershell' }[input.tool_name];
+    if (shell && typeof input.tool_input?.command === 'string') {
       // Git Bash style cwd (/c/Users/...) must become a native path before it is resolved
       const cwd = normalizeDir(input.cwd ?? process.cwd(), { platform: process.platform, homedir: osHomedir() });
-      const verdict = evaluate({ command: input.tool_input.command, cwd }, realDeps);
+      const verdict = evaluate({ command: input.tool_input.command, cwd, shell }, realDeps);
       if (verdict.block) {
         process.stderr.write(`[guard-commit] ${verdict.reason}\n`);
         process.exit(2);

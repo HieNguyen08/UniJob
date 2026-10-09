@@ -35,7 +35,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-commit.mjs\"" }]
       },
       {
@@ -43,5 +43,7 @@
         "hooks": [{ "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-secrets.mjs\"" }]
       }
     ]
-  }
+  },
+  "attribution": { "commit": "", "pr": "" },
+  "includeCoAuthoredBy": false
 }

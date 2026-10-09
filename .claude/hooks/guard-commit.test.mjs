@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { evaluate, parseGitOps } from './guard-commit.mjs';
+import { evaluate, parseGitOps, splitSegments } from './guard-commit.mjs';
 
 const deps = (over = {}) => ({
   repoRoot: (dir) => dir,
@@ -147,4 +147,58 @@ test('hook process fails closed on malformed stdin', () => {
   const r = spawnSync(process.execPath, [script], { input: '{not json', encoding: 'utf8' });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /internal error/);
+});
+
+const ps = (command, over, cwd = '/r') => evaluate({ command, cwd, shell: 'powershell' }, deps(over));
+
+test('PowerShell: trailer inside a here-string is blocked', () => {
+  for (const q of ["'", '"']) {
+    const cmd = `git commit -m @${q}\nfeat: x\n\nCo-Authored-By: Bot <b@x>\n${q}@`;
+    assert.equal(ps(cmd).block, true);
+  }
+});
+
+test('PowerShell: here-string content is quoted text, not commands', () => {
+  const ops = parseGitOps("git commit -m @'\nfeat: x; git push (y)\n'@", '/r', { platform: 'linux', homedir: '/h', shell: 'powershell' });
+  assert.deepEqual(ops.map((o) => o.kind), ['commit']);
+  for (const cmd of ["git commit -m @'\nit's done; git push\n'@", 'git commit -m @"\nsay "hi"; git push\n"@']) {
+    const kinds = parseGitOps(cmd, '/r', { platform: 'linux', homedir: '/h', shell: 'powershell' }).map((o) => o.kind);
+    assert.deepEqual(kinds, ['commit'], cmd);
+  }
+});
+
+test('PowerShell: Set-Location / sl / pushd / cd change the directory', () => {
+  const dirs = (cmd) => parseGitOps(cmd, '/r', { platform: 'linux', homedir: '/h', shell: 'powershell' }).map((o) => `${o.kind}@${o.dir}`);
+  assert.deepEqual(dirs('Set-Location .worktrees/x; git commit -m "x"'), ['commit@/r/.worktrees/x']);
+  assert.deepEqual(dirs('set-location -Path .worktrees/x; git commit -m "x"'), ['commit@/r/.worktrees/x']);
+  assert.deepEqual(dirs('sl .worktrees/x; git commit -m "x"'), ['commit@/r/.worktrees/x']);
+  assert.deepEqual(dirs('pushd .worktrees/x; git commit -m "x"'), ['commit@/r/.worktrees/x']);
+  assert.deepEqual(dirs('cd .worktrees/x; git commit -m "x"'), ['commit@/r/.worktrees/x']);
+  let seen;
+  ps('Set-Location .worktrees/x; git commit -m "x"', { readLastRun: (r) => { seen = r; return quickOk(); } });
+  assert.match(norm(seen), /\/r\/\.worktrees\/x$/);
+});
+
+test('PowerShell: backslash paths are literal and backtick escapes', () => {
+  const ops = parseGitOps(String.raw`git -C C:\r\wt commit -m "a${'`'}"b"`, String.raw`C:\r`, { platform: 'win32', homedir: String.raw`C:\h`, shell: 'powershell' });
+  assert.equal(norm(ops[0].dir), 'C:/r/wt');
+  assert.deepEqual(splitSegments('git commit -m "a`"b"; git push', 'powershell'), [['git', 'commit', '-m', 'a"b'], ['git', 'push']]);
+});
+
+test('PowerShell: git push with only a quick run is blocked; git status is allowed', () => {
+  assert.equal(ps('git push -u origin feat/x').block, true);
+  assert.equal(ps('git status', { readLastRun: () => null }).block, false);
+});
+
+test('Bash: pushd changes the directory too', () => {
+  const dirs = (cmd) => parseGitOps(cmd, '/r', { platform: 'linux', homedir: '/h' }).map((o) => `${o.kind}@${o.dir}`);
+  assert.deepEqual(dirs('pushd .worktrees/x && git commit -m x'), ['commit@/r/.worktrees/x']);
+});
+
+test('hook process: PowerShell tool input is evaluated (trailer blocked)', () => {
+  const script = fileURLToPath(new URL('./guard-commit.mjs', import.meta.url));
+  const input = JSON.stringify({ tool_name: 'PowerShell', cwd: process.cwd(), tool_input: { command: "git commit -m @'\nx\n\nCo-Authored-By: a <b>\n'@" } });
+  const r = spawnSync(process.execPath, [script], { input, encoding: 'utf8' });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /Co-Authored-By/);
 });

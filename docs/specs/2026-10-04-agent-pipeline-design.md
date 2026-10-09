@@ -1,6 +1,6 @@
 ---
 title: UniJob Agent Pipeline — Design
-status: draft
+status: approved
 date: 2026-10-04
 owner: HieNguyen08
 sub-project: A (agent team + pipeline). Sub-project B (product upgrade) is designed later through this pipeline.
@@ -108,7 +108,7 @@ Schema finding:
 
 ## 5. CI local: `scripts/ci-local.mjs`
 
-Viết bằng Node nên chạy được trên PowerShell, Git Bash và Ubuntu. Kết quả ghi vào `ci/last-run.json` (`{mode, fingerprint, ok, gates:[{name, ok, summary, files}]}`, trong đó `fingerprint = sha256(HEAD sha + output của git diff HEAD)`, tức trạng thái code mà CI đã thật sự kiểm).
+Viết bằng Node nên chạy được trên PowerShell, Git Bash và Ubuntu. Kết quả ghi vào `ci/last-run.json` (`{mode, fingerprint, ok, gates:[{name, ok, summary, files}]}`, trong đó `fingerprint` là tree SHA của working tree (dựng trong một index tạm, gồm cả file untracked trừ file bị ignore), bằng đúng `HEAD^{tree}` sau khi commit chính cây đã kiểm, tức trạng thái code mà CI đã thật sự kiểm).
 
 | Gate | `--quick` | `--full` | Điều kiện pass |
 |---|---|---|---|

@@ -1,6 +1,6 @@
 ---
 title: UniJob Agent Pipeline — Implementation Plan
-status: draft
+status: approved
 date: 2026-10-04
 spec: docs/specs/2026-10-04-agent-pipeline-design.md
 branch: chore/agent-pipeline

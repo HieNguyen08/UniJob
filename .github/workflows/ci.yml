@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: unijob-web/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Install
+        working-directory: unijob-web
+        run: npm ci
+      - name: ci-local --full
+        run: node scripts/ci-local.mjs --full
+      - name: Upload CI result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-last-run
+          path: ci/last-run.json

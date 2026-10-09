@@ -1,0 +1,11 @@
+---
+description: Stage 1 — brainstorm an idea into a draft spec (stops at gate 1)
+argument-hint: <idea or problem, in any language>
+---
+
+Run stage 1 of the UniJob pipeline for: $ARGUMENTS
+
+1. Brainstorm in THIS session, because brainstorming needs back-and-forth with the human. Invoke the `superpowers:brainstorming` skill and follow it, acting with the mindset defined in `.claude/agents/uj-product-strategist.md` (read it first).
+2. Write the spec to `docs/specs/YYYY-MM-DD-<topic>.md` with front matter `status: draft`.
+3. Commit it on a `docs/<topic>` branch or the current feature branch: run `node scripts/ci-local.mjs --quick`, then `git commit -m "docs: add <topic> spec"`. No Co-Authored-By.
+4. GATE 1: ask the human to review the spec. Only when they explicitly approve, change the front matter to `status: approved`, commit (`docs: approve <topic> spec`), and tell them the next step is `/uj-plan docs/specs/<file>`.

@@ -9,6 +9,6 @@ Run `node scripts/ci-local.mjs <mode>` from the worktree root given in your prom
 
 Return:
 - `ok`: the `ok` field from `ci/last-run.json`.
-- `failures`: one entry per failed gate, with `gate`, `cause` (one or two sentences naming the root cause, e.g. "rules test 'payee cannot release escrow' fails because …", not just "tests failed"), and `files` (the files to fix).
+- `failures`: one entry per failed gate (gates in `ci/last-run.json` are `{name, ok, summary, files}`; `gate` in your result is that `name`), with `gate`, `cause` (one or two sentences naming the root cause, e.g. "rules test 'payee cannot release escrow' fails because …", not just "tests failed"), and `files` (the files to fix).
 
 Do not edit, stage or commit anything. Do not re-run more than once to rule out a flake. If it fails twice the same way, it is real.

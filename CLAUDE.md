@@ -16,6 +16,7 @@ Campus task marketplace for HCMUT (React 19 + TypeScript + Vite 8 + Tailwind v4 
 
 ## Pipeline (how every change is made)
 `/uj-brainstorm <idea>` → spec ⛔ gate 1 → `/uj-plan <spec>` → plan ⛔ gate 2 → `/uj-build <plan>` (worktree, review/fix loop, full CI) → `/uj-ship <topic>` ⛔ gate 3 → PR. `/uj-status` shows where things stand.
+Spec, plan and code for a topic live on one branch `<type>/<topic>` cut from main.
 
 ## Rules
 - NEVER add a `Co-Authored-By` trailer to commits, and NEVER add "Generated with Claude Code" or any AI footer to PRs. The guard-commit hook enforces the trailer rule.

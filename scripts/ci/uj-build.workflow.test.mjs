@@ -17,7 +17,7 @@ async function runWorkflow(handlers, args = ARGS) {
     const h = handlers[opts.agentType];
     return h ? h(prompt, opts, calls) : { findings: [] };
   };
-  const parallel = (thunks) => Promise.all(thunks.map((t) => t().catch(() => null)));
+  const parallel = (thunks) => Promise.all(thunks.map((t) => t()));
   const fn = new AsyncFunction('agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', SOURCE);
   const result = await fn(agent, parallel, undefined, () => {}, () => {}, args, { total: null });
   return { result, calls, count: (t) => calls.filter((c) => c.type === t).length };
@@ -94,4 +94,76 @@ test('CI red after 2 fix rounds → needs-human', async () => {
 test('missing args fail fast', async () => {
   const { result } = await runWorkflow(green, { tasks: [] });
   assert.equal(result.status, 'error');
+});
+
+test('reviewer prompts are READ-ONLY and carry no Co-Authored-By wording; implementer prompts keep it', async () => {
+  const { calls } = await runWorkflow(green);
+  const reviewers = calls.filter((c) => c.type !== 'uj-implementer' && c.type !== 'uj-ci-runner');
+  assert.ok(reviewers.length > 0);
+  for (const c of reviewers) {
+    assert.match(c.prompt, /READ-ONLY/);
+    assert.doesNotMatch(c.prompt, /Co-Authored-By/);
+  }
+  const impls = calls.filter((c) => c.type === 'uj-implementer');
+  assert.ok(impls.length > 0);
+  for (const c of impls) assert.match(c.prompt, /Co-Authored-By/);
+});
+
+test('null implementer during the CI fix loop is an error, not blocked', async () => {
+  const { result } = await runWorkflow({
+    ...green,
+    'uj-implementer': (p, o) => (o.label.startsWith('fix-ci') ? null : done),
+    'uj-ci-runner': () => ({ ok: false, failures: [{ gate: 'build', cause: 'x', files: [] }] }),
+  });
+  assert.equal(result.status, 'error');
+});
+
+test('null ci-runner after branch-review fixes is an error', async () => {
+  let branchCode = 0;
+  let ciRuns = 0;
+  const { result } = await runWorkflow({
+    ...green,
+    'uj-code-reviewer': (p, o) => ({ findings: o.label === 'branch-code' && branchCode++ === 0 ? [finding()] : [] }),
+    'uj-ci-runner': () => (ciRuns++ === 0 ? { ok: true, failures: [] } : null),
+  });
+  assert.equal(result.status, 'error');
+});
+
+test('an implementer that throws yields a structured error result', async () => {
+  const { result } = await runWorkflow({ ...green, 'uj-implementer': () => { throw new Error('boom'); } });
+  assert.equal(result.status, 'error');
+  assert.ok(Array.isArray(result.tasks));
+  assert.ok(Array.isArray(result.followUps));
+});
+
+test('a reviewer returning no findings array is an error', async () => {
+  const { result } = await runWorkflow({ ...green, 'uj-code-reviewer': () => ({}) });
+  assert.equal(result.status, 'error');
+});
+
+test('null reviewer during branch review is an error', async () => {
+  const { result } = await runWorkflow({ ...green, 'uj-security-auditor': (p, o) => (o.label.startsWith('branch-') ? null : { findings: [] }) });
+  assert.equal(result.status, 'error');
+});
+
+test('branch review blocking finding: one fix, then CI re-runs', async () => {
+  let branchCode = 0;
+  const { result, count } = await runWorkflow({
+    ...green,
+    'uj-code-reviewer': (p, o) => ({ findings: o.label === 'branch-code' && branchCode++ === 0 ? [finding()] : [] }),
+  });
+  assert.equal(result.status, 'done');
+  assert.equal(count('uj-ci-runner'), 2);
+  assert.equal(count('uj-implementer'), 3);
+});
+
+test('CI red once then green: one fix-ci, done', async () => {
+  let ciRuns = 0;
+  const { result, calls, count } = await runWorkflow({
+    ...green,
+    'uj-ci-runner': () => (ciRuns++ === 0 ? { ok: false, failures: [{ gate: 'build', cause: 'x', files: [] }] } : { ok: true, failures: [] }),
+  });
+  assert.equal(result.status, 'done');
+  assert.equal(count('uj-ci-runner'), 2);
+  assert.equal(calls.filter((c) => c.label?.startsWith('fix-ci')).length, 1);
 });

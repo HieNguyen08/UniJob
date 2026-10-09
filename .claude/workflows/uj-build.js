@@ -82,6 +82,20 @@ const CONTEXT = `Worktree (work ONLY here, use absolute paths and git -C): ${WT}
 Plan: ${PLAN} (read it inside the worktree)
 Repo rules: CLAUDE.md. Never add a Co-Authored-By trailer.`
 
+const READ_CONTEXT = `Worktree (read ONLY inside it, use absolute paths and git -C): ${WT}
+Plan: ${PLAN} (read it inside the worktree)
+Repo rules: CLAUDE.md.`
+
+// A thrown/rejected agent call is treated the same as an agent that returned nothing.
+async function call(prompt, opts) {
+  try {
+    return (await agent(prompt, opts)) ?? null
+  } catch (e) {
+    log(`agent ${opts.label} failed: ${e && e.message ? e.message : e}`)
+    return null
+  }
+}
+
 const key = (f) => `${f.file}:${f.line ?? '?'}:${f.issue}`
 const isBlocking = (f) => BLOCKING_SEVERITIES.includes(f.severity) && f.confidence >= MIN_CONFIDENCE
 
@@ -99,14 +113,14 @@ const results = []
 const stop = (status, extra) => ({ status, tasks: results, followUps, ...extra })
 
 function implement(task) {
-  return agent(
+  return call(
     `${CONTEXT}\n\nImplement plan task ${task.id}: "${task.title}". Follow the task's steps exactly (TDD), run node scripts/ci-local.mjs --quick until green, then make a checkpoint commit whose message ends with [task:${task.id}].`,
     { label: `implement:t${task.id}`, phase: 'Implement', agentType: 'uj-implementer', schema: IMPL_SCHEMA },
   )
 }
 
 function fix(label, instructions) {
-  return agent(
+  return call(
     `${CONTEXT}\n\n${instructions}\nFix only what is listed. Run node scripts/ci-local.mjs --quick until green, then make a checkpoint commit.`,
     { label, phase: 'Fix', agentType: 'uj-implementer', schema: IMPL_SCHEMA },
   )
@@ -114,10 +128,10 @@ function fix(label, instructions) {
 
 function review(kind, range, what, label, phaseName) {
   const r = REVIEWERS[kind]
-  return agent(
-    `${CONTEXT}\n\nReview the diff \`git -C ${WT} diff ${range}\` (${what}). Focus: ${r.focus}. Return findings with severity and confidence (0-100). Empty list if nothing real.`,
+  return call(
+    `${READ_CONTEXT}\n\nYou are READ-ONLY: do not edit files, stage, or commit anything.\nReview the diff \`git -C ${WT} diff ${range}\` (${what}). Focus: ${r.focus}. Return findings with severity and confidence (0-100). Empty list if nothing real.`,
     { label, phase: phaseName, agentType: r.agentType, schema: FINDINGS_SCHEMA },
-  ).then((res) => (res ? { kind, findings: res.findings.map((f) => ({ ...f, reviewer: kind })) } : null))
+  ).then((res) => (res && Array.isArray(res.findings) ? { kind, findings: res.findings.map((f) => ({ ...f, reviewer: kind })) } : null))
 }
 
 async function reviewUntilClean(kinds, range, what, labelFor, phaseName, maxRounds, fixLabelFor) {
@@ -168,14 +182,15 @@ for (const task of TASKS) {
 }
 
 phase('CI')
-const runCi = (n) => agent(
+const runCi = (n) => call(
   `${CONTEXT}\n\nRun node scripts/ci-local.mjs --full in the worktree root and report.`,
   { label: `ci-full#${n}`, phase: 'CI', agentType: 'uj-ci-runner', schema: CI_SCHEMA },
 )
 let ci = await runCi(0)
 for (let n = 1; ci && !ci.ok && n <= MAX_CI_ROUNDS; n++) {
   const res = await fix(`fix-ci#${n}`, `Full CI failed. Failures:\n${JSON.stringify(ci.failures, null, 2)}\nAlso read ci/last-run.json.`)
-  if (!res || res.status === 'blocked') return stop('blocked', { reason: 'implementer could not fix CI', ci })
+  if (!res) return stop('error', { reason: 'implementer returned nothing during CI fix', ci })
+  if (res.status === 'blocked') return stop('blocked', { reason: res.blockedReason || 'implementer could not fix CI', ci })
   ci = await runCi(n)
 }
 if (!ci) return stop('error', { reason: 'ci-runner returned nothing' })
@@ -197,7 +212,8 @@ if (branch.needsHuman) return stop('needs-human', { reason: 'branch review still
 
 if (branch.rounds > 0) {
   ci = await runCi(99)
-  if (!ci || !ci.ok) return stop('needs-human', { reason: 'full CI red after branch-review fixes', ci })
+  if (!ci) return stop('error', { reason: 'ci-runner returned nothing after branch-review fixes' })
+  if (!ci.ok) return stop('needs-human', { reason: 'full CI red after branch-review fixes', ci })
 }
 
 return stop('done', { ci })

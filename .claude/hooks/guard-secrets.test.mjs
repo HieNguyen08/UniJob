@@ -40,3 +40,12 @@ test('hook process fails closed on malformed stdin', () => {
   assert.equal(r.status, 2);
   assert.match(r.stderr, /internal error/);
 });
+
+test('protects ci/last-run.json at any depth (only ci-local writes it)', () => {
+  assert.equal(isProtectedPath('/r/ci/last-run.json'), true);
+  assert.equal(isProtectedPath('C:/r/.worktrees/x/ci/last-run.json'), true);
+  assert.equal(isProtectedPath(String.raw`C:\r\.worktrees\x\CI\Last-Run.json`), true);
+  assert.equal(isProtectedPath('ci/last-run.json'), true);
+  assert.equal(isProtectedPath('/r/ci/budget-run.json'), false);
+  assert.equal(isProtectedPath('/r/docs/last-run.json'), false);
+});

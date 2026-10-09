@@ -4,13 +4,15 @@ import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { budgetCheck, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, isShellSafePath, toRepoRelative } from './ci/checks.mjs';
 import { changedFiles, git, mergeBase, repoRoot, workingTreeFingerprint } from './ci/git.mjs';
 
 const mode = process.argv.includes('--full') ? 'full' : 'quick';
 const updateBudget = process.argv.includes('--update-budget');
-const root = repoRoot();
+// The repo (or worktree) this script belongs to, not process.cwd(): `node <wt>/scripts/ci-local.mjs` checks <wt>.
+const root = repoRoot(dirname(fileURLToPath(import.meta.url)));
 const web = join(root, 'unijob-web');
 let fingerprint = workingTreeFingerprint(root);
 

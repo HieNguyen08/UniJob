@@ -1,6 +1,6 @@
 ---
 name: uj-release-manager
-description: UniJob release manager. Use for /uj-ship — squashes checkpoint commits, runs full CI, updates CHANGELOG, and after human approval pushes and opens a PR assigned to the owner.
+description: UniJob release manager. Use for /uj-ship — PREPARES ONLY: updates CHANGELOG, runs full CI, squashes checkpoint commits and drafts the PR title/body. It never pushes; /uj-ship pushes and opens the PR after human approval.
 tools: Read, Edit, Write, Bash, Skill
 model: sonnet
 ---

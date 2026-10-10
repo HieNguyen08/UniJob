@@ -20,8 +20,8 @@ const base = mode === 'full' ? mergeBase(root) : 'HEAD';
 const changed = changedFiles(root, base).filter((f) => existsSync(join(root, f)));
 const webChanged = changed.filter((f) => f.startsWith('unijob-web/')).map((f) => f.slice('unijob-web/'.length));
 const webTs = webChanged.filter((f) => /\.(ts|tsx)$/.test(f));
-const webSrc = webTs.filter((f) => f.startsWith('src/'));
-const toolingChanged = changed.some((f) => f.startsWith('scripts/') || f.startsWith('.claude/'));
+const webSrc = webTs.filter((f) => f.startsWith('src/') || f.startsWith('tests/unit/'));
+const toolingChanged = changed.some((f) => f.startsWith('scripts/') || f.startsWith('.claude/') || f.startsWith('tests/tooling/'));
 const quote = (f) => `"${f}"`;
 const unsafeFiles = (files) => files.filter((f) => !isShellSafePath(f));
 const unsafeResult = (files) => ({ ok: false, summary: unsafeFiles(files).map((f) => `unsafe file name for shell: ${f}`).join('\n'), files: unsafeFiles(files) });
@@ -71,7 +71,7 @@ gate('lint', () => {
 
 gate('unit-tests', () => {
   if (mode === 'quick') {
-    if (webSrc.length === 0) return { ok: true, skipped: true, summary: 'no changed src files' };
+    if (webSrc.length === 0) return { ok: true, skipped: true, summary: 'no changed src or unit test files' };
     if (unsafeFiles(webSrc).length) return unsafeResult(webSrc);
     const r = run(`npx vitest related --run --project unit --passWithNoTests ${webSrc.map(quote).join(' ')}`);
     return { ok: r.ok, summary: r.tail, files: webSrc };
@@ -82,7 +82,7 @@ gate('unit-tests', () => {
 
 gate('tooling-tests', () => {
   if (mode === 'quick' && !toolingChanged) return { ok: true, skipped: true, summary: 'no tooling changes' };
-  const r = run('node --test "scripts/**/*.test.mjs" ".claude/**/*.test.mjs"', root);
+  const r = run('node --test "tests/tooling/**/*.test.mjs"', root);
   return { ok: r.ok, summary: r.tail };
 });
 

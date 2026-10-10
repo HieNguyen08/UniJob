@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { evaluate, parseGitOps, splitSegments } from './guard-commit.mjs';
+import { evaluate, parseGitOps, splitSegments } from '../../../.claude/hooks/guard-commit.mjs';
 
 const deps = (over = {}) => ({
   repoRoot: (dir) => dir,
@@ -143,7 +143,7 @@ test('corrupt last-run.json: evaluate throws (wrapper then exits 2)', () => {
 });
 
 test('hook process fails closed on malformed stdin', () => {
-  const script = fileURLToPath(new URL('./guard-commit.mjs', import.meta.url));
+  const script = fileURLToPath(new URL('../../../.claude/hooks/guard-commit.mjs', import.meta.url));
   const r = spawnSync(process.execPath, [script], { input: '{not json', encoding: 'utf8' });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /internal error/);
@@ -196,7 +196,7 @@ test('Bash: pushd changes the directory too', () => {
 });
 
 test('hook process: PowerShell tool input is evaluated (trailer blocked)', () => {
-  const script = fileURLToPath(new URL('./guard-commit.mjs', import.meta.url));
+  const script = fileURLToPath(new URL('../../../.claude/hooks/guard-commit.mjs', import.meta.url));
   const input = JSON.stringify({ tool_name: 'PowerShell', cwd: process.cwd(), tool_input: { command: "git commit -m @'\nx\n\nCo-Authored-By: a <b>\n'@" } });
   const r = spawnSync(process.execPath, [script], { input, encoding: 'utf8' });
   assert.equal(r.status, 2);

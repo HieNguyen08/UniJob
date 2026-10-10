@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { budgetCheck, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, isShellSafePath, toRepoRelative } from './checks.mjs';
+import { budgetCheck, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, isShellSafePath, toRepoRelative } from '../../../scripts/ci/checks.mjs';
 
 test('coverage: new in-scope file below 70% is a violation', () => {
   const v = coverageViolations(['unijob-web/src/services/new.service.ts'], { 'unijob-web/src/services/new.service.ts': 40 }, []);

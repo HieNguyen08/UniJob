@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { isProtectedPath } from './guard-secrets.mjs';
+import { isProtectedPath } from '../../../.claude/hooks/guard-secrets.mjs';
 
 test('protects env files but not examples', () => {
   assert.equal(isProtectedPath('C:\\r\\unijob-web\\.env.local'), true);
@@ -35,7 +35,7 @@ test('allows normal source files', () => {
 });
 
 test('hook process fails closed on malformed stdin', () => {
-  const script = fileURLToPath(new URL('./guard-secrets.mjs', import.meta.url));
+  const script = fileURLToPath(new URL('../../../.claude/hooks/guard-secrets.mjs', import.meta.url));
   const r = spawnSync(process.execPath, [script], { input: '{not json', encoding: 'utf8' });
   assert.equal(r.status, 2);
   assert.match(r.stderr, /internal error/);

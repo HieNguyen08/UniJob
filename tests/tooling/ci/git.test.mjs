@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
-import { changedFiles, git, headTree, workingTreeFingerprint } from './git.mjs';
+import { changedFiles, git, headTree, workingTreeFingerprint } from '../../../scripts/ci/git.mjs';
 
 let repo;
 before(() => {

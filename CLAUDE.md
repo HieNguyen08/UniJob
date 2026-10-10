@@ -4,7 +4,7 @@ Campus task marketplace for HCMUT (React 19 + TypeScript + Vite 8 + Tailwind v4 
 
 ## Layout
 - `unijob-web/` — the web app (all npm commands run here). `src/services/*` own Firestore access; pages stay thin; types live in `src/types`.
-- `unijob-web/firestore.rules` — Firestore uses the named database `kirigitejkf8095h`. `unijob-web/tests/rules/` — rules tests (emulator, project `demo-unijob`).
+- `unijob-web/firestore.rules` — Firestore uses the named database `kirigitejkf8095h`. Tests: `unijob-web/tests/unit/` (vitest unit), `unijob-web/tests/rules/` (rules, emulator, project `demo-unijob`), `tests/tooling/` (node:test for `scripts/` and `.claude/` hooks).
 - `scripts/ci-local.mjs` — local CI (same as GitHub Actions). `ci/` — budgets, the coverage legacy list, and `last-run.json` (gitignored).
 - `.claude/` — agent team (`agents/uj-*`), pipeline commands (`commands/uj-*`), the `uj-build` workflow, and guard hooks.
 - `docs/specs`, `docs/plans`, `docs/runs` — pipeline artifacts.

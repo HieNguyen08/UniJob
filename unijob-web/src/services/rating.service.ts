@@ -1,6 +1,7 @@
 import {
   collection,
   addDoc,
+  setDoc,
   getDocs,
   query,
   where,
@@ -30,7 +31,9 @@ export async function submitRating(
   comment: string,
   type: 'poster-to-worker' | 'worker-to-poster'
 ): Promise<string> {
-  const docRef = await addDoc(ratingsCollection, {
+  const ratingId = `${jobId}_${fromUserId}_${toUserId}`;
+  const docRef = doc(db, 'ratings', ratingId);
+  await setDoc(docRef, {
     jobId,
     fromUserId,
     toUserId,
@@ -40,17 +43,22 @@ export async function submitRating(
     createdAt: serverTimestamp(),
   });
 
-  // Update user's average rating
+  // Update user's average rating. Slice 6 moves this aggregate server-side;
+  // until then the users rule may deny it, which must not fail the saved rating.
   // Note: getRatingsByUser already includes the newly added doc above
-  const userRatings = await getRatingsByUser(toUserId);
-  const totalScore = userRatings.reduce((sum, r) => sum + r.score, 0);
-  const avgRating = totalScore / userRatings.length;
+  try {
+    const userRatings = await getRatingsByUser(toUserId);
+    const totalScore = userRatings.reduce((sum, r) => sum + r.score, 0);
+    const avgRating = totalScore / userRatings.length;
 
-  const userRef = doc(db, 'users', toUserId);
-  await updateDoc(userRef, {
-    ratingScore: Math.round(avgRating * 10) / 10,
-    totalRatings: userRatings.length,
-  });
+    const userRef = doc(db, 'users', toUserId);
+    await updateDoc(userRef, {
+      ratingScore: Math.round(avgRating * 10) / 10,
+      totalRatings: userRatings.length,
+    });
+  } catch (err) {
+    console.warn('Không cập nhật được điểm trung bình (sẽ do server xử lý):', err);
+  }
 
   return docRef.id;
 }

@@ -2,14 +2,20 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, FileText, Star } from 'lucide-react';
 import Avatar from '@/components/Avatar';
-import { getJobById, updateApplicationStatus, subscribeToJobApplications } from '@/services/job.service';
+import { getJobById, acceptApplication, updateApplicationStatus, subscribeToJobApplications } from '@/services/job.service';
 import { getUserById } from '@/services/user.service';
 import type { Application, Job } from '@/types';
 import type { User } from '@/types/user';
 import toast from 'react-hot-toast';
 import './my-job-candidates.css';
 
+// Remount per job so state from a previous job never leaks into the next one
 export default function MyJobCandidates() {
+  const [searchParams] = useSearchParams();
+  return <MyJobCandidatesInner key={searchParams.get('jobId') ?? ''} />;
+}
+
+function MyJobCandidatesInner() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const jobId = searchParams.get('jobId');
@@ -22,15 +28,20 @@ export default function MyJobCandidates() {
 
   useEffect(() => {
     if (!jobId) return;
+    let cancelled = false;
 
-    setLoading(true);
     getJobById(jobId)
-      .then((data) => setJob(data))
+      .then((data) => {
+        if (!cancelled) setJob(data);
+      })
       .catch((err) => {
+        if (cancelled) return;
         console.error(err);
         toast.error('Không tải được thông tin công việc');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     const unsub = subscribeToJobApplications(jobId, (apps) => {
       const pendingApps = apps.filter((a) => a.status === 'pending');
@@ -54,27 +65,36 @@ export default function MyJobCandidates() {
       });
     });
 
-    return unsub;
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, [jobId]);
 
   async function handleAccept(applicationId: string) {
+    const target = applications.find((a) => a.id === applicationId);
+    if (!target || !jobId) return;
     setAccepting(applicationId);
     try {
-      await updateApplicationStatus(applicationId, 'accepted');
-      // Reject all other pending applications
-      await Promise.all(
-        applications
-          .filter((a) => a.id !== applicationId)
-          .map((a) => updateApplicationStatus(a.id, 'rejected'))
-      );
-      toast.success('Đã chấp nhận ứng viên!');
-      navigate('/my-jobs');
+      await acceptApplication(jobId, applicationId, target.applicantId);
     } catch (err) {
       console.error(err);
       toast.error('Lỗi khi chấp nhận ứng viên');
-    } finally {
       setAccepting(null);
+      return;
     }
+    // Từ chối các đơn đang chờ khác; lỗi ở đây không làm hỏng việc chấp nhận
+    const results = await Promise.allSettled(
+      applications
+        .filter((a) => a.id !== applicationId && a.status === 'pending')
+        .map((a) => updateApplicationStatus(a.id, 'rejected'))
+    );
+    results.forEach((r) => {
+      if (r.status === 'rejected') console.error('Không từ chối được đơn khác:', r.reason);
+    });
+    toast.success('Đã chấp nhận ứng viên!');
+    navigate('/my-jobs');
+    setAccepting(null);
   }
 
   async function handleReject(applicationId: string) {

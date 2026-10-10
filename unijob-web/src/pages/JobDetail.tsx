@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { getJobById, applyForJob, getJobsByUser } from '@/services/job.service';
+import { getJobById, applyForJob, getJobsByUser, hasAppliedToJob, ALREADY_APPLIED_MESSAGE } from '@/services/job.service';
 import { getPaymentByJob } from '@/services/payment.service';
 import Avatar from '@/components/Avatar';
 import { getUserById } from '@/services/user.service';
@@ -86,7 +86,23 @@ export default function JobDetail() {
     toast.success('Đã sao chép link!');
   };
 
-  const hasApplied = userProfile?.uid ? job?.applicants?.includes(userProfile.uid) : false;
+  const [appliedDoc, setAppliedDoc] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    if (!userProfile?.uid || !id) return;
+    hasAppliedToJob(id, userProfile.uid)
+      .then((v) => {
+        if (!cancelled) setAppliedDoc(v);
+      })
+      .catch((err) => console.warn('[apply] Không kiểm tra được trạng thái ứng tuyển:', err));
+    return () => {
+      cancelled = true;
+      setAppliedDoc(false);
+    };
+  }, [userProfile?.uid, id]);
+
+  const hasApplied =
+    appliedDoc || (userProfile?.uid ? !!job?.applicants?.includes(userProfile.uid) : false);
 
   const handleApply = async () => {
     if (!isAuthenticated || !userProfile) { navigate('/login'); return; }
@@ -102,7 +118,12 @@ export default function JobDetail() {
       setApplyMessage('');
     } catch (error) {
       console.error('Apply error:', error);
-      toast.error('Lỗi khi ứng tuyển, vui lòng thử lại');
+      if (error instanceof Error && error.message === ALREADY_APPLIED_MESSAGE) {
+        setAppliedDoc(true);
+        toast.error(error.message);
+      } else {
+        toast.error('Lỗi khi ứng tuyển, vui lòng thử lại');
+      }
     } finally {
       setApplying(false);
     }

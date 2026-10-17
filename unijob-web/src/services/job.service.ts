@@ -12,6 +12,8 @@ import {
   limit,
   startAfter,
   serverTimestamp,
+  arrayUnion,
+  writeBatch,
   type DocumentData,
   type QueryConstraint,
   onSnapshot,
@@ -145,6 +147,16 @@ export async function deleteJob(jobId: string): Promise<void> {
   await deleteDoc(jobRef);
 }
 
+export const ALREADY_APPLIED_MESSAGE = 'Bạn đã ứng tuyển công việc này rồi';
+
+/**
+ * Whether the user already has an application for the job
+ */
+export async function hasAppliedToJob(jobId: string, userId: string): Promise<boolean> {
+  const snap = await getDoc(doc(db, 'applications', `${jobId}_${userId}`));
+  return snap.exists();
+}
+
 /**
  * Apply for a job
  */
@@ -155,7 +167,14 @@ export async function applyForJob(
   applicantPhoto: string,
   message: string
 ): Promise<string> {
-  const docRef = await addDoc(applicationsCollection, {
+  const applicationId = `${jobId}_${applicantId}`;
+  const appRef = doc(db, 'applications', applicationId);
+  if ((await getDoc(appRef)).exists()) {
+    throw new Error(ALREADY_APPLIED_MESSAGE);
+  }
+  // Atomic: đơn ứng tuyển + applicants của job cùng thành công hoặc cùng thất bại
+  const batch = writeBatch(db);
+  batch.set(appRef, {
     jobId,
     applicantId,
     applicantName,
@@ -165,6 +184,11 @@ export async function applyForJob(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  batch.update(doc(db, 'jobs', jobId), {
+    applicants: arrayUnion(applicantId),
+    updatedAt: serverTimestamp(),
+  });
+  await batch.commit();
 
   // Notify the job poster
   try {
@@ -184,7 +208,7 @@ export async function applyForJob(
     // Non-critical — ignore notification errors
   }
 
-  return docRef.id;
+  return applicationId;
 }
 
 /**
@@ -206,21 +230,15 @@ export async function getApplicationsByUser(userId: string): Promise<Application
 }
 
 /**
- * Update application status
+ * Side effects after a decision was written: notify the applicant and, on accept,
+ * create the escrow payment record. Never throws (non-critical).
  */
-export async function updateApplicationStatus(
+async function runDecisionSideEffects(
   applicationId: string,
   status: 'accepted' | 'rejected'
 ): Promise<void> {
-  const appRef = doc(db, 'applications', applicationId);
-  await updateDoc(appRef, {
-    status,
-    updatedAt: serverTimestamp(),
-  });
-
-  // Notify the applicant
   try {
-    const appSnap = await getDoc(appRef);
+    const appSnap = await getDoc(doc(db, 'applications', applicationId));
     if (appSnap.exists()) {
       const app = appSnap.data() as Application;
       const jobSnap = await getDoc(doc(db, 'jobs', app.jobId));
@@ -255,6 +273,43 @@ export async function updateApplicationStatus(
   } catch {
     // Non-critical — ignore notification errors
   }
+}
+
+/**
+ * Update application status
+ */
+export async function updateApplicationStatus(
+  applicationId: string,
+  status: 'accepted' | 'rejected'
+): Promise<void> {
+  await updateDoc(doc(db, 'applications', applicationId), {
+    status,
+    updatedAt: serverTimestamp(),
+  });
+  await runDecisionSideEffects(applicationId, status);
+}
+
+/**
+ * Accept an applicant atomically: the application becomes accepted and the job is
+ * assigned + moved to in-progress in one batch (rules check the post-write state).
+ */
+export async function acceptApplication(
+  jobId: string,
+  applicationId: string,
+  applicantId: string
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'applications', applicationId), {
+    status: 'accepted',
+    updatedAt: serverTimestamp(),
+  });
+  batch.update(doc(db, 'jobs', jobId), {
+    assignedTo: [applicantId],
+    status: 'in-progress',
+    updatedAt: serverTimestamp(),
+  });
+  await batch.commit();
+  await runDecisionSideEffects(applicationId, 'accepted');
 }
 
 /**

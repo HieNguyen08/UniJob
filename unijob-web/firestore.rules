@@ -21,35 +21,117 @@ service cloud.firestore {
     // JOBS: ai đăng nhập cũng đọc được, chỉ người đăng mới sửa/xóa
     match /jobs/{jobId} {
       allow read: if isAuth();
-      allow create: if isAuth();
+      allow create: if isAuth()
+        && request.resource.data.keys().hasOnly([
+          'title', 'description', 'category', 'faculty', 'location', 'isUrgent', 'isAnonymous',
+          'payment', 'paymentType', 'duration', 'deadline', 'maxApplicants', 'postedBy',
+          'postedByName', 'postedByPhoto', 'tags', 'attachments',
+          'status', 'applicants', 'assignedTo', 'createdAt', 'updatedAt'])
+        && request.resource.data.postedBy == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.applicants == []
+        && request.resource.data.assignedTo == [];
       allow update: if isAuth() && (
-        resource.data.postedBy == request.auth.uid ||
-        // Cho phép update applicants khi ứng tuyển
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicants', 'updatedAt'])
+        // người đăng: sửa mọi thứ trừ postedBy
+        (resource.data.postedBy == request.auth.uid
+          && request.resource.data.postedBy == resource.data.postedBy
+          // poster không sửa danh sách applicants
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['applicants'])
+          // giao việc: chỉ khi job còn 'open', tối đa 1 người, phải có đơn đã được chấp nhận của job này
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['assignedTo'])
+            || (resource.data.status == 'open'
+              && request.resource.data.assignedTo is list
+              && request.resource.data.assignedTo.size() <= 1
+              && (request.resource.data.assignedTo.size() == 0
+                || getAfter(/databases/$(database)/documents/applications/$(jobId + '_' + request.resource.data.assignedTo[0])).data.status == 'accepted')))) ||
+        // người khác: chỉ thêm/bớt chính mình trong applicants (+ updatedAt)
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicants', 'updatedAt'])
+          && request.resource.data.applicants is list
+          && (!('updatedAt' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data.updatedAt == request.time)
+          && (
+            // ứng tuyển: danh sách mới = cũ + uid của mình
+            (resource.data.status == 'open'
+              && !(request.auth.uid in resource.data.applicants)
+              && request.resource.data.applicants.size() == resource.data.applicants.size() + 1
+              && request.resource.data.applicants.toSet().difference(resource.data.applicants.toSet())
+                   == [request.auth.uid].toSet()
+              && resource.data.applicants.toSet().difference(request.resource.data.applicants.toSet()).size() == 0) ||
+            // rút đơn: danh sách mới = cũ - uid của mình
+            (request.auth.uid in resource.data.applicants
+              && request.resource.data.applicants.size() == resource.data.applicants.size() - 1
+              && resource.data.applicants.toSet().difference(request.resource.data.applicants.toSet())
+                   == [request.auth.uid].toSet()
+              && request.resource.data.applicants.toSet().difference(resource.data.applicants.toSet()).size() == 0)
+          ))
       );
       allow delete: if isAuth() && resource.data.postedBy == request.auth.uid;
     }
 
     // APPLICATIONS: applicant đọc được đơn của mình, poster đọc đơn vào job của mình
     match /applications/{appId} {
-      allow read: if isAuth() && (
-        resource.data.applicantId == request.auth.uid ||
-        // poster đọc: cần check qua jobs collection
-        exists(/databases/$(database)/documents/jobs/$(resource.data.jobId)) &&
-        get(/databases/$(database)/documents/jobs/$(resource.data.jobId)).data.postedBy == request.auth.uid
-      );
-      allow create: if isAuth() && request.resource.data.applicantId == request.auth.uid;
-      allow update: if isAuth() && (
-        // chỉ poster mới được đổi status
-        get(/databases/$(database)/documents/jobs/$(resource.data.jobId)).data.postedBy == request.auth.uid
-      );
+      function canReadApp() {
+        return resource.data.applicantId == request.auth.uid ||
+          // poster đọc: cần check qua jobs collection
+          exists(/databases/$(database)/documents/jobs/$(resource.data.jobId)) &&
+          get(/databases/$(database)/documents/jobs/$(resource.data.jobId)).data.postedBy == request.auth.uid;
+      }
+      // get đơn chưa tồn tại: chỉ được hỏi id của chính mình (jobId_uid) để kiểm tra đã ứng tuyển chưa
+      allow get: if isAuth() && (
+        (resource == null && appId.matches('^.+_' + request.auth.uid + '$')) ||
+        (resource != null && canReadApp()));
+      allow list: if isAuth() && canReadApp();
+      // mỗi người một đơn cho mỗi job: id = jobId_uid
+      allow create: if isAuth()
+        && appId == request.resource.data.jobId + '_' + request.auth.uid
+        && request.resource.data.keys().hasOnly(['jobId', 'applicantId', 'applicantName', 'applicantPhoto', 'message', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.applicantId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.message is string
+        && request.resource.data.message.size() <= 1000
+        && request.resource.data.applicantName is string
+        && request.resource.data.applicantName.size() <= 100
+        && request.resource.data.applicantPhoto is string
+        && request.resource.data.applicantPhoto.size() <= 2048
+        && (request.resource.data.applicantPhoto == '' || request.resource.data.applicantPhoto.matches('^https://.*'))
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && exists(/databases/$(database)/documents/jobs/$(request.resource.data.jobId))
+        && get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.postedBy != request.auth.uid
+        && get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.status == 'open';
+      // chỉ poster của job quyết định một lần (pending -> accepted/rejected)
+      allow update: if isAuth()
+        && resource.data.status == 'pending'
+        && get(/databases/$(database)/documents/jobs/$(resource.data.jobId)).data.postedBy == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && request.resource.data.status in ['accepted', 'rejected']
+        && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);
       allow delete: if false;
     }
 
     // RATINGS: ai đăng nhập cũng đọc, chỉ người trong job mới tạo được
     match /ratings/{ratingId} {
       allow read: if isAuth();
-      allow create: if isAuth() && request.resource.data.fromUserId == request.auth.uid;
+      allow create: if isAuth()
+        && request.resource.data.keys().hasOnly(['jobId', 'fromUserId', 'toUserId', 'score', 'comment', 'type', 'createdAt'])
+        && request.resource.data.keys().hasAll(['jobId', 'fromUserId', 'toUserId', 'score', 'comment', 'type', 'createdAt'])
+        && request.resource.data.fromUserId == request.auth.uid
+        && request.resource.data.toUserId != request.resource.data.fromUserId
+        && ratingId == request.resource.data.jobId + '_' + request.resource.data.fromUserId + '_' + request.resource.data.toUserId
+        && request.resource.data.score is int
+        && request.resource.data.score >= 1 && request.resource.data.score <= 5
+        && request.resource.data.comment is string && request.resource.data.comment.size() <= 1000
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.jobId is string
+        && get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.status == 'completed'
+        && (
+          (request.resource.data.type == 'poster-to-worker'
+            && get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.postedBy == request.auth.uid
+            && request.resource.data.toUserId in get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.assignedTo)
+          || (request.resource.data.type == 'worker-to-poster'
+            && request.auth.uid in get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.assignedTo
+            && get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.postedBy == request.resource.data.toUserId)
+        );
       allow update, delete: if false;
     }
 
@@ -72,7 +154,9 @@ service cloud.firestore {
     match /notifications/{notifId} {
       allow read: if isAuth() && resource.data.userId == request.auth.uid;
       allow create: if isAuth();
-      allow update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read == true;
       allow delete: if false;
     }
 

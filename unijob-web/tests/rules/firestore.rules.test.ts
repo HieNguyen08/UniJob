@@ -450,6 +450,30 @@ describe('notifications', () => {
     await assertFails(setDoc(doc(as('mallory'), 'notifications/forged'), { userId: 'alice', message: 'x', read: false, source: 'server' }));
     await assertFails(setDoc(doc(as('alice'), 'notifications/forged-own'), { userId: 'alice', message: 'x', read: false, source: 'client' }));
   });
+  it('clients can create a notification with exactly the keys the web client sends', async () => {
+    await assertSucceeds(
+      setDoc(doc(as('bob'), 'notifications/client-shaped'), {
+        userId: 'alice',
+        type: 'new_application',
+        message: 'Có ứng viên mới',
+        read: false,
+        jobId: 'job1',
+        jobTitle: 'Nhập liệu',
+        fromName: 'Bob',
+        createdAt: serverTimestamp(),
+      }),
+    );
+  });
+  it('clients cannot set source even to null', async () => {
+    await assertFails(setDoc(doc(as('bob'), 'notifications/null-source'), { userId: 'alice', message: 'x', read: false, source: null }));
+  });
+  it('a client can squat a server id {type}_{id} without source but can never add source to it afterwards', async () => {
+    const squat = doc(as('mallory'), 'notifications/new_application_app9');
+    await assertSucceeds(setDoc(squat, { userId: 'mallory', type: 'new_application', message: 'giả mạo', read: false }));
+    await assertFails(updateDoc(squat, { source: 'server' }));
+    await assertFails(updateDoc(squat, { read: true, source: 'server' }));
+    await assertFails(setDoc(squat, { userId: 'mallory', type: 'new_application', message: 'giả mạo', read: true, source: 'server' }));
+  });
   it('the owner cannot add source through an update', async () => {
     await assertFails(updateDoc(doc(as('alice'), 'notifications/n1'), { read: true, source: 'server' }));
   });

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { App } from 'firebase-admin/app';
+import { initializeApp, type App } from 'firebase-admin/app';
 import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { writeNotification, type NotificationInput } from '../../src/lib/notifications.js';
@@ -10,6 +10,8 @@ let db: Firestore;
 
 beforeAll(async () => {
   assertEmulatorEnv();
+  // Explicit demo- projectId (validated above); src/admin.ts reuses this app instead of calling initializeApp() itself.
+  initializeApp({ projectId: process.env.GCLOUD_PROJECT });
   ({ app, db } = await import('../../src/admin.js')); // only after the guard
   assertAppProject(app);
 });

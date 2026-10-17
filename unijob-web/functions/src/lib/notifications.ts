@@ -52,7 +52,7 @@ export async function writeNotification(db: Firestore, input: NotificationInput)
   assertValidSourceId(input.sourceId);
   if (!input.userId) throw new Error('writeNotification: userId is required');
   const id = `${input.type}_${input.sourceId}`;
-  assertValidId(id, 'sourceId');
+  assertValidId(id, 'notification id');
   const extras: Record<string, string> = {};
   for (const key of EXTRA_KEYS) {
     const value = input.extras?.[key];

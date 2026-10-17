@@ -94,7 +94,7 @@ gate('functions-tests', () => {
     if (!fnAffected) return { ok: true, skipped: true, summary: 'no functions changes' };
     // unit project only: emulator tests need Java and a ~10 s emulator boot, so they run in --full
     const r = run('npm test', fnDir);
-    return { ok: r.ok, summary: r.tail };
+    return { ok: r.ok, summary: `unit only; emulator tests run in --full\n${r.tail}` };
   }
   const r = run('npm run test:functions'); // in unijob-web: Firestore emulator + all projects + coverage
   return { ok: r.ok, summary: r.tail };

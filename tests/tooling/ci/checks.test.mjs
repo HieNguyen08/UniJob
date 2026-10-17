@@ -97,6 +97,12 @@ test('functionsAffected: functions files, mirrored web files and firebase.json t
   assert.equal(functionsAffected(['unijob-web/firebase.json']), true);
 });
 
+test('functionsAffected: web package.json (test:functions script) and firestore.rules (emulator tests) trigger the functions gates', () => {
+  assert.equal(functionsAffected(['unijob-web/package.json']), true);
+  assert.equal(functionsAffected(['unijob-web/firestore.rules']), true);
+  assert.equal(functionsAffected(['unijob-web/package-lock.json', 'unijob-web/firestore.indexes.json', 'unijob-web/tests/rules/x.test.ts']), false);
+});
+
 test('functionsAffected: other web and repo files do not', () => {
   assert.equal(functionsAffected(['unijob-web/src/lib/utils.ts', 'unijob-web/src/pages/Home.tsx', 'scripts/ci-local.mjs', 'docs/x.md']), false);
   assert.equal(functionsAffected([]), false);

@@ -70,6 +70,8 @@ const FUNCTIONS_INPUTS = [
   /^unijob-web\/src\/lib\/fees\.ts$/,
   /^unijob-web\/src\/types\/notification\.ts$/,
   /^unijob-web\/firebase\.json$/,
+  /^unijob-web\/package\.json$/, // test:functions script
+  /^unijob-web\/firestore\.rules$/, // loaded by the emulator the functions tests run against
 ];
 
 export function functionsAffected(changed) {

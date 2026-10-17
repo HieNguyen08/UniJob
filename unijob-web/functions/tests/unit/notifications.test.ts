@@ -120,9 +120,31 @@ describe('writeNotification', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('rejects a sourceId that makes the full document id too long', async () => {
+  it('rejects a sourceId that makes the full document id too long, naming the notification id', async () => {
     const { db, calls } = fakeDb();
-    await expect(writeNotification(db, { ...input, sourceId: 'x'.repeat(1490) })).rejects.toThrow(/sourceId/);
+    await expect(writeNotification(db, { ...input, sourceId: 'x'.repeat(1490) })).rejects.toThrow(/invalid notification id/);
+    expect(calls).toHaveLength(0);
+  });
+
+  // 'ế' is 3 UTF-8 bytes; the document id is `new_application_` (16 bytes) + sourceId, limit 1500 bytes.
+  const prefix = 'new_application_';
+  const fitting = Math.floor((1500 - Buffer.byteLength(prefix, 'utf8')) / 3);
+
+  it('accepts a multi-byte sourceId whose full document id is just under 1500 bytes', async () => {
+    const sourceId = 'ế'.repeat(fitting);
+    expect(Buffer.byteLength(`${prefix}${sourceId}`, 'utf8')).toBe(1498);
+    const { db, calls } = fakeDb();
+    await expect(writeNotification(db, { ...input, sourceId })).resolves.toBe(true);
+    expect(calls[0].id).toBe(`${prefix}${sourceId}`);
+  });
+
+  it('rejects a multi-byte sourceId whose full document id is just over 1500 bytes (bytes, not chars)', async () => {
+    const sourceId = 'ế'.repeat(fitting + 1);
+    expect(Buffer.byteLength(sourceId, 'utf8')).toBeLessThanOrEqual(1500); // sourceId alone is fine
+    expect(`${prefix}${sourceId}`.length).toBeLessThan(1500); // so is the char count
+    expect(Buffer.byteLength(`${prefix}${sourceId}`, 'utf8')).toBe(1501);
+    const { db, calls } = fakeDb();
+    await expect(writeNotification(db, { ...input, sourceId })).rejects.toThrow(/invalid notification id/);
     expect(calls).toHaveLength(0);
   });
 

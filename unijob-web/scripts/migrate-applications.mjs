@@ -2,23 +2,29 @@
  * UniJob — migrate legacy applications before deploying the hardened rules.
  *
  *   node scripts/migrate-applications.mjs            # dry-run (default): prints the plan only
- *   node scripts/migrate-applications.mjs --apply    # performs it
+ *   node scripts/migrate-applications.mjs --apply    # performs it (refuses while CONFLICT/INVALID exist)
+ *   node scripts/migrate-applications.mjs --apply --force-with-report
+ *                                                    # performs it anyway, leaving CONFLICT/INVALID untouched
  *
  * 1. Re-keys every application whose id != `${jobId}_${applicantId}` to the deterministic id
- *    (skips the create if it already exists) and deletes the old doc.
- * 2. Backfills jobs.applicants with the applicant uids of pending/accepted applications.
+ *    (skips the create if it already exists) and deletes the old doc. The copy is rebuilt from
+ *    the applications.create allowlist and must pass the same field checks; applications by the
+ *    job poster, or `accepted` ones whose uid is not in the job assignedTo, are left untouched
+ *    and reported (INVALID / CONFLICT). Invalid canonical docs are reported, never modified.
+ * 2. Backfills jobs.applicants with the applicant uids of pending and assigned accepted applications.
  *
  * Uses the Admin SDK with scripts/service-account.json (gitignored; same as seed.mjs).
  * Named database: kirigitejkf8095h. Never commit a service-account file.
  */
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { planMigration } from './migrate-applications-plan.ts';
+import { applyBlockReason, planMigration } from './migrate-applications-plan.ts';
 
 const apply = process.argv.includes('--apply');
+const force = process.argv.includes('--force-with-report');
 
 const SA_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'service-account.json');
 if (!existsSync(SA_PATH)) {
@@ -30,8 +36,11 @@ const db = getFirestore('kirigitejkf8095h');
 
 const [appSnap, jobSnap] = await Promise.all([db.collection('applications').get(), db.collection('jobs').get()]);
 const apps = appSnap.docs.map((d) => ({ id: d.id, data: d.data() }));
-const jobs = jobSnap.docs.map((d) => ({ id: d.id, applicants: d.data().applicants, assignedTo: d.data().assignedTo }));
-const plan = planMigration(apps, jobs);
+const jobs = jobSnap.docs.map((d) => {
+  const j = d.data();
+  return { id: d.id, postedBy: j.postedBy, applicants: j.applicants, assignedTo: j.assignedTo };
+});
+const plan = planMigration(apps, jobs, { isTimestamp: (v) => v instanceof Timestamp });
 
 console.log(`${apply ? 'APPLY' : 'DRY-RUN'}: ${apps.length} applications, ${jobs.length} jobs`);
 for (const c of plan.creates) console.log(`  create applications/${c.id}`);
@@ -49,6 +58,13 @@ if (!apply) {
   console.log(summary());
   console.log('Dry-run only. Re-run with --apply to write.');
   process.exit(0);
+}
+
+const blocked = applyBlockReason(plan, force);
+if (blocked) {
+  console.log(summary());
+  console.error(blocked);
+  process.exit(1);
 }
 
 const ops = [

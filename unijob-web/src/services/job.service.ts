@@ -289,15 +289,26 @@ export async function updateApplicationStatus(
   await runDecisionSideEffects(applicationId, status);
 }
 
+/** Max other applications rejected in the accept batch (Firestore batches allow 500 writes). */
+export const MAX_REJECTS_PER_ACCEPT = 450;
+
 /**
- * Accept an applicant atomically: the application becomes accepted and the job is
- * assigned + moved to in-progress in one batch (rules check the post-write state).
+ * Accept an applicant atomically: the application becomes accepted, the job is
+ * assigned + moved to in-progress, and every other pending application is rejected,
+ * all in one batch (rules only allow decisions while the job is still open).
  */
 export async function acceptApplication(
   jobId: string,
   applicationId: string,
-  applicantId: string
+  applicantId: string,
+  otherPendingApplicationIds: string[] = []
 ): Promise<void> {
+  const others = [...new Set(otherPendingApplicationIds)].filter((id) => id !== applicationId);
+  if (others.length > MAX_REJECTS_PER_ACCEPT) {
+    throw new Error(
+      `Không thể từ chối hơn ${MAX_REJECTS_PER_ACCEPT} đơn khác trong một lần chấp nhận (có ${others.length}).`
+    );
+  }
   const batch = writeBatch(db);
   batch.update(doc(db, 'applications', applicationId), {
     status: 'accepted',
@@ -308,8 +319,18 @@ export async function acceptApplication(
     status: 'in-progress',
     updatedAt: serverTimestamp(),
   });
+  for (const id of others) {
+    batch.update(doc(db, 'applications', id), {
+      status: 'rejected',
+      updatedAt: serverTimestamp(),
+    });
+  }
   await batch.commit();
   await runDecisionSideEffects(applicationId, 'accepted');
+  const results = await Promise.allSettled(others.map((id) => runDecisionSideEffects(id, 'rejected')));
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') console.error(`Side effects failed for rejected application ${others[i]}:`, r.reason);
+  });
 }
 
 /**

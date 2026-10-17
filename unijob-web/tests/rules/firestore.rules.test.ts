@@ -157,6 +157,20 @@ describe('jobs', () => {
     await assertFails(updateDoc(j, { assignedTo: ['carol', 'bob'] }));
     await assertSucceeds(updateDoc(j, { assignedTo: [] }));
   });
+  it("assignment requires the accepted application to belong to this job and this uid", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'applications/job1_x'), { jobId: 'other', applicantId: 'x', status: 'accepted' });
+      await setDoc(doc(db, 'applications/job1_y'), { jobId: 'job1', applicantId: 'z', status: 'accepted' });
+    });
+    const j = doc(as('poster'), 'jobs/job1');
+    await assertFails(updateDoc(j, { assignedTo: ['x'] }));
+    await assertFails(updateDoc(j, { assignedTo: ['y'] }));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'applications/job1_x'), { jobId: 'job1', applicantId: 'x', status: 'accepted' });
+    });
+    await assertSucceeds(updateDoc(j, { assignedTo: ['x'] }));
+  });
   it('assignment is frozen once the job leaves open', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'applications/ipj_carol'), { jobId: 'ipj', applicantId: 'carol', status: 'accepted' });
@@ -186,7 +200,70 @@ describe('jobs', () => {
     );
   });
   it.fails('KNOWN HOLE (fix in slice 5): poster cannot mark a job completed directly', async () => {
-    await assertFails(updateDoc(doc(as('poster'), 'jobs/job1'), { status: 'completed' }));
+    await seedJob('ipj', { status: 'in-progress', assignedTo: ['carol'] });
+    await assertFails(updateDoc(doc(as('poster'), 'jobs/ipj'), { status: 'completed' }));
+  });
+  it.fails('KNOWN HOLE (fix in slice 6): poster cannot cancel an in-progress job while escrow is held', async () => {
+    await seedJob('paid', { status: 'in-progress', assignedTo: ['carol'], paymentStatus: 'held' });
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'payments/paidpay'), {
+        jobId: 'paid', payerId: 'poster', payeeId: 'carol', amount: 100_000, status: 'held',
+      });
+    });
+    await assertFails(updateDoc(doc(as('poster'), 'jobs/paid'), { status: 'cancelled', updatedAt: serverTimestamp() }));
+  });
+  describe('poster status transitions', () => {
+    const setStatus = (id: string, status: string) =>
+      updateDoc(doc(as('poster'), `jobs/${id}`), { status, updatedAt: serverTimestamp() });
+    it('in-progress -> open is denied', async () => {
+      await seedJob('ipj', { status: 'in-progress', assignedTo: ['carol'] });
+      await assertFails(setStatus('ipj', 'open'));
+    });
+    it('completed -> open is denied', async () => {
+      await seedJob('cj', { status: 'completed', assignedTo: ['carol'] });
+      await assertFails(setStatus('cj', 'open'));
+    });
+    it('cancelled -> open is denied', async () => {
+      await seedJob('xj', { status: 'cancelled' });
+      await assertFails(setStatus('xj', 'open'));
+    });
+    it('open -> cancelled is allowed (posterCancelJob / cleanupExpiredJobs)', async () => {
+      await assertSucceeds(setStatus('job1', 'cancelled'));
+      await seedJob('exp', { status: 'open' });
+      await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/exp'), { status: 'cancelled', updatedAt: Timestamp.now() }));
+    });
+    it('in-progress -> cancelled is allowed', async () => {
+      await seedJob('ipj', { status: 'in-progress', assignedTo: ['carol'] });
+      await assertSucceeds(setStatus('ipj', 'cancelled'));
+    });
+    it('open -> in-progress without assigning in the same write is denied', async () => {
+      await assertFails(setStatus('job1', 'in-progress'));
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'applications/aj_carol'), { jobId: 'aj', applicantId: 'carol', status: 'accepted' });
+      });
+      await seedJob('aj', { status: 'open', assignedTo: ['carol'] });
+      await assertFails(setStatus('aj', 'in-progress'));
+    });
+    it('open -> in-progress with an empty assignedTo is denied', async () => {
+      await seedJob('ej', { status: 'open', assignedTo: ['carol'] });
+      await assertFails(
+        updateDoc(doc(as('poster'), 'jobs/ej'), { assignedTo: [], status: 'in-progress', updatedAt: serverTimestamp() }),
+      );
+    });
+    it('open -> completed is denied', async () => {
+      await assertFails(setStatus('job1', 'completed'));
+    });
+    it('cancelled and completed jobs cannot change status', async () => {
+      await seedJob('xj', { status: 'cancelled' });
+      await seedJob('cj', { status: 'completed', assignedTo: ['carol'] });
+      await assertFails(setStatus('xj', 'in-progress'));
+      await assertFails(setStatus('xj', 'completed'));
+      await assertFails(setStatus('cj', 'cancelled'));
+      await assertFails(setStatus('cj', 'in-progress'));
+    });
+    it('an unknown status is denied', async () => {
+      await assertFails(setStatus('job1', 'weird'));
+    });
   });
   it.fails('KNOWN HOLE (fix in slice 4): poster cannot set paymentStatus directly', async () => {
     await assertFails(updateDoc(doc(as('poster'), 'jobs/job1'), { paymentStatus: 'released' }));
@@ -359,6 +436,37 @@ describe('applications', () => {
     batch.update(doc(db, 'jobs/job1'), { assignedTo: ['alice'], status: 'in-progress', updatedAt: serverTimestamp() });
     await assertSucceeds(batch.commit());
   });
+  it('accept batch that also rejects the other pending applications succeeds', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'applications/job1_dave'), { jobId: 'job1', applicantId: 'dave', status: 'pending' });
+      await setDoc(doc(db, 'applications/job1_erin'), { jobId: 'job1', applicantId: 'erin', status: 'pending' });
+    });
+    const db = as('poster');
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'applications/job1_alice'), { status: 'accepted', updatedAt: serverTimestamp() });
+    batch.update(doc(db, 'jobs/job1'), { assignedTo: ['alice'], status: 'in-progress', updatedAt: serverTimestamp() });
+    batch.update(doc(db, 'applications/job1_dave'), { status: 'rejected', updatedAt: serverTimestamp() });
+    batch.update(doc(db, 'applications/job1_erin'), { status: 'rejected', updatedAt: serverTimestamp() });
+    await assertSucceeds(batch.commit());
+  });
+  it("accept batch that rejects an application of a job the caller does not own, or that is not open, is denied", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'jobs/theirs'), { title: 'x', postedBy: 'mallory', applicants: ['dave'], status: 'open' });
+      await setDoc(doc(db, 'applications/theirs_dave'), { jobId: 'theirs', applicantId: 'dave', status: 'pending' });
+      await setDoc(doc(db, 'jobs/busy'), { title: 'x', postedBy: 'poster', applicants: [], assignedTo: ['bob'], status: 'in-progress' });
+      await setDoc(doc(db, 'applications/busy_dave'), { jobId: 'busy', applicantId: 'dave', status: 'pending' });
+    });
+    for (const other of ['theirs_dave', 'busy_dave']) {
+      const db = as('poster');
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'applications/job1_alice'), { status: 'accepted', updatedAt: serverTimestamp() });
+      batch.update(doc(db, 'jobs/job1'), { assignedTo: ['alice'], status: 'in-progress', updatedAt: serverTimestamp() });
+      batch.update(doc(db, `applications/${other}`), { status: 'rejected', updatedAt: serverTimestamp() });
+      await assertFails(batch.commit());
+    }
+  });
   it('accept batch assigning a uid whose application is not accepted in the batch is denied', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'applications/job1_zed'), { jobId: 'job1', applicantId: 'zed', status: 'pending' });
@@ -397,6 +505,21 @@ describe('applications', () => {
   });
   it('the poster cannot set an invalid status', async () => {
     await assertFails(updateDoc(ref('poster', 'job1_alice'), { status: 'pending', updatedAt: serverTimestamp() }));
+  });
+  it('the poster cannot decide an application on an in-progress or completed job', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'jobs/busy'), { title: 'Dang lam', postedBy: 'poster', applicants: [], assignedTo: ['bob'], status: 'in-progress' });
+      await setDoc(doc(db, 'applications/busy_alice'), { jobId: 'busy', applicantId: 'alice', status: 'pending' });
+      await setDoc(doc(db, 'applications/done_alice'), { jobId: 'done', applicantId: 'alice', status: 'pending' });
+    });
+    for (const id of ['busy_alice', 'done_alice']) {
+      await assertFails(updateDoc(ref('poster', id), { status: 'rejected', updatedAt: serverTimestamp() }));
+      await assertFails(updateDoc(ref('poster', id), { status: 'accepted', updatedAt: serverTimestamp() }));
+    }
+  });
+  it('the poster can reject a pending application on an open job', async () => {
+    await assertSucceeds(updateDoc(ref('poster', 'job1_alice'), { status: 'rejected', updatedAt: serverTimestamp() }));
   });
   it('the applicant and outsiders cannot update the application', async () => {
     await assertFails(updateDoc(ref('alice', 'job1_alice'), { status: 'accepted', updatedAt: serverTimestamp() }));
@@ -593,8 +716,9 @@ describe('ratings', () => {
       await setDoc(doc(ctx.firestore(), 'applications/job1_carol'), { jobId: 'job1', applicantId: 'carol', status: 'accepted' });
     });
     await assertSucceeds(
-      updateDoc(doc(as('poster'), 'jobs/job1'), { assignedTo: ['carol'], status: 'completed' }),
+      updateDoc(doc(as('poster'), 'jobs/job1'), { assignedTo: ['carol'], status: 'in-progress' }),
     );
+    await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/job1'), { status: 'completed' }));
     await assertFails(rate('poster', 'job1_poster_carol', { jobId: 'job1', toUserId: 'carol' }));
   });
   it('denies rating before the job is completed', async () => {

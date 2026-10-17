@@ -115,6 +115,72 @@ describe('acceptApplication', () => {
     expect(createNotification).not.toHaveBeenCalled();
     expect(getDoc).not.toHaveBeenCalled();
   });
+
+  describe('with other pending applications', () => {
+    beforeEach(() => {
+      vi.mocked(getDoc).mockImplementation((async (ref: { _path: string }) => {
+        const m = /^applications\/j1_(u\d)$/.exec(ref._path);
+        return m
+          ? snap(true, { jobId: 'j1', applicantId: m[1] })
+          : snap(true, { title: 'T', postedBy: 'p', paymentType: 'fixed', payment: 5 });
+      }) as never);
+    });
+
+    it('rejects the other pending applications in the same batch', async () => {
+      await acceptApplication('j1', 'j1_u1', 'u1', ['j1_u2', 'j1_u3']);
+      expect(callFor(batchOps.update, 'applications/j1_u1')?.[1]).toEqual({ status: 'accepted', updatedAt: 'SERVER_TS' });
+      expect(callFor(batchOps.update, 'jobs/j1')?.[1]).toEqual({
+        assignedTo: ['u1'],
+        status: 'in-progress',
+        updatedAt: 'SERVER_TS',
+      });
+      for (const id of ['applications/j1_u2', 'applications/j1_u3']) {
+        expect(callFor(batchOps.update, id)?.[1]).toEqual({ status: 'rejected', updatedAt: 'SERVER_TS' });
+      }
+      expect(batchOps.update).toHaveBeenCalledTimes(4);
+      expect(batchOps.commit).toHaveBeenCalledTimes(1);
+      expect(updateDoc).not.toHaveBeenCalled();
+    });
+
+    it('runs side effects for the accepted and every rejected application only after commit', async () => {
+      const order: string[] = [];
+      batchOps.commit.mockImplementation(async () => {
+        order.push('commit');
+      });
+      vi.mocked(createNotification).mockImplementation((async (uid: string, type: string) => {
+        order.push(`${type}:${uid}`);
+      }) as never);
+      await acceptApplication('j1', 'j1_u1', 'u1', ['j1_u2', 'j1_u3']);
+      expect(order[0]).toBe('commit');
+      expect(order.slice(1).sort()).toEqual([
+        'application_accepted:u1',
+        'application_rejected:u2',
+        'application_rejected:u3',
+      ]);
+    });
+
+    it('runs no side effects when the commit fails', async () => {
+      batchOps.commit.mockRejectedValue(new Error('denied'));
+      await expect(acceptApplication('j1', 'j1_u1', 'u1', ['j1_u2'])).rejects.toThrow('denied');
+      expect(createNotification).not.toHaveBeenCalled();
+      expect(getDoc).not.toHaveBeenCalled();
+    });
+
+    it('does not reject the accepted application itself', async () => {
+      await acceptApplication('j1', 'j1_u1', 'u1', ['j1_u1', 'j1_u2']);
+      expect(batchOps.update.mock.calls.filter((c) => (c[0] as { _path: string })._path === 'applications/j1_u1')).toHaveLength(1);
+      expect(batchOps.update).toHaveBeenCalledTimes(3);
+    });
+
+    it('throws before writing when there are more than 450 other applications', async () => {
+      const many = Array.from({ length: 451 }, (_v, i) => `j1_x${i}`);
+      await expect(acceptApplication('j1', 'j1_u1', 'u1', many)).rejects.toThrow(/450/);
+      expect(batchOps.update).not.toHaveBeenCalled();
+      expect(batchOps.commit).not.toHaveBeenCalled();
+      await acceptApplication('j1', 'j1_u1', 'u1', many.slice(0, 450));
+      expect(batchOps.update).toHaveBeenCalledTimes(452);
+    });
+  });
 });
 
 describe('updateApplicationStatus', () => {

@@ -30,6 +30,7 @@ export default function JobSearch() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- legacy fetch-in-effect; replace with TanStack Query in UI rebuild (sub-project B)
     setLoading(true);
     getJobs({ status: 'open', sortBy: 'newest' }, 100)
       .then(setJobs)

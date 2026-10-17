@@ -9,7 +9,6 @@ unijob-web/dist/
 # IDE
 .vscode/
 .idea/
-.claude/
 *.suo
 *.ntvs*
 *.njsproj
@@ -36,3 +35,12 @@ Report-Assignment/
 slide_images/
 TMĐT_assignment/
 *.pptx
+
+# Claude Code (shared config is committed; personal overrides are not)
+.claude/settings.local.json
+
+# Agent pipeline
+.worktrees/
+ci/last-run.json
+unijob-web/coverage/
+*-debug.log

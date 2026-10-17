@@ -1,0 +1,19 @@
+[
+  "unijob-web/src/lib/constants.ts",
+  "unijob-web/src/lib/firebase.ts",
+  "unijob-web/src/lib/utils.ts",
+  "unijob-web/src/services/auth.service.ts",
+  "unijob-web/src/services/bookmark.service.ts",
+  "unijob-web/src/services/cancel.service.ts",
+  "unijob-web/src/services/cleanup.service.ts",
+  "unijob-web/src/services/cv.service.ts",
+  "unijob-web/src/services/gamification.service.ts",
+  "unijob-web/src/services/job.service.ts",
+  "unijob-web/src/services/notification.service.ts",
+  "unijob-web/src/services/payment.service.ts",
+  "unijob-web/src/services/rating.service.ts",
+  "unijob-web/src/services/storage.service.ts",
+  "unijob-web/src/services/suggest.service.ts",
+  "unijob-web/src/services/user.service.ts",
+  "unijob-web/src/services/workHistory.service.ts"
+]

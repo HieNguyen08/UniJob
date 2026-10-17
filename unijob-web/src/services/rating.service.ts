@@ -96,7 +96,7 @@ export async function confirmCompletion(
     ? compData.posterConfirmed
     : compData.workerConfirmed;
 
-  const updates: any = { [field]: true };
+  const updates: Record<string, unknown> = { [field]: true };
   if (isBothConfirmed) {
     updates.status = 'confirmed';
     updates.completedAt = serverTimestamp();

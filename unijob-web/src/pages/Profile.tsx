@@ -67,6 +67,7 @@ export default function Profile() {
   // Fetch external user profile when viewing another user
   useEffect(() => {
     if (!isViewingOther || !userId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- legacy fetch-in-effect; replace with TanStack Query in UI rebuild (sub-project B)
     setLoadingExternal(true);
     getUserById(userId)
       .then((profile) => {
@@ -84,6 +85,7 @@ export default function Profile() {
   useEffect(() => {
     if (!userProfile || isViewingOther) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- legacy fetch-in-effect; replace with TanStack Query in UI rebuild (sub-project B)
     setForm({
       displayName: userProfile.displayName || '',
       faculty: userProfile.faculty || '',
@@ -99,6 +101,7 @@ export default function Profile() {
     const targetUid = isViewingOther ? userId : userProfile?.uid;
     if (!targetUid) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- legacy fetch-in-effect; replace with TanStack Query in UI rebuild (sub-project B)
     setLoadingActivity(true);
     Promise.all([
       getJobsByUser(targetUid),
@@ -122,6 +125,7 @@ export default function Profile() {
     [myJobs]
   );
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- legacy optional-chain deps; fix in UI rebuild (sub-project B)
   const trustScore = useMemo(() => {
     if (!displayProfile?.totalRatings) return 0;
     return Math.max(0, Math.min(100, Math.round((displayProfile.ratingScore / 5) * 100)));

@@ -21,7 +21,7 @@ function getInitials(name: string): string {
 
 function parseDurationHours(duration: string): number | null {
   const text = duration.trim().toLowerCase();
-  const m = text.match(/(\d+(?:[\.,]\d+)?)\s*(giờ|h)/);
+  const m = text.match(/(\d+(?:[.,]\d+)?)\s*(giờ|h)/);
   if (!m) return null;
   const value = Number(m[1].replace(',', '.'));
   return Number.isFinite(value) ? value : null;

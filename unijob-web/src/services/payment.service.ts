@@ -12,22 +12,11 @@ import {
 import { db } from '@/lib/firebase';
 import type { Payment, PaymentMethod } from '@/types';
 import { updateJob } from '@/services/job.service';
+import { calculatePlatformFee } from '@/lib/fees';
+
+export { calculatePlatformFee };
 
 const paymentsCollection = collection(db, 'payments');
-
-/**
- * Tính phí nền tảng theo bậc:
- * - Volunteer / 0đ: 0%
- * - < 200,000đ:     3%
- * - 200,000–1,000,000đ: 5%
- * - > 1,000,000đ:   4%
- */
-export function calculatePlatformFee(amount: number): number {
-  if (amount <= 0) return 0;
-  if (amount < 200_000) return Math.round(amount * 0.03);
-  if (amount <= 1_000_000) return Math.round(amount * 0.05);
-  return Math.round(amount * 0.04);
-}
 
 /**
  * Tạo bản ghi thanh toán ký quỹ (escrow) khi poster chấp nhận ứng viên.

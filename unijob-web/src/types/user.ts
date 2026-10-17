@@ -23,4 +23,4 @@ export interface User {
 
 export type UserCreateInput = Omit<User, 'createdAt' | 'updatedAt'>;
 
-export interface UserProfile extends Pick<User, 'uid' | 'displayName' | 'photoURL' | 'faculty' | 'ratingScore' | 'totalRatings'> {}
+export type UserProfile = Pick<User, 'uid' | 'displayName' | 'photoURL' | 'faculty' | 'ratingScore' | 'totalRatings'>;

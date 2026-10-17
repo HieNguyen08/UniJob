@@ -56,9 +56,9 @@ export function findSecretsInPatch(patchText) {
 
 /** File name (no directory) of the entry module script in a built index.html, or null. */
 export function entryChunkFromHtml(html) {
-  for (const tag of html.match(/<script\b[^>]*>/g) ?? []) {
-    if (!/\btype\s*=\s*["']module["']/.test(tag)) continue;
-    const m = tag.match(/\bsrc\s*=\s*["']\/?assets\/([^"']+\.js)["']/);
+  for (const tag of html.match(/<script\b[^>]*>/gi) ?? []) {
+    if (!/\btype\s*=\s*["']?module["']?(?=[\s>/]|$)/i.test(tag)) continue;
+    const m = tag.match(/\bsrc\s*=\s*["']?\/?assets\/([^"'\s>]+\.js)["']?/i);
     if (m) return m[1];
   }
   return null;

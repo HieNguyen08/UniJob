@@ -82,3 +82,9 @@ test('isShellSafePath: rejects shell metacharacters', () => {
   assert.equal(isShellSafePath('src/a";b.ts'), false);
   assert.equal(isShellSafePath('src/%PATH%.ts'), false);
 });
+
+test('entryChunkFromHtml: matches script tags case-insensitively', () => {
+  assert.equal(entryChunkFromHtml('<SCRIPT TYPE="module" SRC="/assets/index-AbC.js"></SCRIPT>'), 'index-AbC.js');
+  assert.equal(entryChunkFromHtml('<Script Type="Module" crossorigin Src="/assets/index-X1.js">'), 'index-X1.js');
+  assert.equal(entryChunkFromHtml('<SCRIPT SRC="/assets/legacy.js"></SCRIPT>'), null);
+});

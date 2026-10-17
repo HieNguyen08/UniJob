@@ -76,22 +76,17 @@ function MyJobCandidatesInner() {
     if (!target || !jobId) return;
     setAccepting(applicationId);
     try {
-      await acceptApplication(jobId, applicationId, target.applicantId);
+      // từ chối các đơn đang chờ khác trong cùng batch (rules chỉ cho duyệt khi job còn 'open')
+      const otherPending = applications
+        .filter((a) => a.id !== applicationId && a.status === 'pending')
+        .map((a) => a.id);
+      await acceptApplication(jobId, applicationId, target.applicantId, otherPending);
     } catch (err) {
       console.error(err);
       toast.error('Lỗi khi chấp nhận ứng viên');
       setAccepting(null);
       return;
     }
-    // Từ chối các đơn đang chờ khác; lỗi ở đây không làm hỏng việc chấp nhận
-    const results = await Promise.allSettled(
-      applications
-        .filter((a) => a.id !== applicationId && a.status === 'pending')
-        .map((a) => updateApplicationStatus(a.id, 'rejected'))
-    );
-    results.forEach((r) => {
-      if (r.status === 'rejected') console.error('Không từ chối được đơn khác:', r.reason);
-    });
     toast.success('Đã chấp nhận ứng viên!');
     navigate('/my-jobs');
     setAccepting(null);

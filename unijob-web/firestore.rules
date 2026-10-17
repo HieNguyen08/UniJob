@@ -20,6 +20,24 @@ service cloud.firestore {
 
     // JOBS: ai đăng nhập cũng đọc được, chỉ người đăng mới sửa/xóa
     match /jobs/{jobId} {
+      // chuyển trạng thái của người đăng: open -> in-progress (chỉ trong cùng lần ghi giao việc),
+      // open/in-progress -> cancelled, in-progress -> completed (TODO slice 5: chuyển sang server).
+      // Không bao giờ quay lại 'open'.
+      function posterStatusChangeOk() {
+        let from = resource.data.status;
+        let to = request.resource.data.status;
+        return (from == 'open' && to == 'in-progress'
+            && 'assignedTo' in request.resource.data.diff(resource.data).affectedKeys()
+            && request.resource.data.assignedTo.size() == 1)
+          || (from in ['open', 'in-progress'] && to == 'cancelled')
+          || (from == 'in-progress' && to == 'completed');
+      }
+      // đơn được giao phải thuộc đúng job này, đúng người được giao và đã được chấp nhận
+      function assignedAppOk(app) {
+        return app.status == 'accepted'
+          && app.jobId == jobId
+          && app.applicantId == request.resource.data.assignedTo[0];
+      }
       allow read: if isAuth();
       allow create: if isAuth()
         && request.resource.data.keys().hasOnly([
@@ -37,13 +55,15 @@ service cloud.firestore {
           && request.resource.data.postedBy == resource.data.postedBy
           // poster không sửa danh sách applicants
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['applicants'])
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
+            || posterStatusChangeOk())
           // giao việc: chỉ khi job còn 'open', tối đa 1 người, phải có đơn đã được chấp nhận của job này
           && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['assignedTo'])
             || (resource.data.status == 'open'
               && request.resource.data.assignedTo is list
               && request.resource.data.assignedTo.size() <= 1
               && (request.resource.data.assignedTo.size() == 0
-                || getAfter(/databases/$(database)/documents/applications/$(jobId + '_' + request.resource.data.assignedTo[0])).data.status == 'accepted')))) ||
+                || assignedAppOk(getAfter(/databases/$(database)/documents/applications/$(jobId + '_' + request.resource.data.assignedTo[0])).data))))) ||
         // người khác: chỉ thêm/bớt chính mình trong applicants (+ updatedAt)
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicants', 'updatedAt'])
           && request.resource.data.applicants is list
@@ -103,6 +123,8 @@ service cloud.firestore {
       allow update: if isAuth()
         && resource.data.status == 'pending'
         && get(/databases/$(database)/documents/jobs/$(resource.data.jobId)).data.postedBy == request.auth.uid
+        // chỉ khi job còn 'open' (get() = trạng thái trước batch, nên batch chấp nhận vẫn qua)
+        && get(/databases/$(database)/documents/jobs/$(resource.data.jobId)).data.status == 'open'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
         && request.resource.data.status in ['accepted', 'rejected']
         && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt == request.time);

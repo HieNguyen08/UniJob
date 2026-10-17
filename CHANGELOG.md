@@ -17,5 +17,6 @@
 
 ### Security
 - Siết Firestore rules cho jobs, applications, notifications, ratings: không tạo job dưới tên người khác, không sửa danh sách ứng viên của người khác, mỗi người một đơn cho mỗi job, không tự chấp nhận đơn của mình, chỉ đánh giá sau khi hoàn thành và giữa người đăng với người làm. Trước khi deploy rules cần chạy `unijob-web/scripts/migrate-applications.mjs`.
+- Siết chuyển trạng thái job của người đăng (không mở lại job về "open", chỉ chuyển sang "đang làm" khi giao việc, chỉ duyệt đơn khi job còn "open") và làm cứng script migrate đơn ứng tuyển cũ (chỉ giữ các trường hợp lệ, kiểm tra như rules, không tự ứng tuyển, chỉ chuyển đơn `accepted` khi người đó được giao việc).
 - Thêm npm override `@grpc/grpc-js` `^1.14.5`: firebase đang ghim `~1.9` (có lỗ hổng mức high). Gỡ override khi firebase cập nhật.
 - Nâng cấp phụ thuộc để đóng các cảnh báo Dependabot/npm audit: firebase-admin 14.5, firebase-tools 15.34, react-router 7.18, vite/vitest cập nhật bản vá; thêm override `chokidar` `^4.0.3` và `gaxios>uuid` `^11.1.1` (cho firebase-tools); `npm audit` còn 0 high/critical (3 moderate dev-only qua firebase-tools).

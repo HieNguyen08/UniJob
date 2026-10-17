@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
-import { budgetCheck, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, isShellSafePath, toRepoRelative } from './ci/checks.mjs';
+import { budgetCheck, coveragePctByFile, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, functionsAffected, isShellSafePath, toRepoRelative } from './ci/checks.mjs';
 import { changedFiles, git, mergeBase, repoRoot, workingTreeFingerprint } from './ci/git.mjs';
 
 const mode = process.argv.includes('--full') ? 'full' : 'quick';
@@ -14,6 +14,7 @@ const updateBudget = process.argv.includes('--update-budget');
 // The repo (or worktree) this script belongs to, not process.cwd(): `node <wt>/scripts/ci-local.mjs` checks <wt>.
 const root = repoRoot(dirname(fileURLToPath(import.meta.url)));
 const web = join(root, 'unijob-web');
+const fnDir = join(web, 'functions');
 let fingerprint = workingTreeFingerprint(root);
 
 const base = mode === 'full' ? mergeBase(root) : 'HEAD';
@@ -22,6 +23,7 @@ const webChanged = changed.filter((f) => f.startsWith('unijob-web/')).map((f) =>
 const webTs = webChanged.filter((f) => /\.(ts|tsx)$/.test(f));
 const webSrc = webTs.filter((f) => f.startsWith('src/') || f.startsWith('tests/unit/'));
 const toolingChanged = changed.some((f) => f.startsWith('scripts/') || f.startsWith('.claude/') || f.startsWith('tests/tooling/'));
+const fnAffected = functionsAffected(changed);
 const quote = (f) => `"${f}"`;
 const unsafeFiles = (files) => files.filter((f) => !isShellSafePath(f));
 const unsafeResult = (files) => ({ ok: false, summary: unsafeFiles(files).map((f) => `unsafe file name for shell: ${f}`).join('\n'), files: unsafeFiles(files) });
@@ -62,6 +64,13 @@ gate('typecheck', () => {
   return { ok: r.ok, summary: r.tail };
 });
 
+gate('functions-typecheck', () => {
+  if (mode === 'quick' && !fnAffected) return { ok: true, skipped: true, summary: 'no functions changes' };
+  // full also builds, proving the predeploy step emits lib/
+  const r = run(mode === 'full' ? 'npm run typecheck && npm run build' : 'npm run typecheck', fnDir);
+  return { ok: r.ok, summary: r.tail };
+});
+
 gate('lint', () => {
   if (mode === 'quick' && webTs.length === 0) return { ok: true, skipped: true, summary: 'no changed TS files' };
   if (mode === 'quick' && unsafeFiles(webTs).length) return unsafeResult(webTs);
@@ -80,6 +89,17 @@ gate('unit-tests', () => {
   return { ok: r.ok, summary: r.tail };
 });
 
+gate('functions-tests', () => {
+  if (mode === 'quick') {
+    if (!fnAffected) return { ok: true, skipped: true, summary: 'no functions changes' };
+    // unit project only: emulator tests need Java and a ~10 s emulator boot, so they run in --full
+    const r = run('npm test', fnDir);
+    return { ok: r.ok, summary: `unit only; emulator tests run in --full\n${r.tail}` };
+  }
+  const r = run('npm run test:functions'); // in unijob-web: Firestore emulator + all projects + coverage
+  return { ok: r.ok, summary: r.tail };
+});
+
 gate('tooling-tests', () => {
   if (mode === 'quick' && !toolingChanged) return { ok: true, skipped: true, summary: 'no tooling changes' };
   const r = run('node --test "tests/tooling/**/*.test.mjs"', root);
@@ -88,11 +108,10 @@ gate('tooling-tests', () => {
 
 if (mode === 'full') {
   gate('coverage', () => {
-    const summaryPath = join(web, 'coverage', 'coverage-summary.json');
-    if (!existsSync(summaryPath)) return { ok: false, summary: 'coverage/coverage-summary.json missing — did unit-tests fail?' };
-    const raw = JSON.parse(readFileSync(summaryPath, 'utf8'));
-    const pct = {};
-    for (const [abs, v] of Object.entries(raw)) if (abs !== 'total') pct[toRepoRelative(abs, root)] = v.lines.pct;
+    const summaryPaths = [join(web, 'coverage', 'coverage-summary.json'), join(fnDir, 'coverage', 'coverage-summary.json')];
+    const missing = summaryPaths.filter((p) => !existsSync(p));
+    if (missing.length) return { ok: false, summary: `${missing.map((p) => toRepoRelative(p, root)).join(', ')} missing — did unit-tests or functions-tests fail?` };
+    const pct = coveragePctByFile(summaryPaths.map((p) => JSON.parse(readFileSync(p, 'utf8'))), root);
     const legacy = JSON.parse(readFileSync(join(root, 'ci', 'coverage-legacy.json'), 'utf8'));
     const bad = coverageViolations(changed, pct, legacy);
     return {
@@ -126,8 +145,12 @@ if (mode === 'full') {
   });
 
   gate('npm-audit', () => {
-    const r = run('npm audit --omit=dev --audit-level=high');
-    return { ok: r.ok, summary: r.tail };
+    const webAudit = run('npm audit --omit=dev --audit-level=high');
+    const fnAudit = run('npm audit --omit=dev --audit-level=high', fnDir);
+    return { ok: webAudit.ok && fnAudit.ok, summary: `web:
+${webAudit.tail}
+functions:
+${fnAudit.tail}` };
   });
 
   gate('secret-scan', () => {

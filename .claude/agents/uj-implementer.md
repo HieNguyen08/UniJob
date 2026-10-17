@@ -15,6 +15,7 @@ Rules:
 - Before committing, run `node scripts/ci-local.mjs --quick` from the worktree root until it is green. If it is red, read `ci/last-run.json` and fix the cause.
 - Commit with a Conventional Commit message ending in the task marker, e.g. `feat: add escrow release function [task:3]`. NEVER add a Co-Authored-By trailer (a hook blocks it anyway).
 - Run `node scripts/ci-local.mjs --quick` and `git commit` in SEPARATE Bash calls (the commit hook checks the CI result before the command runs).
+- `git commit` / `git push` must be its own tool call: only `cd`, `git add`/`status`/`diff`/`log` and plain output commands may share it (hook-enforced).
 - After committing, `git -C <worktree> status --porcelain` must be empty. If it is not, commit (or remove) the leftovers before reporting `done`.
 - Report `headSha` from `git -C <worktree> rev-parse HEAD` run after the commit, never from memory. `status: "done"` with `headSha` equal to `baseSha` is treated as an error (no commit was made).
 - Never edit `.env*`, service-account files, `ci/budget.json`, or `ci/coverage-legacy.json` (except removing a file you just brought to ≥70% coverage).

@@ -63,3 +63,26 @@ export function entryChunkFromHtml(html) {
   }
   return null;
 }
+
+/** Changes that can break the functions package: its own files, plus web files it mirrors or reads. */
+const FUNCTIONS_INPUTS = [
+  /^unijob-web\/functions\//,
+  /^unijob-web\/src\/lib\/fees\.ts$/,
+  /^unijob-web\/src\/types\/notification\.ts$/,
+  /^unijob-web\/firebase\.json$/,
+  /^unijob-web\/package\.json$/, // test:functions script
+  /^unijob-web\/firestore\.rules$/, // loaded by the emulator the functions tests run against
+];
+
+export function functionsAffected(changed) {
+  return changed.some((f) => FUNCTIONS_INPUTS.some((re) => re.test(f)));
+}
+
+/** Line coverage % per repo-relative file, merged from several istanbul json-summary objects. */
+export function coveragePctByFile(summaries, root) {
+  const pct = {};
+  for (const summary of summaries) {
+    for (const [abs, v] of Object.entries(summary)) if (abs !== 'total') pct[toRepoRelative(abs, root)] = v.lines.pct;
+  }
+  return pct;
+}

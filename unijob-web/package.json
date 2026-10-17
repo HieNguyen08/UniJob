@@ -12,7 +12,8 @@
     "refresh": "node scripts/refresh-deadlines.mjs",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-unijob \"vitest run --project rules\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-unijob \"vitest run --project rules\"",
+    "test:functions": "firebase emulators:exec --only firestore --project demo-unijob \"npm --prefix functions run test:ci\""
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",

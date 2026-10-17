@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { budgetCheck, coverageViolations, entryChunkFromHtml, findSecrets, findSecretsInPatch, isShellSafePath, toRepoRelative } from '../../../scripts/ci/checks.mjs';
+import { budgetCheck, coveragePctByFile, coverageViolations, entryChunkFromHtml, findSecrets, functionsAffected, findSecretsInPatch, isShellSafePath, toRepoRelative } from '../../../scripts/ci/checks.mjs';
 
 test('coverage: new in-scope file below 70% is a violation', () => {
   const v = coverageViolations(['unijob-web/src/services/new.service.ts'], { 'unijob-web/src/services/new.service.ts': 40 }, []);
@@ -87,4 +87,32 @@ test('entryChunkFromHtml: matches script tags case-insensitively', () => {
   assert.equal(entryChunkFromHtml('<SCRIPT TYPE="module" SRC="/assets/index-AbC.js"></SCRIPT>'), 'index-AbC.js');
   assert.equal(entryChunkFromHtml('<Script Type="Module" crossorigin Src="/assets/index-X1.js">'), 'index-X1.js');
   assert.equal(entryChunkFromHtml('<SCRIPT SRC="/assets/legacy.js"></SCRIPT>'), null);
+});
+
+test('functionsAffected: functions files, mirrored web files and firebase.json trigger the functions gates', () => {
+  assert.equal(functionsAffected(['unijob-web/functions/src/admin.ts']), true);
+  assert.equal(functionsAffected(['unijob-web/functions/package.json']), true);
+  assert.equal(functionsAffected(['unijob-web/src/lib/fees.ts']), true);
+  assert.equal(functionsAffected(['unijob-web/src/types/notification.ts']), true);
+  assert.equal(functionsAffected(['unijob-web/firebase.json']), true);
+});
+
+test('functionsAffected: web package.json (test:functions script) and firestore.rules (emulator tests) trigger the functions gates', () => {
+  assert.equal(functionsAffected(['unijob-web/package.json']), true);
+  assert.equal(functionsAffected(['unijob-web/firestore.rules']), true);
+  assert.equal(functionsAffected(['unijob-web/package-lock.json', 'unijob-web/firestore.indexes.json', 'unijob-web/tests/rules/x.test.ts']), false);
+});
+
+test('functionsAffected: other web and repo files do not', () => {
+  assert.equal(functionsAffected(['unijob-web/src/lib/utils.ts', 'unijob-web/src/pages/Home.tsx', 'scripts/ci-local.mjs', 'docs/x.md']), false);
+  assert.equal(functionsAffected([]), false);
+});
+
+test('coveragePctByFile: merges web and functions summaries, skips total, repo-relative keys', () => {
+  const web = { total: { lines: { pct: 50 } }, '/r/unijob-web/src/lib/fees.ts': { lines: { pct: 100 } } };
+  const fn = { total: { lines: { pct: 90 } }, '/r/unijob-web/functions/src/admin.ts': { lines: { pct: 80 } } };
+  assert.deepEqual(coveragePctByFile([web, fn], '/r'), {
+    'unijob-web/src/lib/fees.ts': 100,
+    'unijob-web/functions/src/admin.ts': 80,
+  });
 });

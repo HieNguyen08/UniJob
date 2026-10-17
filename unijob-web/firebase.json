@@ -4,6 +4,12 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs22",
+    "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"],
+    "ignore": ["node_modules", ".git", "tests", "coverage", "*.log", "tsconfig.dev.json", "vitest.config.ts"]
+  },
   "hosting": {
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
@@ -18,6 +24,7 @@
     "singleProjectMode": true,
     "auth": { "port": 9099 },
     "firestore": { "port": 8080 },
+    "functions": { "port": 5001 },
     "ui": { "enabled": false }
   }
 }

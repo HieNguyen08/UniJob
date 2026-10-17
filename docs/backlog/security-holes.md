@@ -26,6 +26,12 @@ Add a failing (`it.fails('KNOWN HOLE …')`) test for each before fixing it.
 - **Legacy job docs without an `applicants` field** — non-poster applies are rejected (the jobs rule errors on a missing field). Needs a data check/migration before deploy.
 - **Legacy applications with random ids** — cannot be assigned (the jobs rule looks up `applications/{jobId}_{uid}`). Migrate them to `{jobId}_{uid}` ids before deploy.
 
+## Before the first money/reputation callable
+
+- `requireVerifiedMember`: the caller must have `email_verified`, an `@hcmut.edu.vn` address and not be an anonymous user. `requireAuth` only checks that a uid exists.
+- Decide on App Check (`enforceAppCheck` on callables) before shipping callables that move money or change reputation.
+- Notification ids: server notifications are written to `notifications/{type}_{sourceId}` with `source: 'server'`. While clients can still create notifications (until slice 3), `writeNotification` replaces any document at that id that lacks `source: 'server'`.
+
 ## Before deploying these rules
 
 Run the data migration first, otherwise legacy data is locked out (random-id applications cannot be assigned; jobs missing `applicants` cannot be applied to):

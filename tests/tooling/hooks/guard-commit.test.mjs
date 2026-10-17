@@ -238,3 +238,253 @@ test('keywords and nested shells without commit/push are allowed', () => {
   assert.equal(run('if git diff --quiet; then echo same; fi', none).block, false);
   assert.equal(run('echo x | xargs git log', none).block, false);
 });
+
+test('commit/push chained with a file-changing command is blocked', () => {
+  const cases = [
+    `cd /r/.worktrees/x; sed -i '4{/^$/d}' f.ts; git add f.ts; git commit -q -m "x" 2>&1 | grep -v warning; git rev-parse HEAD`,
+    'node scripts/ci-local.mjs --quick && git commit -m x',
+    'echo x > a.ts && git commit -am x',
+    'npm run fmt; git commit -m x',
+    'git commit -m x; sed -i s/a/b/ f',
+    'git add -A && git commit -m x | tee log.txt',
+    'git commit -m x >> log.txt',
+    'git commit -m x 2>err.log',
+    'git diff --output=p.diff && git commit -m x',
+    'git branch -D old && git commit -m x',
+    'git commit -m x &>log.txt',
+  ];
+  for (const cmd of cases) {
+    const r = run(cmd);
+    assert.equal(r.block, true, cmd);
+    assert.match(r.reason, /own tool call/, cmd);
+  }
+  for (const cmd of ["Set-Content a.ts 'x'; git commit -m x", 'git commit -m x | Out-File log.txt', "Add-Content a.ts 'x'; git commit -m x"]) {
+    const r = ps(cmd);
+    assert.equal(r.block, true, cmd);
+    assert.match(r.reason, /own tool call/, cmd);
+  }
+  assert.match(run('npm run fmt; git commit -m x').reason, /also runs "npm"/);
+  assert.equal(run('git push -u origin b; npm run fmt', { readLastRun: fullOk }).block, true);
+});
+
+test('commit/push with only read-only companions is allowed', () => {
+  const cases = [
+    'git -C /r/.worktrees/x add a b && git -C /r/.worktrees/x commit -m "x"',
+    'cd /r/.worktrees/x && git add -A && git commit -m x && git status --short',
+    'git commit -m x 2>&1 | tail -2',
+    'git commit -m "a > b" 2>/dev/null',
+    'git add -A && git commit -m x && git log --oneline -1 | head -1 && git branch --show-current',
+    'pwd; git diff --stat; git commit -m x; echo done | wc -l',
+  ];
+  for (const cmd of cases) assert.equal(run(cmd).block, false, cmd);
+  assert.equal(run('git push -u origin b', { readLastRun: fullOk }).block, false);
+  assert.equal(ps('Set-Location /r; git add -A; git commit -m "x" 2>$null').block, false);
+  // commands without commit or push are untouched by the rule
+  assert.equal(run('sed -i s/a/b/ f && npm run fmt > out.txt', { readLastRun: () => null }).block, false);
+});
+
+test('splitSegments keeps fd duplication redirects inside the token', () => {
+  assert.deepEqual(splitSegments('git commit -m x 2>&1 | tail -2'), [['git', 'commit', '-m', 'x', '2>&1'], ['tail', '-2']]);
+  assert.deepEqual(splitSegments('git commit -m x 2>&1; git push', 'powershell'), [['git', 'commit', '-m', 'x', '2>&1'], ['git', 'push']]);
+});
+
+const blocksChain = (r, cmd) => {
+  assert.equal(r.block, true, cmd);
+  assert.match(r.reason, /own tool call|commit\/push/, cmd);
+};
+
+test('chained git with global options other than -C is file-changing', () => {
+  for (const cmd of [
+    'git -c core.fsmonitor=x status && git commit -m x',
+    'git -c diff.external=x diff && git commit -m x',
+    "git -c core.pager='touch y' log && git commit -m x",
+    'git -c diff.x.textconv=t show && git commit -m x',
+    'git -c filter.lfs.clean=t add a && git commit -m x',
+    'git --config-env=core.pager=P log && git commit -m x',
+    'git -cfoo=x status && git commit -m x',
+    'git --work-tree=w status && git commit -m x',
+    'git --exec-path=/x log && git commit -m x',
+    'git --no-pager=x log && git commit -m x',
+    'git diff --ext-diff && git commit -m x',
+    'git log -p --textconv && git commit -m x',
+    'git show --textconv HEAD && git commit -m x',
+  ]) blocksChain(run(cmd), cmd);
+  assert.equal(run('git -C /r/w status && git -C /r/w diff --stat && git -C /r/w commit -m x').block, false);
+});
+
+test('env prefixes on chained segments are file-changing', () => {
+  for (const cmd of [
+    'GIT_EXTERNAL_DIFF=x git diff && git commit -m x',
+    'GIT_PAGER=x git log; git commit -m x',
+    'GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsmonitor GIT_CONFIG_VALUE_0=x git status && git commit -m x',
+    'env GIT_PAGER=x git log && git commit -m x',
+    'X=1 echo hi && git commit -m x',
+  ]) blocksChain(run(cmd), cmd);
+});
+
+test('command substitution next to commit/push fails closed', () => {
+  for (const cmd of [
+    'echo `touch y` && git commit -m x',
+    'echo "$(touch x)" && git commit -m x',
+    'git commit -m "$(rm -rf src)"',
+    'git commit -m "`rm -rf src`"',
+    'git commit -m "$(cat <<EOF\nmsg\nEOF\n)"', // unquoted delimiter expands
+    "git commit -m \"$(cat <<'EOF'\nmsg\nEOF\ntouch y\n)\"",
+    "git commit -m \"$(cat <<'EOF' && touch y\nmsg\nEOF\n)\"",
+    "git commit -m \"$(cat <<'EOF'\nmsg\nEOF\n)$(touch y)\"",
+  ]) blocksChain(run(cmd), cmd);
+  blocksChain(ps('echo "$(ni f)"; git commit -m x'), 'ps $(');
+  // the documented message form stays allowed
+  assert.equal(run("git commit -m \"$(cat <<'EOF'\nfix(hooks): a (b) \"q\" `t` $(x)\n\nbody\nEOF\n)\"").block, false);
+  assert.equal(run("git add a && git commit -m \"$(cat <<'EOF'\nmsg\nEOF\n)\" && git status").block, false);
+  assert.equal(run("echo 'a `b` $(c)' && git commit -m x").block, false);
+  // without commit/push nothing changes
+  assert.equal(run('echo `date` "$(pwd)"', { readLastRun: () => null }).block, false);
+});
+
+test('chained git add allows only pathspecs and -A/-u/--all/--', () => {
+  for (const cmd of ['git add --chmod=+x a && git commit -m x', 'git add --renormalize . && git commit -m x', 'git add -f a && git commit -m x', 'git add -p && git commit -m x']) {
+    blocksChain(run(cmd), cmd);
+  }
+  for (const cmd of ['git add -A && git commit -m x', 'git add -u && git commit -m x', 'git add --all . && git commit -m x', 'git add -- a b && git commit -m x']) {
+    assert.equal(run(cmd).block, false, cmd);
+  }
+});
+
+test('null sinks are per shell', () => {
+  assert.equal(run('git commit -m x 2>/dev/null').block, false);
+  blocksChain(run('git commit -m x 2>$null'), 'bash $null');
+  blocksChain(run('git commit -m x 2>nul'), 'bash nul');
+  assert.equal(ps('git commit -m x 2>$null').block, false);
+  assert.equal(ps('git commit -m x 2>NUL').block, false);
+  blocksChain(ps('git commit -m x 2>/dev/null'), 'ps /dev/null');
+});
+
+test('the commit/push op itself may not carry code-running options', () => {
+  for (const cmd of [
+    'git -c core.hooksPath=h commit -m x',
+    'git -ccore.hooksPath=h commit -m x',
+    'git --config-env=core.pager=P commit -m x',
+    'git --exec-path=/tmp commit -m x',
+    'GIT_EXTERNAL_DIFF=x git commit -m x',
+    'env GIT_DIR=/x git commit -m x',
+  ]) blocksChain(run(cmd), cmd);
+  for (const cmd of ['git push --receive-pack=x origin b', 'git push --exec=x origin b', 'git push --receive-pack x origin b']) {
+    blocksChain(run(cmd, { readLastRun: fullOk }), cmd);
+  }
+  assert.equal(run('git -c user.name=A -c user.email=a@b commit -m x').block, false);
+  assert.equal(run('LANG=C git commit -m x').block, false);
+});
+
+test('PowerShell read-only cmdlets may share the call', () => {
+  assert.equal(ps('git commit -m x | Select-Object -Last 2; git status | Select-String main | Out-String; Get-Location').block, false);
+  assert.equal(ps('git log -1 | select -First 1 | sls x | Measure-Object; Write-Output ok; Write-Host ok; git commit -m x | Out-Host').block, false);
+});
+
+const blocked = (r, cmd) => assert.equal(r.block, true, cmd);
+const allowed = (r, cmd) => assert.equal(r.block, false, `${cmd}: ${r.reason}`);
+
+test('guarded op: only -C, -c user.name/user.email and safe flag globals', () => {
+  for (const cmd of [
+    'git --git-dir=/x/.git commit -m x',
+    'git --work-tree /x commit -m x',
+    'git --namespace n commit -m x',
+    'git --super-prefix x commit -m x',
+    'git --attr-source=HEAD commit -m x',
+    'git --no-pager=x commit -m x',
+    'git --bare commit -m x',
+    'git -p commit -m x',
+  ]) blocked(run(cmd), cmd);
+  for (const cmd of [
+    'git --no-pager commit -m x',
+    'git -P commit -m x',
+    'git --no-optional-locks --no-replace-objects --literal-pathspecs commit -m x',
+    'git -C /r -c user.name=A -c user.email=a@b commit -m x',
+  ]) allowed(run(cmd), cmd);
+});
+
+test('guarded op: env prefixes only LANG, LC_*, TZ', () => {
+  for (const cmd of ['EDITOR=vim git commit -m x', 'PATH=/tmp git commit -m x', 'HOME=/x git commit -m x', 'env PAGER=x git commit -m x']) blocked(run(cmd), cmd);
+  allowed(run('LANG=C LC_ALL=C TZ=UTC git commit -m x'), 'LANG/LC/TZ');
+});
+
+test('guarded op: git push options are allowlisted', () => {
+  for (const cmd of [
+    'git push --exe=./prog origin b',
+    'git push --receive=./prog origin b',
+    'git push -o ci.skip origin b',
+    'git push --push-option=x origin b',
+    'git push --repo=x',
+    'git push --mirror',
+  ]) blocked(run(cmd, { readLastRun: fullOk }), cmd);
+  for (const cmd of [
+    'git push -u origin feat/x',
+    'git push --set-upstream origin b',
+    'git push --force-with-lease origin b',
+    'git push --force-with-lease=b:abc origin b',
+    'git push -f --tags --follow-tags --no-verify --dry-run -n -q --quiet -v --verbose --porcelain --atomic origin b',
+    'git push --delete origin b',
+    'git push -d origin b',
+    'git push --force origin HEAD:refs/heads/b',
+  ]) allowed(run(cmd, { readLastRun: fullOk }), cmd);
+});
+
+test('heredoc message form is parsed exactly', () => {
+  blocked(run("git commit -m \"$(cat <<'EOF'\nmsg\nEOF \nmore\nEOF\n)$(touch x)\""), 'trailing-space delimiter then substitution');
+  blocked(run("git commit -m \"$(cat <<'EOF'\nmsg\nEOF \ntouch y\n)\""), 'trailing-space line is not the delimiter');
+  blocked(run("git commit -m \"$(cat <<'EOF'\nmsg\nEOF\ntouch y\nEOF\n)\""), 'later fake delimiter');
+  blocked(run("git commit -m \"$(cat <<'EOF'\nmsg\nEOF\r\n)\""), 'CR on delimiter line');
+  blocked(run("git commit -m \"$(cat <<'EOF'\nmsg\n\tEOF\n)\""), 'tab-indented delimiter without <<-');
+  allowed(run("git commit -m \"$(cat <<-'EOF'\n\tmsg\n\tEOF\n)\""), '<<- strips tabs');
+  allowed(run("git commit -m \"$(cat <<'EOF'\nfix: a\n\nbody\nEOF\n  \n)\""), 'normal form');
+});
+
+test('wrapper options before git commit/push fail closed', () => {
+  for (const cmd of [
+    'env -i GIT_DIR=x git commit -m x',
+    'env -u A git commit -m x',
+    'env -C /x git commit -m x',
+    "env -S 'git commit -m x'",
+    'sudo --user root git push',
+    'nice -n 5 git commit -m x',
+    'command -p git commit -m x',
+    'time -p git commit -m x',
+  ]) blocked(run(cmd, { readLastRun: fullOk }), cmd);
+  allowed(run('nohup git commit -m x'), 'nohup without options');
+  blocked(run("env -S 'sed -i s/a/b/ f'; git commit -m x"), 'env -S hides a chained command');
+  blocked(run('sudo -u u ls; git commit -m x'), 'wrapper options on a chained segment');
+  assert.deepEqual(parseGitOps('git --super-prefix x commit -m a', '/r', { platform: 'linux', homedir: '/h' }).map((o) => o.kind), ['commit']);
+});
+
+test('safe flag globals on chained read-only git segments are allowed', () => {
+  allowed(run('git --no-pager log -1 && git push', { readLastRun: fullOk }), 'no-pager log');
+  allowed(run('git -P diff --stat && git --no-optional-locks status && git commit -m x'), '-P diff');
+});
+
+test('PowerShell expressions, Out-Null, Get-Date; git add dry-run flags; bash comments', () => {
+  allowed(ps('git add -A | Out-Null; Get-Date; git commit -m x; $LASTEXITCODE'), 'Out-Null/Get-Date/$LASTEXITCODE');
+  allowed(ps('git commit -m x; if ($LASTEXITCODE -ne 0) { Write-Host fail }'), 'if ($LASTEXITCODE)');
+  allowed(ps('git commit -m x; $?'), '$?');
+  blocked(ps('$x = 1; git commit -m x'), '$x = 1');
+  blocked(ps('$f.Delete(); git commit -m x'), 'method call');
+  for (const cmd of ['git add -n a', 'git add -v a', 'git add --dry-run a', 'git add --verbose a', 'git add -Av', 'git add -nv a', 'git add -uAn']) {
+    allowed(run(`${cmd} && git commit -m x`), cmd);
+  }
+  blocked(run('git add -Af && git commit -m x'), '-Af');
+  allowed(run('git add -A && git commit -m x # see `notes`'), 'backtick in comment');
+  allowed(run('git commit -m x # $(not run)'), '$( in comment');
+  blocked(run('echo a#`touch y` && git commit -m x'), '# inside a word is not a comment');
+});
+
+test('bash comments start only where bash starts them', () => {
+  blocked(run('x}#y; sed -i s/a/b/ f; git commit -m x'), '} is not a word boundary');
+  blocked(run('{#y; sed -i s/a/b/ f; git commit -m x'), '{ is not a word boundary');
+  blocked(run('x\r#y; sed -i s/a/b/ f; git commit -m x'), 'CR is not whitespace in bash');
+  blocked(run("''#y; sed -i s/a/b/ f; git commit -m x"), 'quoted empty word then #');
+  const ops = (cmd) => parseGitOps(cmd, '/r', { platform: 'linux', homedir: '/h' }).map((o) => o.kind);
+  assert.deepEqual(ops('echo a #c; git commit -m x'), []); // bash: everything after # is a comment
+  assert.deepEqual(ops('echo a;#c; git commit -m x'), []);
+  assert.deepEqual(ops('#c; git commit -m x'), []);
+  assert.deepEqual(ops('git status # note\ngit commit -m x'), ['commit']);
+  blocked(run('git status # note\ngit commit -m x', { readLastRun: () => null }), 'commit after a comment line');
+});

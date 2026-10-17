@@ -5,6 +5,7 @@ Campus task marketplace for HCMUT (React 19 + TypeScript + Vite 8 + Tailwind v4 
 ## Layout
 - `unijob-web/` — the web app (all npm commands run here). `src/services/*` own Firestore access; pages stay thin; types live in `src/types`.
 - `unijob-web/firestore.rules` — Firestore uses the named database `kirigitejkf8095h`. Tests: `unijob-web/tests/unit/` (vitest unit), `unijob-web/tests/rules/` (rules, emulator, project `demo-unijob`), `tests/tooling/` (node:test for `scripts/` and `.claude/` hooks).
+- `unijob-web/functions/` — Cloud Functions v2 (TS, Node 22, region `asia-southeast1`), its own package (`npm ci` there too). `src/admin.ts` binds the Admin SDK to `kirigitejkf8095h`; helpers in `src/lib/`. Tests: `functions/tests/unit` (no emulator) and `functions/tests/emulator`. Deploy notes: `unijob-web/functions/README.md`.
 - `scripts/ci-local.mjs` — local CI (same as GitHub Actions). `ci/` — budgets, the coverage legacy list, and `last-run.json` (gitignored).
 - `.claude/` — agent team (`agents/uj-*`), pipeline commands (`commands/uj-*`), the `uj-build` workflow, and guard hooks.
 - `docs/specs`, `docs/plans`, `docs/runs` — pipeline artifacts.
@@ -17,6 +18,7 @@ Campus task marketplace for HCMUT (React 19 + TypeScript + Vite 8 + Tailwind v4 
 ## Commands
 - Dev: `cd unijob-web && npm run dev`
 - Unit tests: `npm test` · Rules tests: `npm run test:rules` (needs Java ≥ 11)
+- Functions: `cd unijob-web/functions && npm test` (unit) · `cd unijob-web && npm run test:functions` (unit + emulator + coverage, needs Java ≥ 11)
 - CI: `node scripts/ci-local.mjs --quick` (per task) · `--full` (before push; also in GitHub Actions)
 
 ## Pipeline (how every change is made)
@@ -28,6 +30,7 @@ Spec, plan and code for a topic live on one branch `<type>/<topic>` cut from mai
 - Every PR: `gh pr create --base main --assignee @me` (owner HieNguyen08).
 - Conventional Commits. Branches `feat/…`, `fix/…`, `chore/…` from `main`.
 - Commit only after `ci-local --quick` is green on the exact working tree; push only after `--full` is green on the exact HEAD tree (hook-enforced). The hooks do not stop a push to `main` (e.g. `git push origin HEAD:main`); that relies on GitHub branch protection.
+- `git commit` / `git push` must be its own tool call: only `cd`, `git add`/`status`/`diff`/`log` and plain output commands may share it (hook-enforced; anything else could change files after the CI check).
 - `unijob-web/package.json` overrides `@grpc/grpc-js` to `^1.14.5` because firebase pins `~1.9`, which has a high advisory. Remove the override once firebase ships a fixed range.
 - Only `uj-implementer` changes code inside the pipeline; reviewers and auditors are read-only.
 - Money, escrow, reputation/XP, completion status and notifications to other users must be written server-side (Cloud Functions/Admin SDK). Never trust these fields from the client.

@@ -28,6 +28,7 @@ Spec, plan and code for a topic live on one branch `<type>/<topic>` cut from mai
 - Every PR: `gh pr create --base main --assignee @me` (owner HieNguyen08).
 - Conventional Commits. Branches `feat/…`, `fix/…`, `chore/…` from `main`.
 - Commit only after `ci-local --quick` is green on the exact working tree; push only after `--full` is green on the exact HEAD tree (hook-enforced). The hooks do not stop a push to `main` (e.g. `git push origin HEAD:main`); that relies on GitHub branch protection.
+- `git commit` / `git push` must be its own tool call: only `cd`, `git add`/`status`/`diff`/`log` and plain output commands may share it (hook-enforced; anything else could change files after the CI check).
 - `unijob-web/package.json` overrides `@grpc/grpc-js` to `^1.14.5` because firebase pins `~1.9`, which has a high advisory. Remove the override once firebase ships a fixed range.
 - Only `uj-implementer` changes code inside the pipeline; reviewers and auditors are read-only.
 - Money, escrow, reputation/XP, completion status and notifications to other users must be written server-side (Cloud Functions/Admin SDK). Never trust these fields from the client.

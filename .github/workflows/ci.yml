@@ -24,13 +24,18 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: unijob-web/package-lock.json
+          cache-dependency-path: |
+            unijob-web/package-lock.json
+            unijob-web/functions/package-lock.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
       - name: Install
         working-directory: unijob-web
+        run: npm ci
+      - name: Install functions
+        working-directory: unijob-web/functions
         run: npm ci
       - name: ci-local --full
         run: node scripts/ci-local.mjs --full

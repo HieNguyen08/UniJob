@@ -153,7 +153,9 @@ service cloud.firestore {
     // NOTIFICATIONS: chỉ chủ sở hữu đọc/update, ai auth cũng tạo được
     match /notifications/{notifId} {
       allow read: if isAuth() && resource.data.userId == request.auth.uid;
-      allow create: if isAuth();
+      // `source` is reserved for the Admin SDK (server-written notifications): clients can never set it,
+      // so the server can tell its own documents from ones a client pre-created at the same id.
+      allow create: if isAuth() && !('source' in request.resource.data);
       allow update: if isAuth() && resource.data.userId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
         && request.resource.data.read == true;

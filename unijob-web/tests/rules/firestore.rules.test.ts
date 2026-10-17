@@ -443,6 +443,16 @@ describe('notifications', () => {
   it.fails('KNOWN HOLE (fix in B): users cannot create notifications for other users', async () => {
     await assertFails(setDoc(doc(as('mallory'), 'notifications/spam'), { userId: 'alice', message: 'spam', read: false }));
   });
+  it('clients can still create a notification without source (current client flows)', async () => {
+    await assertSucceeds(setDoc(doc(as('bob'), 'notifications/client-made'), { userId: 'alice', message: 'hi', read: false }));
+  });
+  it('clients can never set source on create (reserved for server-written notifications)', async () => {
+    await assertFails(setDoc(doc(as('mallory'), 'notifications/forged'), { userId: 'alice', message: 'x', read: false, source: 'server' }));
+    await assertFails(setDoc(doc(as('alice'), 'notifications/forged-own'), { userId: 'alice', message: 'x', read: false, source: 'client' }));
+  });
+  it('the owner cannot add source through an update', async () => {
+    await assertFails(updateDoc(doc(as('alice'), 'notifications/n1'), { read: true, source: 'server' }));
+  });
   it('the owner can mark their notification read', async () => {
     await assertSucceeds(updateDoc(doc(as('alice'), 'notifications/n1'), { read: true }));
   });

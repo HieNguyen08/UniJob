@@ -5,6 +5,7 @@ Campus task marketplace for HCMUT (React 19 + TypeScript + Vite 8 + Tailwind v4 
 ## Layout
 - `unijob-web/` — the web app (all npm commands run here). `src/services/*` own Firestore access; pages stay thin; types live in `src/types`.
 - `unijob-web/firestore.rules` — Firestore uses the named database `kirigitejkf8095h`. Tests: `unijob-web/tests/unit/` (vitest unit), `unijob-web/tests/rules/` (rules, emulator, project `demo-unijob`), `tests/tooling/` (node:test for `scripts/` and `.claude/` hooks).
+- `unijob-web/functions/` — Cloud Functions v2 (TS, Node 22, region `asia-southeast1`), its own package (`npm ci` there too). `src/admin.ts` binds the Admin SDK to `kirigitejkf8095h`; helpers in `src/lib/`. Tests: `functions/tests/unit` (no emulator) and `functions/tests/emulator`. Deploy notes: `unijob-web/functions/README.md`.
 - `scripts/ci-local.mjs` — local CI (same as GitHub Actions). `ci/` — budgets, the coverage legacy list, and `last-run.json` (gitignored).
 - `.claude/` — agent team (`agents/uj-*`), pipeline commands (`commands/uj-*`), the `uj-build` workflow, and guard hooks.
 - `docs/specs`, `docs/plans`, `docs/runs` — pipeline artifacts.
@@ -17,6 +18,7 @@ Campus task marketplace for HCMUT (React 19 + TypeScript + Vite 8 + Tailwind v4 
 ## Commands
 - Dev: `cd unijob-web && npm run dev`
 - Unit tests: `npm test` · Rules tests: `npm run test:rules` (needs Java ≥ 11)
+- Functions: `cd unijob-web/functions && npm test` (unit) · `cd unijob-web && npm run test:functions` (unit + emulator + coverage, needs Java ≥ 11)
 - CI: `node scripts/ci-local.mjs --quick` (per task) · `--full` (before push; also in GitHub Actions)
 
 ## Pipeline (how every change is made)

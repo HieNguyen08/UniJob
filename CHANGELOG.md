@@ -8,6 +8,7 @@
 - Quy trình phát triển bằng đội agent: `/uj-brainstorm`, `/uj-plan`, `/uj-build`, `/uj-ship`, `/uj-status`.
 - CI local `scripts/ci-local.mjs` và GitHub Actions: typecheck, lint, unit test + coverage, test Firestore rules trên emulator, build, bundle budget, npm audit, secret scan.
 - Hook chặn commit/push khi CI chưa xanh, chặn trailer Co-Authored-By, chặn ghi file bí mật.
+- Khung Cloud Functions (`unijob-web/functions`, Node 22, region `asia-southeast1`, database `kirigitejkf8095h`): helper xác thực/thành viên, ghi thông báo idempotent phía server, công thức phí nền tảng dùng chung, callable `ping`; CI chạy typecheck và test functions trên emulator.
 
 ### Changed
 - Nâng Vite lên 8.3 (bản stable), vá các lỗ hổng high/critical từ `npm audit`, dọn lỗi ESLint.

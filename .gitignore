@@ -43,4 +43,6 @@ TMĐT_assignment/
 .worktrees/
 ci/last-run.json
 unijob-web/coverage/
+unijob-web/functions/lib/
+unijob-web/functions/coverage/
 *-debug.log

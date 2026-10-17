@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-const SOURCE = readFileSync(new URL('../../.claude/workflows/uj-build.js', import.meta.url), 'utf8')
+const SOURCE = readFileSync(new URL('../../../.claude/workflows/uj-build.js', import.meta.url), 'utf8')
   .replace(/^export const meta\s*=/m, 'const meta =');
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor;
 

@@ -12,7 +12,7 @@ How you work:
    - Save to `docs/plans/YYYY-MM-DD-<topic>.md` with front matter `status: draft`, `spec: <path>`, `branch: <feat|fix|chore>/<topic>`.
    - Every task heading is exactly `### Task N: <title>`. The uj-build workflow parses this format.
    - Each task must be completable by one implementer in one sitting and end with a green `node scripts/ci-local.mjs --quick` and a checkpoint commit.
-   - Firestore/Storage rule changes come with tests in `unijob-web/tests/rules/`. Cloud Functions come with tests run on the emulator.
+   - Firestore/Storage rule changes come with tests in `unijob-web/tests/rules/`. New unit tests go in `unijob-web/tests/unit/` (mirroring `src/`) and tooling tests in `tests/tooling/`, never next to source. Cloud Functions come with tests run on the emulator.
    - New service/lib/functions files need ≥70% line coverage (see `ci/coverage-legacy.json` for the legacy exemptions).
 2. Use `feature-dev:code-architect` thinking: follow existing patterns in `unijob-web/src` (services own Firestore access, pages stay thin, types in `src/types`).
 3. Stop after writing. Never set `status: approved` yourself (gate 2).

@@ -205,7 +205,7 @@ describe('readJob', () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/messages.test.ts tests/unit/jobs.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/messages.test.ts tests/unit/jobs.test.ts`
 Expected: FAIL, cannot resolve `../../src/lib/messages.js` / `../../src/lib/jobs.js` / `../support/fakeDb.js`.
 
 - [ ] **Step 3: Implement**
@@ -342,12 +342,12 @@ export async function notificationsFor(db: Firestore, userId: string): Promise<Q
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/messages.test.ts tests/unit/jobs.test.ts && npm run typecheck`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/messages.test.ts tests/unit/jobs.test.ts && npm run typecheck`
 Expected: PASS, typecheck clean.
 
 - [ ] **Step 5: Local CI**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick`
+Run: `cd . && node scripts/ci-local.mjs --quick`
 Expected: all gates PASS (functions-typecheck and functions-tests run, others may be skipped).
 
 - [ ] **Step 6: Commit**
@@ -457,7 +457,7 @@ describe('handleApplicationUpdated', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/applications.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/applications.test.ts`
 Expected: FAIL, cannot resolve `src/handlers/applications.js`.
 
 - [ ] **Step 3: Implement the handlers**
@@ -523,7 +523,7 @@ Note: `writeNotification` drops `extras.jobId` when it is `undefined`, so the ex
 
 - [ ] **Step 4: Run handler tests to verify they pass**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/applications.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/applications.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Write the failing trigger wiring test**
@@ -583,7 +583,7 @@ If `__endpoint` nests a field differently in firebase-functions 7.4.0 (print it 
 
 - [ ] **Step 6: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/triggers/applications.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/triggers/applications.test.ts`
 Expected: FAIL, cannot resolve `src/triggers/applications.js`.
 
 - [ ] **Step 7: Implement the triggers**
@@ -609,7 +609,7 @@ export const onApplicationUpdated = onDocumentUpdated(opts, async (event) => {
 
 - [ ] **Step 8: Run unit tests to verify they pass**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/applications.test.ts tests/unit/triggers/applications.test.ts && npm run typecheck`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/applications.test.ts tests/unit/triggers/applications.test.ts && npm run typecheck`
 Expected: PASS.
 
 - [ ] **Step 9: Write the emulator test**
@@ -699,12 +699,12 @@ describe('application notifications on the emulator', () => {
 
 - [ ] **Step 10: Run the emulator tests**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx firebase emulators:exec --only firestore --project demo-unijob "cd functions && npx vitest run --project emulator tests/emulator/applications.emulator.test.ts"`
+Run: `cd unijob-web && npx firebase emulators:exec --only firestore --project demo-unijob "cd functions && npx vitest run --project emulator tests/emulator/applications.emulator.test.ts"`
 Expected: PASS (4 tests).
 
 - [ ] **Step 11: Local CI**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
+Run: `cd . && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
 Expected: all gates PASS; coverage gate shows the new `functions/src/handlers/applications.ts` and `functions/src/triggers/applications.ts` at 70% or more.
 
 - [ ] **Step 12: Commit**
@@ -800,7 +800,7 @@ describe('handleJobUpdated: everything else', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/jobs.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/jobs.test.ts`
 Expected: FAIL, cannot resolve `src/handlers/jobs.js`.
 
 - [ ] **Step 3: Implement the handler**
@@ -861,7 +861,7 @@ export async function handleJobUpdated(
 
 - [ ] **Step 4: Run handler tests to verify they pass**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/jobs.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/jobs.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Write the failing trigger wiring test**
@@ -900,7 +900,7 @@ describe('onJobUpdated', () => {
 
 - [ ] **Step 6: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/triggers/jobs.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/triggers/jobs.test.ts`
 Expected: FAIL, cannot resolve `src/triggers/jobs.js`.
 
 - [ ] **Step 7: Implement the trigger**
@@ -923,7 +923,7 @@ export const onJobUpdated = onDocumentUpdated(
 
 - [ ] **Step 8: Run unit tests and typecheck**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/jobs.test.ts tests/unit/triggers/jobs.test.ts && npm run typecheck`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/jobs.test.ts tests/unit/triggers/jobs.test.ts && npm run typecheck`
 Expected: PASS.
 
 - [ ] **Step 9: Write the emulator test**
@@ -979,12 +979,12 @@ describe('job status notifications on the emulator', () => {
 
 - [ ] **Step 10: Run the emulator tests**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx firebase emulators:exec --only firestore --project demo-unijob "cd functions && npx vitest run --project emulator tests/emulator/jobs.emulator.test.ts"`
+Run: `cd unijob-web && npx firebase emulators:exec --only firestore --project demo-unijob "cd functions && npx vitest run --project emulator tests/emulator/jobs.emulator.test.ts"`
 Expected: PASS (2 tests).
 
 - [ ] **Step 11: Local CI**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
+Run: `cd . && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
 Expected: all gates PASS.
 
 - [ ] **Step 12: Commit**
@@ -1069,7 +1069,7 @@ describe('handleCompletionWritten', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/completions.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/completions.test.ts`
 Expected: FAIL, cannot resolve `src/handlers/completions.js`.
 
 - [ ] **Step 3: Implement the handler**
@@ -1116,7 +1116,7 @@ export async function handleCompletionWritten(
 
 - [ ] **Step 4: Run handler tests to verify they pass**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/completions.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/completions.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Write the failing trigger wiring test**
@@ -1157,7 +1157,7 @@ describe('onJobCompletionWritten', () => {
 
 - [ ] **Step 6: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/triggers/completions.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/triggers/completions.test.ts`
 Expected: FAIL, cannot resolve `src/triggers/completions.js`.
 
 - [ ] **Step 7: Implement the trigger**
@@ -1180,7 +1180,7 @@ export const onJobCompletionWritten = onDocumentWritten(
 
 - [ ] **Step 8: Run unit tests and typecheck**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/completions.test.ts tests/unit/triggers/completions.test.ts && npm run typecheck`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/completions.test.ts tests/unit/triggers/completions.test.ts && npm run typecheck`
 Expected: PASS.
 
 - [ ] **Step 9: Write the emulator test**
@@ -1230,12 +1230,12 @@ describe('completion_requested on the emulator', () => {
 
 - [ ] **Step 10: Run the emulator tests**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx firebase emulators:exec --only firestore --project demo-unijob "cd functions && npx vitest run --project emulator tests/emulator/completions.emulator.test.ts"`
+Run: `cd unijob-web && npx firebase emulators:exec --only firestore --project demo-unijob "cd functions && npx vitest run --project emulator tests/emulator/completions.emulator.test.ts"`
 Expected: PASS.
 
 - [ ] **Step 11: Local CI**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
+Run: `cd . && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
 Expected: all gates PASS.
 
 - [ ] **Step 12: Commit**
@@ -1347,7 +1347,7 @@ describe('expireOverdueJobs on the emulator', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx firebase emulators:exec --only firestore --project demo-unijob "cd functions && npx vitest run --project emulator tests/emulator/expireJobs.emulator.test.ts"`
+Run: `cd unijob-web && npx firebase emulators:exec --only firestore --project demo-unijob "cd functions && npx vitest run --project emulator tests/emulator/expireJobs.emulator.test.ts"`
 Expected: FAIL, cannot resolve `src/handlers/expireJobs.js`.
 
 - [ ] **Step 3: Implement the handler**
@@ -1469,7 +1469,7 @@ describe('expireJobs', () => {
 
 - [ ] **Step 6: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/scheduled/expireJobs.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/scheduled/expireJobs.test.ts`
 Expected: FAIL, cannot resolve `src/scheduled/expireJobs.js`.
 
 - [ ] **Step 7: Implement the schedule and the index**
@@ -1508,12 +1508,12 @@ Append to the `indexes` array in `unijob-web/firestore.indexes.json` (keep exist
 
 - [ ] **Step 8: Run unit test, typecheck and the emulator test**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/scheduled/expireJobs.test.ts && npm run typecheck && node -e "JSON.parse(require('fs').readFileSync('../firestore.indexes.json','utf8'))"`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/scheduled/expireJobs.test.ts && npm run typecheck && node -e "JSON.parse(require('fs').readFileSync('../firestore.indexes.json','utf8'))"`
 Expected: PASS, JSON parses.
 
 - [ ] **Step 9: Local CI**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
+Run: `cd . && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
 Expected: all gates PASS; `functions/src/handlers/expireJobs.ts` and `functions/src/scheduled/expireJobs.ts` at 70% lines or more.
 
 - [ ] **Step 10: Commit**
@@ -1614,7 +1614,7 @@ describe('handleSendJobInvite', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/invites.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/invites.test.ts`
 Expected: FAIL, cannot resolve `src/handlers/invites.js`.
 
 - [ ] **Step 3: Implement the handler**
@@ -1670,7 +1670,7 @@ export async function handleSendJobInvite(db: Firestore, uid: string, data: unkn
 
 - [ ] **Step 4: Run handler tests to verify they pass**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/invites.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/invites.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Write the failing callable wiring test**
@@ -1710,7 +1710,7 @@ describe('sendJobInvite', () => {
 
 - [ ] **Step 6: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/callables/sendJobInvite.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/callables/sendJobInvite.test.ts`
 Expected: FAIL, cannot resolve `src/callables/sendJobInvite.js`.
 
 - [ ] **Step 7: Implement the callable**
@@ -1776,13 +1776,13 @@ describe('sendJobInvite on the emulator', () => {
 
 - [ ] **Step 9: Run unit and emulator tests**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/handlers/invites.test.ts tests/unit/callables/sendJobInvite.test.ts && npm run typecheck`
-Then: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx firebase emulators:exec --only firestore --project demo-unijob "cd functions && npx vitest run --project emulator tests/emulator/invites.emulator.test.ts"`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/handlers/invites.test.ts tests/unit/callables/sendJobInvite.test.ts && npm run typecheck`
+Then: `cd unijob-web && npx firebase emulators:exec --only firestore --project demo-unijob "cd functions && npx vitest run --project emulator tests/emulator/invites.emulator.test.ts"`
 Expected: PASS.
 
 - [ ] **Step 10: Local CI**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
+Run: `cd . && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
 Expected: all gates PASS.
 
 - [ ] **Step 11: Commit**
@@ -1836,7 +1836,7 @@ describe('functions entry point', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit tests/unit/index.test.ts`
+Run: `cd unijob-web/functions && npx vitest run --project unit tests/unit/index.test.ts`
 Expected: FAIL, keys are only `['ping']`.
 
 - [ ] **Step 3: Implement**
@@ -1879,12 +1879,12 @@ And replace the last bullet of "Deploying functions" with:
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/functions && npx vitest run --project unit && npm run typecheck && npm run build`
+Run: `cd unijob-web/functions && npx vitest run --project unit && npm run typecheck && npm run build`
 Expected: PASS (all unit tests including the existing `ping.test.ts`), `lib/` emitted.
 
 - [ ] **Step 5: Local CI**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
+Run: `cd . && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
 Expected: all gates PASS (full runs every emulator test and the coverage gate over the whole branch).
 
 - [ ] **Step 6: Commit**

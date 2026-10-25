@@ -9,6 +9,7 @@
 - CI local `scripts/ci-local.mjs` và GitHub Actions: typecheck, lint, unit test + coverage, test Firestore rules trên emulator, build, bundle budget, npm audit, secret scan.
 - Hook chặn commit/push khi CI chưa xanh, chặn trailer Co-Authored-By, chặn ghi file bí mật.
 - Khung Cloud Functions (`unijob-web/functions`, Node 22, region `asia-southeast1`, database `kirigitejkf8095h`): helper xác thực/thành viên, ghi thông báo idempotent phía server, công thức phí nền tảng dùng chung, callable `ping`; CI chạy typecheck và test functions trên emulator.
+- Thông báo phía server: trigger Firestore gửi thông báo khi có đơn ứng tuyển mới, đơn được chấp nhận/từ chối, người làm báo hoàn thành, job bị hủy hoặc hoàn thành; hàm định kỳ (30 phút, giờ Việt Nam) đóng job quá hạn sau khi hết ngày hạn chót; callable `sendJobInvite` cho lời mời. Tên người gửi lấy từ tài khoản Google HCMUT đã xác minh, liên kết trong tiêu đề/tên bị thay bằng "[liên kết]".
 
 ### Changed
 - Nâng Vite lên 8.3 (bản stable), vá các lỗ hổng high/critical từ `npm audit`, dọn lỗi ESLint.

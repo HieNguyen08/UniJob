@@ -4,3 +4,5 @@ export { onJobUpdated } from './triggers/jobs.js';
 export { onJobCompletionWritten } from './triggers/completions.js';
 export { expireJobs } from './scheduled/expireJobs.js';
 export { sendJobInvite } from './callables/sendJobInvite.js';
+export { disputePayment } from './callables/disputePayment.js';
+export { onJobEscrow } from './triggers/escrow.js';

@@ -29,11 +29,14 @@ Add a failing (`it.fails('KNOWN HOLE …')`) test for each before fixing it.
 - **HCMUT domain not enforced server-side** — any Google account can sign in; the client checks the `@hcmut.edu.vn` domain only in the UI. Add a `beforeUserCreated` / `beforeUserSignedIn` blocking function that rejects accounts without a verified `@hcmut.edu.vn` email. Notification sender names already ignore non-HCMUT accounts. Later slice.
 - **Second-confirmer completion** — `confirmCompletion` (`rating.service.ts`) sets `status: 'completed'` from the client; it only works when the poster confirms last (worker writes are denied). Move to server-side (slice 5). The `jobCompletions` doc itself is locked down since slice 3 (only the assigned worker of an in-progress job creates it, each side can only set its own flag to true, `status: 'confirmed'` + `completedAt` only once both confirmed, outsiders denied): when the worker confirms last the completion becomes `confirmed`, but the follow-up `jobs` status write is still denied by the jobs rule.
 - **sendJobInvite rate limit** — one invite per worker per job, but no cap on invites per poster across jobs.
+- **Escrow triggers do not check HCMUT membership** — `onJobEscrow` holds and releases for any poster/payee uid; verified-HCMUT membership is enforced only on `disputePayment` (`requireVerifiedMember`). Tracked with the `beforeUserCreated` item above.
+- **No dispute resolution path** — a `disputed` escrow stays frozen: nothing (admin callable or otherwise) moves it to `released` or `refunded` yet.
+- **Pre-deploy audit of `source: 'server'` payments** — before the slice 4 functions deploy, list and delete every `payments` doc with `source == 'server'` (clients could forge them under the old rules; the 4b rules close this).
 
 ## Before the first money/reputation callable
 
-- `requireVerifiedMember`: the caller must have `email_verified`, an `@hcmut.edu.vn` address and not be an anonymous user. `requireAuth` only checks that a uid exists.
-- Decide on App Check (`enforceAppCheck` on callables) before shipping callables that move money or change reputation.
+- `requireVerifiedMember` (`functions/src/lib/auth.ts`, slice 4a): verified `@hcmut.edu.vn` email, not anonymous. Used by `disputePayment`; use it for every money/reputation callable.
+- App Check is **not** enforced on `disputePayment` (decided in slice 4a: the web client has no App Check and the escrow is a ledger record only). It must be enabled (client + `enforceAppCheck: true`) before any real payment provider integration.
 - Notification ids: server notifications are written to `notifications/{type}_{sourceId}` with `source: 'server'`. Clients cannot create notifications since slice 3; `writeNotification` still replaces a legacy client document at the same id that lacks `source: 'server'`.
 
 ## Before deploying these rules

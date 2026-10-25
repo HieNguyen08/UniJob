@@ -66,7 +66,9 @@ export function safeText(text: string): string {
     .join('');
 }
 
-const t = (title: string) => clip(safeText(title), MAX_TITLE);
+/** The transform notification messages apply to job titles; also used for titles stored by the server. */
+export const safeTitle = (title: string) => clip(safeText(title), MAX_TITLE);
+const t = safeTitle;
 const n = (name: string) => clip(safeText(name), MAX_NAME);
 
 export const messages = {
@@ -81,5 +83,7 @@ export const messages = {
   deadlineExpired: (title: string) => `⏰ Công việc "${t(title)}" đã hết hạn và được đóng tự động.`,
   /** To a worker assigned to a job the scheduler expired: neutral, not "cancelled by the poster". */
   jobExpiredWorker: (title: string) => `⏰ Công việc "${t(title)}" đã hết hạn và được đóng tự động.`,
+  paymentDisputed: (title: string) =>
+    `⚠️ Thanh toán ký quỹ cho "${t(title)}" đang bị tranh chấp. Tiền sẽ được giữ lại cho đến khi xử lý xong.`,
   jobInvite: (fromName: string, title: string) => `${n(fromName)} mời bạn ứng tuyển "${t(title)}"`,
 } as const;

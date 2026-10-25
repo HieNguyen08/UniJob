@@ -11,7 +11,8 @@ describe('parity with the web app', () => {
     expect(calculatePlatformFee(amount)).toEqual(webFee(amount));
   });
 
-  it('NotificationType equals the web union', () => {
-    expectTypeOf<NotificationType>().toEqualTypeOf<WebNotificationType>();
+  // Slice 4a adds payment_disputed server-side; 4b adds it to the web union (then simplify back to strict equality).
+  it('NotificationType equals the web union plus payment_disputed', () => {
+    expectTypeOf<NotificationType>().toEqualTypeOf<WebNotificationType | 'payment_disputed'>();
   });
 });

@@ -6,7 +6,10 @@ export interface JobMembership {
   assignedTo?: string[];
 }
 
-/** Keep identical to unijob-web/src/types/notification.ts (type parity test in tests/unit/parity.test.ts). */
+/**
+ * Keep equal to unijob-web/src/types/notification.ts plus 'payment_disputed', which the web union gets in
+ * slice 4b (Decision 7 of docs/plans/2026-10-25-server-escrow.md; parity test in tests/unit/parity.test.ts).
+ */
 export type NotificationType =
   | 'new_application'
   | 'application_accepted'
@@ -15,4 +18,5 @@ export type NotificationType =
   | 'job_cancelled'
   | 'deadline_expired'
   | 'completion_requested'
-  | 'job_invite';
+  | 'job_invite'
+  | 'payment_disputed';

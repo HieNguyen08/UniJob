@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clip, messages, safeText } from '../../src/lib/messages.js';
+import { clip, messages, safeText, safeTitle } from '../../src/lib/messages.js';
 
 describe('clip', () => {
   it('keeps short text unchanged', () => {
@@ -78,4 +78,17 @@ describe('safeText (user text inside server-signed notifications)', () => {
   it('messages neutralise links in titles and names', () => {
     expect(messages.jobInvite('Admin www.evil.vn', 'Nhận quà tại evil.com')).toBe('Admin [liên kết] mời bạn ứng tuyển "Nhận quà tại [liên kết]"');
   });
+});
+
+describe('safeTitle', () => {
+  it('sanitises and clips like notification titles', () => {
+    expect(safeTitle('Xem www.evil.com\nngay')).toBe('Xem [liên kết] ngay');
+    expect(Array.from(safeTitle('t'.repeat(5000)))).toHaveLength(120);
+  });
+});
+
+it('paymentDisputed', () => {
+  expect(messages.paymentDisputed('Nhập liệu')).toBe(
+    '⚠️ Thanh toán ký quỹ cho "Nhập liệu" đang bị tranh chấp. Tiền sẽ được giữ lại cho đến khi xử lý xong.',
+  );
 });

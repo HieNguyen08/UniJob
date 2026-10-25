@@ -29,6 +29,12 @@ describe('handleCompletionWritten', () => {
   it('a completion created already confirmed by the worker also counts', async () => {
     await expect(handleCompletionWritten(db, 'j1', undefined, { ...pending, workerConfirmed: true })).resolves.toBe(true);
   });
+  it('a server record overwriting a legacy doc whose worker flag was already true still notifies', async () => {
+    const legacy = { ...pending, workerConfirmed: true };
+    await expect(handleCompletionWritten(db, 'j1', legacy, { ...legacy, source: 'server', serverVersion: 'completion-v1' })).resolves.toBe(true);
+    await expect(handleCompletionWritten(db, 'j1', legacy, { ...legacy, source: 'server' })).resolves.toBe(false); // no marker
+    await expect(handleCompletionWritten(db, 'j1', { ...legacy, source: 'server', serverVersion: 'completion-v1' }, { ...legacy, source: 'server', serverVersion: 'completion-v1', updatedAt: 1 })).resolves.toBe(false);
+  });
   it('no request when the poster already confirmed (the job_completed path handles it)', async () => {
     await expect(
       handleCompletionWritten(db, 'j1', { ...pending, posterConfirmed: true }, { ...pending, posterConfirmed: true, workerConfirmed: true }),

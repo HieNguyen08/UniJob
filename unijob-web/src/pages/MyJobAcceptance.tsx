@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, ChevronLeft, Clock3, Phone } from 'lucide-react';
 import { getJobById } from '@/services/job.service';
-import { getJobCompletion, confirmCompletion } from '@/services/rating.service';
+import { getJobCompletion } from '@/services/rating.service';
+import {
+  confirmCompletion,
+  completionErrorMessage,
+  completionSuccessMessage,
+  isCompletionAlreadyDone,
+} from '@/services/completion.service';
 import { getUserById } from '@/services/user.service';
 import type { Job, JobCompletion } from '@/types';
 import { formatDeadline } from '@/lib/deadline';
@@ -48,15 +54,18 @@ export default function MyJobAcceptance() {
   }, [jobId]);
 
   async function handleConfirm() {
-    if (!completion) return;
+    if (!job || !completion?.workerConfirmed) return;
     setConfirming(true);
     try {
-      await confirmCompletion(completion.id, 'poster');
-      toast.success('Đã xác nhận! Hệ thống sẽ mở tính năng đánh giá.');
+      const result = await confirmCompletion(job.id);
+      toast.success(completionSuccessMessage(result, 'poster'));
       navigate('/my-jobs');
     } catch (err) {
       console.error(err);
-      toast.error('Lỗi khi xác nhận');
+      toast.error(completionErrorMessage(err));
+      // refresh the timeline (and the job when it was already completed elsewhere)
+      setCompletion(await getJobCompletion(job.id).catch(() => completion));
+      if (isCompletionAlreadyDone(err)) setJob(await getJobById(job.id).catch(() => job));
     } finally {
       setConfirming(false);
     }

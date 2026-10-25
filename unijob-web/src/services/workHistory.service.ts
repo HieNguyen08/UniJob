@@ -1,6 +1,5 @@
 import {
   collection,
-  addDoc,
   getDocs,
   query,
   where,
@@ -9,6 +8,7 @@ import {
   or,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { isServerRecord } from '@/lib/completion';
 import { getUserById } from '@/services/user.service';
 import type { Job } from '@/types/job';
 
@@ -20,6 +20,8 @@ export interface WorkHistoryEntry {
   jobTitle: string;
   category: string;
   completedAt: Timestamp;
+  source?: 'server';
+  serverVersion?: string;
 }
 
 export interface PastCollaboration {
@@ -41,28 +43,11 @@ export interface SmartMatchWorker {
   pastWork: PastCollaboration[];
 }
 
-const workHistoryCollection = collection(db, 'workHistory');
+// Lịch sử làm việc do server ghi (workHistory/{jobId}_{worker}); client chỉ đọc.
+/** Legacy or client-written docs (no versioned server marker) can be forged, so reads ignore them. */
+const isServerDoc = (d: { data: () => Record<string, unknown> }) => isServerRecord(d.data());
 
-/**
- * Record a completed collaboration between poster and worker
- */
-export async function recordWorkHistory(
-  posterId: string,
-  workerId: string,
-  jobId: string,
-  jobTitle: string,
-  category: string
-): Promise<string> {
-  const docRef = await addDoc(workHistoryCollection, {
-    user1: posterId,
-    user2: workerId,
-    jobId,
-    jobTitle,
-    category,
-    completedAt: Timestamp.now(),
-  });
-  return docRef.id;
-}
+const workHistoryCollection = collection(db, 'workHistory');
 
 /**
  * Get all past collaborators for a user
@@ -73,7 +58,7 @@ export async function getWorkHistory(userId: string): Promise<WorkHistoryEntry[]
     or(where('user1', '==', userId), where('user2', '==', userId))
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as WorkHistoryEntry[];
+  return snapshot.docs.filter(isServerDoc).map((doc) => ({ id: doc.id, ...doc.data() })) as WorkHistoryEntry[];
 }
 
 /**
@@ -83,7 +68,7 @@ export async function haveWorkedTogether(userId1: string, userId2: string): Prom
   const q = query(workHistoryCollection, where('user1', '==', userId1), where('user2', '==', userId2));
   const q2 = query(workHistoryCollection, where('user1', '==', userId2), where('user2', '==', userId1));
   const [s1, s2] = await Promise.all([getDocs(q), getDocs(q2)]);
-  return !s1.empty || !s2.empty;
+  return s1.docs.some(isServerDoc) || s2.docs.some(isServerDoc);
 }
 
 /**
@@ -102,7 +87,7 @@ export async function getSmartMatchedWorkers(posterId: string): Promise<SmartMat
   // ── Primary: workHistory collection ──
   const whQuery = query(workHistoryCollection, where('user1', '==', posterId));
   const whSnapshot = await getDocs(whQuery);
-  const whEntries = whSnapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as WorkHistoryEntry[];
+  const whEntries = whSnapshot.docs.filter(isServerDoc).map((d) => ({ id: d.id, ...d.data() })) as WorkHistoryEntry[];
 
   // ── Fallback: completed jobs from Firestore ──
   const jobsRef = collection(db, 'jobs');

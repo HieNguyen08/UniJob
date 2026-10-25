@@ -32,6 +32,11 @@ service cloud.firestore {
           || (from in ['open', 'in-progress'] && to == 'cancelled')
           || (from == 'in-progress' && to == 'completed');
       }
+      // hạn chót: null (không có hạn) hoặc timestamp trong tương lai; scheduler server hủy job open quá hạn
+      function deadlineOk(data) {
+        return data.get('deadline', null) == null
+          || (data.deadline is timestamp && data.deadline > request.time);
+      }
       // đơn được giao phải thuộc đúng job này, đúng người được giao và đã được chấp nhận
       function assignedAppOk(app) {
         return app.status == 'accepted'
@@ -48,13 +53,23 @@ service cloud.firestore {
         && request.resource.data.postedBy == request.auth.uid
         && request.resource.data.status == 'open'
         && request.resource.data.applicants == []
-        && request.resource.data.assignedTo == [];
+        && request.resource.data.assignedTo == []
+        && request.resource.data.createdAt == request.time
+        && deadlineOk(request.resource.data);
       allow update: if isAuth() && (
         // người đăng: sửa mọi thứ trừ postedBy
         (resource.data.postedBy == request.auth.uid
           && request.resource.data.postedBy == resource.data.postedBy
-          // poster không sửa danh sách applicants
-          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['applicants'])
+          // poster không sửa danh sách applicants, không đổi createdAt
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['applicants', 'createdAt'])
+          // updatedAt (nếu đổi) phải là thời điểm server
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['updatedAt'])
+            || request.resource.data.updatedAt == request.time)
+          // đổi hạn chót: chỉ thành null hoặc thời điểm trong tương lai
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['deadline'])
+            || deadlineOk(request.resource.data))
+          // cancelReason chỉ server ghi (job hết hạn: 'expired' tắt thông báo "người đăng đã huỷ")
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cancelReason'])
           && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
             || posterStatusChangeOk())
           // giao việc: chỉ khi job còn 'open', tối đa 1 người, phải có đơn đã được chấp nhận của job này
@@ -157,11 +172,62 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // JOB COMPLETIONS: người trong job mới đọc/update được
+    // JOB COMPLETIONS: xác nhận hoàn thành 2 bước, mỗi job đúng một bản ghi tại jobCompletions/{jobId}.
+    // Chỉ người đăng và người được giao việc đọc (get, không list) và update, chỉ khi job đang in-progress;
+    // chỉ người được giao việc tạo. Mỗi bên chỉ đánh dấu phía mình là true; 'confirmed' chỉ khi cả hai
+    // đã xác nhận. Server trigger 'completion_requested' tin vào các ghi này.
     match /jobCompletions/{completionId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
+      function completionJob(jobId) {
+        return get(/databases/$(database)/documents/jobs/$(jobId)).data;
+      }
+      function isAssignedWorker(job) {
+        return 'assignedTo' in job && request.auth.uid in job.assignedTo;
+      }
+      function isJobPoster(job) {
+        return job.postedBy == request.auth.uid;
+      }
+      function isJobMember(job) {
+        return isJobPoster(job) || isAssignedWorker(job);
+      }
+      // chỉ được đổi phía của mình, và chỉ sang true
+      function ownSideOnly(changed, ownField, otherField) {
+        return !changed.hasAny([otherField])
+          && (!changed.hasAny([ownField]) || request.resource.data[ownField] == true);
+      }
+      // status/completedAt chỉ đổi cùng nhau, sang 'confirmed' + request.time, khi cả hai đã xác nhận
+      function confirmOk(changed) {
+        let after = request.resource.data;
+        return !changed.hasAny(['status', 'completedAt'])
+          || (changed.hasAll(['status', 'completedAt'])
+            && after.status == 'confirmed'
+            && after.completedAt == request.time
+            && after.workerConfirmed == true
+            && after.posterConfirmed == true);
+      }
+      function completionUpdateOk(job) {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        return job.status == 'in-progress'
+          && resource.data.jobId == completionId
+          && changed.hasOnly(['workerConfirmed', 'posterConfirmed', 'status', 'completedAt'])
+          && request.resource.data.jobId == resource.data.jobId
+          && confirmOk(changed)
+          && ((isAssignedWorker(job) && ownSideOnly(changed, 'workerConfirmed', 'posterConfirmed'))
+            || (isJobPoster(job) && ownSideOnly(changed, 'posterConfirmed', 'workerConfirmed')));
+      }
+      allow get: if isAuth() && isJobMember(completionJob(completionId));
+      allow list: if false;
+      allow create: if isAuth()
+        && request.resource.data.jobId == completionId
+        && request.resource.data.keys().hasOnly(['jobId', 'workerConfirmed', 'posterConfirmed', 'completedAt', 'status'])
+        && request.resource.data.keys().hasAll(['jobId', 'workerConfirmed', 'posterConfirmed', 'completedAt', 'status'])
+        && request.resource.data.jobId is string
+        && request.resource.data.workerConfirmed == false
+        && request.resource.data.posterConfirmed == false
+        && request.resource.data.completedAt == null
+        && request.resource.data.status == 'pending'
+        && isAssignedWorker(completionJob(completionId))
+        && completionJob(completionId).status == 'in-progress';
+      allow update: if isAuth() && completionUpdateOk(completionJob(completionId));
       allow delete: if false;
     }
 
@@ -172,12 +238,11 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // NOTIFICATIONS: chỉ chủ sở hữu đọc/update, ai auth cũng tạo được
+    // NOTIFICATIONS: chỉ chủ sở hữu đọc/đánh dấu đã đọc. Mọi thông báo do server (Cloud Functions,
+    // Admin SDK) tạo với `source: 'server'`; client không bao giờ được tạo.
     match /notifications/{notifId} {
       allow read: if isAuth() && resource.data.userId == request.auth.uid;
-      // `source` is reserved for the Admin SDK (server-written notifications): clients can never set it,
-      // so the server can tell its own documents from ones a client pre-created at the same id.
-      allow create: if isAuth() && !('source' in request.resource.data);
+      allow create: if false;
       allow update: if isAuth() && resource.data.userId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
         && request.resource.data.read == true;

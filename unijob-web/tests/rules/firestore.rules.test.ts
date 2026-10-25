@@ -217,9 +217,13 @@ describe('jobs', () => {
       updateDoc(doc(as('poster'), 'jobs/job1'), { assignedTo: ['carol'], status: 'in-progress', updatedAt: serverTimestamp() }),
     );
   });
-  it.fails('KNOWN HOLE (fix in slice 5): poster cannot mark a job completed directly', async () => {
+  it('poster cannot mark a job completed directly (only the confirmCompletion callable)', async () => {
     await seedJob('ipj', { status: 'in-progress', assignedTo: ['carol'] });
     await assertFails(updateDoc(doc(as('poster'), 'jobs/ipj'), { status: 'completed' }));
+    await assertFails(updateDoc(doc(as('poster'), 'jobs/ipj'), { status: 'completed', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(as('carol'), 'jobs/ipj'), { status: 'completed', updatedAt: serverTimestamp() }));
+    // sanity: other poster edits on the same in-progress job still work
+    await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/ipj'), { title: 'Mới', updatedAt: serverTimestamp() }));
   });
   it.fails('KNOWN HOLE (fix in slice 6): poster cannot cancel an in-progress job while escrow is held', async () => {
     await seedJob('paid', { status: 'in-progress', assignedTo: ['carol'], paymentStatus: 'held' });
@@ -775,12 +779,9 @@ describe('payments', () => {
 });
 
 describe('jobCompletions', () => {
-  // Mirrors the web client (rating.service.ts): one completion per job at jobCompletions/{jobId}.
-  // The assigned worker calls createJobCompletion (MyJobs.tsx) with exactly these keys, then
-  // confirmCompletion(jobId, 'worker'); the poster calls confirmCompletion(jobId, 'poster') (MyJobAcceptance.tsx),
-  // which also sets status 'confirmed' + completedAt when the other side already confirmed.
-  // getJobCompletion reads jobCompletions/{jobId} with a get (no list query).
+  // Since slice 5 only the confirmCompletion callable writes completions (Admin SDK). Clients only get jobCompletions/{jobId}.
   const fresh = (jobId: string) => ({ jobId, workerConfirmed: false, posterConfirmed: false, completedAt: null, status: 'pending' });
+  const server = (jobId: string) => ({ ...fresh(jobId), source: 'server', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   const job = (status: string) => ({ title: 'x', postedBy: 'poster', applicants: ['worker'], assignedTo: ['worker'], status });
   beforeEach(async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
@@ -798,102 +799,44 @@ describe('jobCompletions', () => {
     });
   });
 
-  it('outsiders cannot confirm a completion', async () => {
-    await assertFails(updateDoc(doc(as('mallory'), 'jobCompletions/cjob'), { posterConfirmed: true, status: 'confirmed' }));
-    await assertFails(updateDoc(doc(as('mallory'), 'jobCompletions/cjob'), { workerConfirmed: true }));
-    await assertFails(updateDoc(doc(as('mallory'), 'jobCompletions/c1'), { posterConfirmed: true, status: 'confirmed' }));
-    // sanity (confirmCompletion 'worker'): the assigned worker can confirm the same doc
-    await assertSucceeds(updateDoc(doc(as('worker'), 'jobCompletions/cjob'), { workerConfirmed: true }));
+  it('no client can create a completion, not even the assigned worker (the old createJobCompletion payload)', async () => {
+    for (const uid of ['worker', 'poster', 'mallory']) {
+      await assertFails(setDoc(doc(as(uid), 'jobCompletions/newjob'), fresh('newjob')));
+      await assertFails(setDoc(doc(as(uid), 'jobCompletions/newjob'), server('newjob')));
+    }
+    await assertFails(setDoc(doc(as('worker'), 'jobCompletions/newjob'), { ...fresh('newjob'), workerConfirmed: true }));
+    await assertSucceeds(getDoc(doc(as('worker'), 'jobCompletions/newjob'))); // sanity: the worker is a member of newjob
   });
-  it('only an assigned worker of an in-progress job can create its completion (createJobCompletion)', async () => {
-    await assertFails(setDoc(doc(as('mallory'), 'jobCompletions/newjob'), fresh('newjob')));
-    await assertFails(setDoc(doc(as('poster'), 'jobCompletions/newjob'), fresh('newjob')));
-    await assertSucceeds(setDoc(doc(as('worker'), 'jobCompletions/newjob'), fresh('newjob')));
+  it('neither side can confirm its own flag (the old confirmCompletion first-confirmer writes)', async () => {
+    await assertFails(updateDoc(doc(as('worker'), 'jobCompletions/cjob'), { workerConfirmed: true }));
+    await assertFails(updateDoc(doc(as('poster'), 'jobCompletions/cjob'), { posterConfirmed: true }));
+    await assertSucceeds(getDoc(doc(as('worker'), 'jobCompletions/cjob'))); // sanity
+    await assertSucceeds(getDoc(doc(as('poster'), 'jobCompletions/cjob'))); // sanity
   });
-  it('the completion id must be the jobId (one completion per job)', async () => {
-    await assertFails(setDoc(doc(as('worker'), 'jobCompletions/random-id'), fresh('newjob')));
-    await assertFails(setDoc(doc(as('worker'), 'jobCompletions/newjob_2'), fresh('newjob')));
-    await assertFails(setDoc(doc(as('worker'), 'jobCompletions/cjob'), fresh('newjob')));
-    // sanity: the same payload at jobCompletions/{jobId} is allowed
-    await assertSucceeds(setDoc(doc(as('worker'), 'jobCompletions/newjob'), fresh('newjob')));
-  });
-  it('a second completion for the same job cannot reset the existing one', async () => {
-    await assertFails(setDoc(doc(as('worker'), 'jobCompletions/wdjob'), fresh('wdjob')));
-    await assertFails(setDoc(doc(as('poster'), 'jobCompletions/pdjob'), fresh('pdjob')));
-  });
-  it('creating a completion on a job that is not in-progress (or does not exist) is denied', async () => {
-    await assertFails(setDoc(doc(as('worker'), 'jobCompletions/donejob'), fresh('donejob')));
-    await assertFails(setDoc(doc(as('worker'), 'jobCompletions/nojob'), fresh('nojob')));
-  });
-  it('a completion must be created pending and unconfirmed, with exactly the client keys', async () => {
-    const ref = doc(as('worker'), 'jobCompletions/newjob');
-    await assertFails(setDoc(ref, { ...fresh('newjob'), extra: 1 }));
-    await assertFails(setDoc(ref, { ...fresh('newjob'), workerConfirmed: true }));
-    await assertFails(setDoc(ref, { ...fresh('newjob'), posterConfirmed: true }));
-    await assertFails(setDoc(ref, { ...fresh('newjob'), status: 'confirmed' }));
-    await assertFails(setDoc(ref, { ...fresh('newjob'), completedAt: serverTimestamp() }));
-    const missing: Record<string, unknown> = { ...fresh('newjob') };
-    delete missing.completedAt;
-    await assertFails(setDoc(ref, missing));
-  });
-  it('a worker cannot set posterConfirmed; the poster cannot set workerConfirmed', async () => {
-    await assertFails(updateDoc(doc(as('worker'), 'jobCompletions/cjob'), { posterConfirmed: true }));
-    await assertFails(updateDoc(doc(as('worker'), 'jobCompletions/cjob'), { workerConfirmed: true, posterConfirmed: true }));
-    await assertFails(updateDoc(doc(as('poster'), 'jobCompletions/cjob'), { workerConfirmed: true }));
-    // sanity (confirmCompletion 'poster' before the worker): the poster can confirm their own side
-    await assertSucceeds(updateDoc(doc(as('poster'), 'jobCompletions/cjob'), { posterConfirmed: true }));
-  });
-  it('the worker confirming after the poster sets status confirmed (confirmCompletion, worker last)', async () => {
-    await assertSucceeds(
+  it('the old second-confirmer writes are denied (worker last and poster last)', async () => {
+    await assertFails(
       updateDoc(doc(as('worker'), 'jobCompletions/pdjob'), { workerConfirmed: true, status: 'confirmed', completedAt: serverTimestamp() }),
     );
-  });
-  it('the poster confirming after the worker sets status confirmed (confirmCompletion, poster last)', async () => {
-    await assertSucceeds(
+    await assertFails(
       updateDoc(doc(as('poster'), 'jobCompletions/wdjob'), { posterConfirmed: true, status: 'confirmed', completedAt: serverTimestamp() }),
     );
+    await assertSucceeds(getDoc(doc(as('poster'), 'jobCompletions/wdjob'))); // sanity
   });
-  it('a completion cannot be updated once its job is no longer in progress', async () => {
-    await assertFails(
-      updateDoc(doc(as('worker'), 'jobCompletions/xjob'), { workerConfirmed: true, status: 'confirmed', completedAt: serverTimestamp() }),
+  it('outsiders cannot confirm or forge a completion', async () => {
+    await assertFails(updateDoc(doc(as('mallory'), 'jobCompletions/cjob'), { posterConfirmed: true, status: 'confirmed' }));
+    await assertFails(updateDoc(doc(as('mallory'), 'jobCompletions/c1'), { workerConfirmed: true }));
+    await assertFails(setDoc(doc(as('mallory'), 'jobCompletions/random-id'), fresh('newjob')));
+  });
+  it('a server-written completion cannot be reopened, re-stamped or have source changed', async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'jobCompletions/cjob'), { ...server('cjob'), workerConfirmed: true, posterConfirmed: true, status: 'confirmed' }),
     );
-    await assertFails(updateDoc(doc(as('worker'), 'jobCompletions/xjob'), { workerConfirmed: true }));
-    // sanity: the same worker-last confirm on an in-progress job is allowed
-    await assertSucceeds(
-      updateDoc(doc(as('worker'), 'jobCompletions/pdjob'), { workerConfirmed: true, status: 'confirmed', completedAt: serverTimestamp() }),
-    );
-  });
-  it('a completion whose id is not its jobId (legacy random id) cannot be updated', async () => {
-    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'jobCompletions/legacy-random'), fresh('cjob')));
-    await assertFails(updateDoc(doc(as('worker'), 'jobCompletions/legacy-random'), { workerConfirmed: true }));
-  });
-  it('status confirmed with only one confirmation is denied', async () => {
-    await assertFails(
-      updateDoc(doc(as('worker'), 'jobCompletions/cjob'), { workerConfirmed: true, status: 'confirmed', completedAt: serverTimestamp() }),
-    );
-    await assertFails(
-      updateDoc(doc(as('poster'), 'jobCompletions/cjob'), { posterConfirmed: true, status: 'confirmed', completedAt: serverTimestamp() }),
-    );
-  });
-  it('confirming needs completedAt set to the request time together with status', async () => {
-    const ref = doc(as('worker'), 'jobCompletions/pdjob');
-    await assertFails(updateDoc(ref, { workerConfirmed: true, status: 'confirmed' }));
-    await assertFails(updateDoc(ref, { workerConfirmed: true, status: 'confirmed', completedAt: Timestamp.fromMillis(0) }));
-    await assertFails(updateDoc(ref, { workerConfirmed: true, completedAt: serverTimestamp() }));
-  });
-  it('nothing goes back to false or pending, and jobId and other keys cannot change', async () => {
-    await assertFails(updateDoc(doc(as('poster'), 'jobCompletions/pdjob'), { posterConfirmed: false }));
-    await assertFails(updateDoc(doc(as('worker'), 'jobCompletions/wdjob'), { workerConfirmed: false }));
-    await assertFails(updateDoc(doc(as('worker'), 'jobCompletions/wdjob'), { status: 'pending', completedAt: serverTimestamp() }));
-    await assertFails(updateDoc(doc(as('worker'), 'jobCompletions/cjob'), { jobId: 'newjob' }));
-    await assertFails(updateDoc(doc(as('worker'), 'jobCompletions/cjob'), { workerConfirmed: true, extra: 1 }));
-  });
-  it('a confirmed completion cannot be reopened or re-stamped', async () => {
-    const ref = doc(as('poster'), 'jobCompletions/wdjob');
-    await assertSucceeds(updateDoc(ref, { posterConfirmed: true, status: 'confirmed', completedAt: serverTimestamp() }));
+    const ref = doc(as('poster'), 'jobCompletions/cjob');
+    await assertSucceeds(getDoc(ref)); // sanity
     await assertFails(updateDoc(ref, { status: 'pending' }));
     await assertFails(updateDoc(ref, { completedAt: serverTimestamp() }));
-    await assertFails(updateDoc(ref, { posterConfirmed: false, status: 'pending', completedAt: null }));
+    await assertFails(updateDoc(ref, { source: 'client' }));
+    await assertFails(updateDoc(doc(as('worker'), 'jobCompletions/cjob'), { posterConfirmed: false }));
   });
   it('only the poster and the assigned worker can get a completion (getJobCompletion)', async () => {
     await assertFails(getDoc(doc(as('mallory'), 'jobCompletions/cjob')));
@@ -911,6 +854,31 @@ describe('jobCompletions', () => {
   it('nobody can delete a completion', async () => {
     await assertFails(deleteDoc(doc(as('poster'), 'jobCompletions/cjob')));
     await assertFails(deleteDoc(doc(as('worker'), 'jobCompletions/cjob')));
+  });
+});
+
+describe('workHistory', () => {
+  // Since slice 5 only the confirmCompletion callable writes workHistory/{jobId}_{worker}.
+  const entry = { user1: 'poster', user2: 'worker', jobId: 'cjob', jobTitle: 'x', category: 'it' };
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'workHistory/cjob_worker'), { ...entry, completedAt: serverTimestamp(), source: 'server' }),
+    );
+  });
+  it('no client can create work history (the old recordWorkHistory payload, any id)', async () => {
+    for (const uid of ['poster', 'worker', 'mallory']) {
+      await assertFails(setDoc(doc(as(uid), `workHistory/forged_${uid}`), { ...entry, completedAt: Timestamp.now() }));
+      await assertFails(setDoc(doc(as(uid), 'workHistory/newjob_worker'), { ...entry, jobId: 'newjob', completedAt: serverTimestamp(), source: 'server' }));
+    }
+  });
+  it('signed-in users read work history; signed-out cannot', async () => {
+    await assertSucceeds(getDoc(doc(as('mallory'), 'workHistory/cjob_worker')));
+    await assertSucceeds(getDocs(query(collection(as('poster'), 'workHistory'), where('user1', '==', 'poster'))));
+    await assertFails(getDoc(doc(anon(), 'workHistory/cjob_worker')));
+  });
+  it('nobody updates or deletes work history', async () => {
+    await assertFails(updateDoc(doc(as('poster'), 'workHistory/cjob_worker'), { jobTitle: 'sửa' }));
+    await assertFails(deleteDoc(doc(as('worker'), 'workHistory/cjob_worker')));
   });
 });
 
@@ -1076,15 +1044,18 @@ describe('ratings', () => {
   it('denies a poster rating on a completed job they did not post', async () => {
     await assertFails(rate('mallory', 'rjob_mallory_worker', { fromUserId: 'mallory' }));
   });
-  it.fails('KNOWN HOLE (fix in slice 5): a poster-fabricated completion cannot unlock rating', async () => {
+  it('a poster-fabricated completion cannot unlock rating', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'applications/job1_carol'), { jobId: 'job1', applicantId: 'carol', status: 'accepted' });
     });
     await assertSucceeds(
       updateDoc(doc(as('poster'), 'jobs/job1'), { assignedTo: ['carol'], status: 'in-progress' }),
     );
-    await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/job1'), { status: 'completed' }));
+    await assertFails(updateDoc(doc(as('poster'), 'jobs/job1'), { status: 'completed' }));
     await assertFails(rate('poster', 'job1_poster_carol', { jobId: 'job1', toUserId: 'carol' }));
+    // sanity: once the server completes the job, the same rating is allowed
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'jobs/job1'), { status: 'completed' }));
+    await assertSucceeds(rate('poster', 'job1_poster_carol', { jobId: 'job1', toUserId: 'carol' }));
   });
   it('denies rating before the job is completed', async () => {
     await assertFails(rate('poster', 'ipjob_poster_worker', { jobId: 'ipjob' }));

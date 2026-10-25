@@ -21,7 +21,7 @@ service cloud.firestore {
     // JOBS: ai đăng nhập cũng đọc được, chỉ người đăng mới sửa/xóa
     match /jobs/{jobId} {
       // chuyển trạng thái của người đăng: open -> in-progress (chỉ trong cùng lần ghi giao việc),
-      // open/in-progress -> cancelled, in-progress -> completed (TODO slice 5: chuyển sang server). paymentStatus chỉ server ghi.
+      // open/in-progress -> cancelled. 'completed' chỉ server ghi (callable confirmCompletion). paymentStatus chỉ server ghi.
       // Không bao giờ quay lại 'open'.
       function posterStatusChangeOk() {
         let from = resource.data.status;
@@ -29,8 +29,7 @@ service cloud.firestore {
         return (from == 'open' && to == 'in-progress'
             && 'assignedTo' in request.resource.data.diff(resource.data).affectedKeys()
             && request.resource.data.assignedTo.size() == 1)
-          || (from in ['open', 'in-progress'] && to == 'cancelled')
-          || (from == 'in-progress' && to == 'completed');
+          || (from in ['open', 'in-progress'] && to == 'cancelled');
       }
       // hạn chót: null (không có hạn) hoặc timestamp trong tương lai; scheduler server hủy job open quá hạn
       function deadlineOk(data) {
@@ -183,10 +182,8 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // JOB COMPLETIONS: xác nhận hoàn thành 2 bước, mỗi job đúng một bản ghi tại jobCompletions/{jobId}.
-    // Chỉ người đăng và người được giao việc đọc (get, không list) và update, chỉ khi job đang in-progress;
-    // chỉ người được giao việc tạo. Mỗi bên chỉ đánh dấu phía mình là true; 'confirmed' chỉ khi cả hai
-    // đã xác nhận. Server trigger 'completion_requested' tin vào các ghi này.
+    // JOB COMPLETIONS: một bản ghi mỗi job tại jobCompletions/{jobId}. Chỉ người đăng và người được giao việc đọc (get).
+    // Mọi ghi do callable confirmCompletion (Admin SDK) thực hiện.
     match /jobCompletions/{completionId} {
       function completionJob(jobId) {
         return get(/databases/$(database)/documents/jobs/$(jobId)).data;
@@ -200,53 +197,15 @@ service cloud.firestore {
       function isJobMember(job) {
         return isJobPoster(job) || isAssignedWorker(job);
       }
-      // chỉ được đổi phía của mình, và chỉ sang true
-      function ownSideOnly(changed, ownField, otherField) {
-        return !changed.hasAny([otherField])
-          && (!changed.hasAny([ownField]) || request.resource.data[ownField] == true);
-      }
-      // status/completedAt chỉ đổi cùng nhau, sang 'confirmed' + request.time, khi cả hai đã xác nhận
-      function confirmOk(changed) {
-        let after = request.resource.data;
-        return !changed.hasAny(['status', 'completedAt'])
-          || (changed.hasAll(['status', 'completedAt'])
-            && after.status == 'confirmed'
-            && after.completedAt == request.time
-            && after.workerConfirmed == true
-            && after.posterConfirmed == true);
-      }
-      function completionUpdateOk(job) {
-        let changed = request.resource.data.diff(resource.data).affectedKeys();
-        return job.status == 'in-progress'
-          && resource.data.jobId == completionId
-          && changed.hasOnly(['workerConfirmed', 'posterConfirmed', 'status', 'completedAt'])
-          && request.resource.data.jobId == resource.data.jobId
-          && confirmOk(changed)
-          && ((isAssignedWorker(job) && ownSideOnly(changed, 'workerConfirmed', 'posterConfirmed'))
-            || (isJobPoster(job) && ownSideOnly(changed, 'posterConfirmed', 'workerConfirmed')));
-      }
       allow get: if isAuth() && isJobMember(completionJob(completionId));
       allow list: if false;
-      allow create: if isAuth()
-        && request.resource.data.jobId == completionId
-        && request.resource.data.keys().hasOnly(['jobId', 'workerConfirmed', 'posterConfirmed', 'completedAt', 'status'])
-        && request.resource.data.keys().hasAll(['jobId', 'workerConfirmed', 'posterConfirmed', 'completedAt', 'status'])
-        && request.resource.data.jobId is string
-        && request.resource.data.workerConfirmed == false
-        && request.resource.data.posterConfirmed == false
-        && request.resource.data.completedAt == null
-        && request.resource.data.status == 'pending'
-        && isAssignedWorker(completionJob(completionId))
-        && completionJob(completionId).status == 'in-progress';
-      allow update: if isAuth() && completionUpdateOk(completionJob(completionId));
-      allow delete: if false;
+      allow create, update, delete: if false;
     }
 
-    // WORK HISTORY: public read
+    // WORK HISTORY: ai đăng nhập cũng đọc. Chỉ server ghi (callable confirmCompletion, id {jobId}_{worker}).
     match /workHistory/{historyId} {
       allow read: if isAuth();
-      allow create: if isAuth();
-      allow update, delete: if false;
+      allow create, update, delete: if false;
     }
 
     // NOTIFICATIONS: chỉ chủ sở hữu đọc/đánh dấu đã đọc. Mọi thông báo do server (Cloud Functions,

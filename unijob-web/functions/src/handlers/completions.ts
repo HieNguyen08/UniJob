@@ -1,5 +1,6 @@
 import type { DocumentData, Firestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
+import { isTrustedCompletion } from '../lib/completion.js';
 import { readJob } from '../lib/jobs.js';
 import { messages } from '../lib/messages.js';
 import { writeNotification } from '../lib/notifications.js';
@@ -21,7 +22,9 @@ export async function handleCompletionWritten(
   after: DocumentData | undefined,
 ): Promise<boolean> {
   if (!after) return false;
-  const workerJustConfirmed = after.workerConfirmed === true && before?.workerConfirmed !== true;
+  const workerJustConfirmed =
+    after.workerConfirmed === true &&
+    (before?.workerConfirmed !== true || (isTrustedCompletion(after, completionId) && !isTrustedCompletion(before, completionId)));
   if (!workerJustConfirmed || after.posterConfirmed === true) return false;
   if (after.jobId !== completionId) {
     logger.warn('completion_requested: completion id is not its jobId, skipped', { completionId });

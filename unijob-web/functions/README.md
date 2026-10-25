@@ -4,7 +4,7 @@ Cloud Functions for Firebase v2 (TypeScript, Node 22, region `asia-southeast1`).
 
 - `src/config.ts`: `REGION`, `DATABASE_ID` (`kirigitejkf8095h`).
 - `src/admin.ts`: the Admin app and `db` bound to the named database. Firestore triggers must pass `database: DATABASE_ID`.
-- `src/lib/`: shared helpers (`requireAuth`, `requireVerifiedMember`, `assertMember`, `writeNotification`, `calculatePlatformFee`, `eventTooOld`, and the escrow rules in `payments.ts`).
+- `src/lib/`: shared helpers (`requireAuth`, `requireVerifiedMember`, `assertMember`, `writeNotification`, `calculatePlatformFee`, `eventTooOld`, the escrow rules in `payments.ts`, and the completion rules in `completion.ts`).
 - `src/handlers/`: pure handlers `(db, ids, data)`; they never import `src/admin.ts`, so emulator tests can call them with the guarded emulator db.
 - `src/triggers/`, `src/scheduled/`, `src/callables/`: thin v2 wrappers that bind a handler to an event and pass the Admin `db`.
 - `tests/unit/`: Vitest, no emulator (`npm test`).
@@ -36,6 +36,16 @@ firebase-admin is pinned to 14.5.0 (firebase-functions 7.4.0 accepts ^14). `fire
 
 Ledger only, no money moves. Cancellation leaves escrow `held` until slice 6's `cancelJob` (KNOWN HOLE 6). Only docs with `source: 'server'` that also match the job (jobId, payer = poster, payee = first assignee) are released or disputable; the payment record, not the editable `jobs.payment`, is the source of truth for the amount. An existing server record for the same parties is kept as is by a redelivered hold event; any other doc at the deterministic id is replaced. `onJobEscrow` is separate from the notification trigger `onJobUpdated` and has `retry: true`: skips return, unexpected errors throw and are retried; events older than 24 hours are logged (`logger.error`) and dropped.
 
+## Completion (slice 5)
+
+| Function | Event | Effect |
+|---|---|---|
+| `confirmCompletion` | callable `{ jobId }` -> `{ status, workerConfirmed, posterConfirmed }` | gated by `requireVerifiedMember` (both sides need a verified HCMUT account); the worker confirms first (creates `jobCompletions/{jobId}`), the poster second. Once both have confirmed: completion `confirmed`, job `completed`, `workHistory/{jobId}_{workerId}` is written |
+
+One transaction. A repeat by the same side writes nothing, and a completed job is refused. The existing triggers do the rest: `onJobCompletionWritten` (`completion_requested`), `onJobUpdated` (`job_completed`), `onJobEscrow` (releases held escrow).
+
+Trust marker: every completion record the callable writes carries `source: 'server'` and `serverVersion: 'completion-v1'`. A `jobCompletions` doc is trusted only when `source === 'server' && serverVersion === 'completion-v1' && jobId === <doc id>` (`isTrustedCompletion`, `src/lib/completion.ts`). Anything else (legacy, or forged: before the slice 3 rules clients could write any field, including `source`) is ignored as if absent: the poster is told the worker has not reported, and the worker reports again, which overwrites the doc with a fresh server record. The web client (5b) must apply the same filter in `getJobCompletion`. The `workHistory/{jobId}_{workerId}` record is always (re)written on completion, replacing whatever was at that id, and carries the same `source: 'server'` + `serverVersion: 'completion-v1'` pair: the client filters work history on both (pre-slice-5 forged docs at other ids may carry `source: 'server'`).
+
 ## Deploying functions
 
 - Deploying needs the Blaze (pay-as-you-go) plan on the Firebase project. The owner does this. PRs only add code and tests.
@@ -44,3 +54,5 @@ Ledger only, no money moves. Cancellation leaves escrow `held` until slice 6's `
 - When a PR moves a write server-side and tightens the rules, deploy the functions first, then the rules (`npx firebase deploy --only firestore:rules`). Otherwise the client loses the write before the server can make it.
 - Slice 3 order, all in one deploy window: `npx firebase deploy --only firestore:indexes` (index `jobs(status, deadline)` for `expireJobs`; wait until it is built), then `--only functions`, then right after that `--only hosting,firestore:rules` from the 3b branch. Between the functions and hosting deploys users may see a duplicate notification (old client + server); never deploy the 3b rules before these functions, or notifications stop.
 - Slice 4 order, one window: `--only firestore:rules` from the 4b branch FIRST (closes client payment writes; old tabs' `createPayment` just fails silently), then `--only functions` (4a), then `--only hosting` (4b). Before the functions deploy, list and delete any `payments` doc with `source == 'server'` (clients could forge them under the old rules).
+- Slice 5 order, one window: `--only functions` (5a) FIRST, then `--only hosting,firestore:rules` from the 5b branch together. Deploying the 5b rules before these functions breaks completion for everyone.
+- Before the slice 5 functions deploy, list and delete every `jobCompletions` and `workHistory` doc with `source == 'server'` (clients could forge them under the old rules; the server has never written either collection before slice 5).

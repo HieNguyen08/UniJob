@@ -13,7 +13,7 @@
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:rules": "firebase emulators:exec --only firestore --project demo-unijob \"vitest run --project rules\"",
-    "test:functions": "firebase emulators:exec --only firestore --project demo-unijob \"npm --prefix functions run test:ci\""
+    "test:functions": "firebase emulators:exec --only firestore,auth --project demo-unijob \"npm --prefix functions run test:ci\""
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",

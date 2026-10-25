@@ -19,4 +19,12 @@ export interface Payment {
   heldAt?: Timestamp;
   releasedAt?: Timestamp;
   refundedAt?: Timestamp;
+  disputedBy?: string;
+  disputedAt?: Timestamp;
+  disputeReason?: string;
+  source?: 'server';
+}
+
+export interface DisputePaymentResult {
+  disputed: true;
 }

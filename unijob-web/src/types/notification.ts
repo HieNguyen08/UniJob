@@ -8,7 +8,8 @@ export type NotificationType =
   | 'job_cancelled'
   | 'deadline_expired'
   | 'completion_requested'
-  | 'job_invite';
+  | 'job_invite'
+  | 'payment_disputed';
 
 export interface Notification {
   id: string;

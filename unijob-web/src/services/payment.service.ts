@@ -1,119 +1,48 @@
-import {
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  where,
-  serverTimestamp,
-  doc,
-  updateDoc,
-  getDoc,
-} from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Payment, PaymentMethod } from '@/types';
-import { updateJob } from '@/services/job.service';
-import { calculatePlatformFee } from '@/lib/fees';
+import type { Job, Payment } from '@/types';
 
-export { calculatePlatformFee };
-
+// Ký quỹ do Cloud Functions ghi (rules cấm client ghi payments). Client chỉ đọc; tranh chấp qua dispute.service.
 const paymentsCollection = collection(db, 'payments');
 
-/**
- * Tạo bản ghi thanh toán ký quỹ (escrow) khi poster chấp nhận ứng viên.
- * Trạng thái ban đầu: 'held' — tiền đang được giữ bởi nền tảng.
- */
-export async function createPayment(
-  jobId: string,
-  jobTitle: string,
-  payerId: string,
-  payeeId: string,
-  amount: number,
-  method: PaymentMethod = 'platform_escrow',
-  note?: string
-): Promise<string> {
-  const platformFee = calculatePlatformFee(amount);
-  const netAmount = amount - platformFee;
-
-  const docRef = await addDoc(paymentsCollection, {
-    jobId,
-    jobTitle,
-    payerId,
-    payeeId,
-    amount,
-    platformFee,
-    netAmount,
-    status: amount > 0 ? 'held' : 'released', // volunteer job không cần giữ
-    method,
-    note: note ?? '',
-    createdAt: serverTimestamp(),
-    heldAt: amount > 0 ? serverTimestamp() : null,
-    releasedAt: amount > 0 ? null : serverTimestamp(),
-  });
-
-  // Cập nhật paymentStatus trên job document
-  await updateJob(jobId, { paymentStatus: amount > 0 ? 'held' : 'released' });
-
-  return docRef.id;
+function isPermissionDenied(err: unknown): boolean {
+  return (err as { code?: unknown })?.code === 'permission-denied';
 }
 
-/**
- * Giải phóng tiền cho worker sau khi cả hai bên xác nhận hoàn thành.
- */
-export async function releasePayment(paymentId: string): Promise<void> {
-  const paymentRef = doc(db, 'payments', paymentId);
-  await updateDoc(paymentRef, {
-    status: 'released',
-    releasedAt: serverTimestamp(),
-  });
+const createdSeconds = (p: Payment) => (p.createdAt as { seconds?: number } | undefined)?.seconds ?? 0;
 
-  // Cập nhật paymentStatus trên job
-  const snap = await getDoc(paymentRef);
-  if (snap.exists()) {
-    const data = snap.data();
-    await updateJob(data.jobId, { paymentStatus: 'released' });
+/**
+ * Lấy thanh toán của một công việc: đọc trực tiếp payments/{jobId}_{payeeId} (do server tạo),
+ * nếu không có/không được phép thì tìm bản ghi cũ (id ngẫu nhiên) theo payer rồi payee.
+ */
+export async function getPaymentForJob(
+  job: Pick<Job, 'id' | 'assignedTo'>,
+  uid: string
+): Promise<Payment | null> {
+  if (!uid) return null;
+  const payee = job.assignedTo?.[0];
+  if (payee) {
+    try {
+      const snap = await getDoc(doc(db, 'payments', `${job.id}_${payee}`));
+      if (snap.exists()) return { id: snap.id, ...snap.data() } as Payment;
+    } catch (err) {
+      if (!isPermissionDenied(err)) throw err;
+    }
   }
-}
-
-/**
- * Hoàn tiền cho poster (khi huỷ job hoặc tranh chấp).
- */
-export async function refundPayment(paymentId: string): Promise<void> {
-  const paymentRef = doc(db, 'payments', paymentId);
-  await updateDoc(paymentRef, {
-    status: 'refunded',
-    refundedAt: serverTimestamp(),
-  });
-
-  const snap = await getDoc(paymentRef);
-  if (snap.exists()) {
-    const data = snap.data();
-    await updateJob(data.jobId, { paymentStatus: 'refunded' });
+  for (const field of ['payerId', 'payeeId'] as const) {
+    try {
+      const snapshot = await getDocs(
+        query(paymentsCollection, where('jobId', '==', job.id), where(field, '==', uid))
+      );
+      if (!snapshot.empty) {
+        const items = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as Payment);
+        return items.reduce((best, p) => (createdSeconds(p) > createdSeconds(best) ? p : best));
+      }
+    } catch (err) {
+      if (!isPermissionDenied(err)) throw err;
+    }
   }
-}
-
-/**
- * Đánh dấu thanh toán đang tranh chấp.
- */
-export async function disputePayment(paymentId: string): Promise<void> {
-  const paymentRef = doc(db, 'payments', paymentId);
-  await updateDoc(paymentRef, { status: 'disputed' });
-
-  const snap = await getDoc(paymentRef);
-  if (snap.exists()) {
-    const data = snap.data();
-    await updateJob(data.jobId, { paymentStatus: 'disputed' });
-  }
-}
-
-/**
- * Lấy thông tin thanh toán theo jobId.
- */
-export async function getPaymentByJob(jobId: string): Promise<Payment | null> {
-  const q = query(paymentsCollection, where('jobId', '==', jobId));
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-  const docSnap = snapshot.docs[0];
-  return { id: docSnap.id, ...docSnap.data() } as Payment;
+  return null;
 }
 
 /**

@@ -21,16 +21,6 @@ import {
 import { db } from '@/lib/firebase';
 import type { Job, JobCreateInput, JobFilter, Application } from '@/types';
 import { ITEMS_PER_PAGE } from '@/lib/constants';
-// Lazy-import để tránh circular dependency
-let _createPayment: typeof import('@/services/payment.service').createPayment | null = null;
-async function getCreatePayment() {
-  if (!_createPayment) {
-    const mod = await import('@/services/payment.service');
-    _createPayment = mod.createPayment;
-  }
-  return _createPayment;
-}
-
 const jobsCollection = collection(db, 'jobs');
 const applicationsCollection = collection(db, 'applications');
 
@@ -211,33 +201,8 @@ export async function getApplicationsByUser(userId: string): Promise<Application
 }
 
 /**
- * After an accept was committed: create the escrow payment record (slice 4 moves this server-side).
- * Notifications are sent by Cloud Functions. Never throws (non-critical).
- */
-async function createEscrowForAccepted(applicationId: string): Promise<void> {
-  try {
-    const appSnap = await getDoc(doc(db, 'applications', applicationId));
-    if (!appSnap.exists()) return;
-    const app = appSnap.data() as Application;
-    const jobSnap = await getDoc(doc(db, 'jobs', app.jobId));
-    const jobData = jobSnap.exists() ? (jobSnap.data() as Job) : null;
-    if (!jobData || jobData.paymentType === 'volunteer') return;
-    const createPaymentFn = await getCreatePayment();
-    await createPaymentFn(
-      app.jobId,
-      jobData.title ?? 'công việc',
-      jobData.postedBy, // payer = poster
-      app.applicantId, // payee = worker
-      jobData.payment ?? 0,
-      'platform_escrow'
-    );
-  } catch (payErr) {
-    console.warn('[payment] Không tạo được bản ghi thanh toán:', payErr);
-  }
-}
-
-/**
  * Update application status
+ * Accept: the escrow is held server-side when the job moves open -> in-progress (separate retried trigger), not by this write.
  */
 export async function updateApplicationStatus(
   applicationId: string,
@@ -247,7 +212,6 @@ export async function updateApplicationStatus(
     status,
     updatedAt: serverTimestamp(),
   });
-  if (status === 'accepted') await createEscrowForAccepted(applicationId);
 }
 
 /** Max other applications rejected in the accept batch (Firestore batches allow 500 writes). */
@@ -257,7 +221,7 @@ export const MAX_REJECTS_PER_ACCEPT = 450;
  * Accept an applicant atomically: the application becomes accepted, the job is
  * assigned + moved to in-progress, and every other pending application is rejected,
  * all in one batch (rules only allow decisions while the job is still open).
- * Notifications for the accepted and rejected applicants are sent by Cloud Functions.
+ * Notifications are created by Cloud Functions; the escrow record is created server-side when the job moves open -> in-progress.
  */
 export async function acceptApplication(
   jobId: string,
@@ -288,7 +252,6 @@ export async function acceptApplication(
     });
   }
   await batch.commit();
-  await createEscrowForAccepted(applicationId);
 }
 
 /**

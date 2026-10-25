@@ -4,12 +4,9 @@ Firestore/Storage holes found while building the agent pipeline. Fix them in sub
 
 ## Pinned by `it.fails('KNOWN HOLE …')` in `unijob-web/tests/rules/firestore.rules.test.ts`
 
-1. The payee cannot release escrow to themselves (`the payee cannot release escrow to themselves`).
-2. Clients cannot create payments for other people (`clients cannot create payments for other people`).
-3. Poster cannot mark a job completed directly (`poster cannot mark a job completed directly`, slice 5). Narrowed: the rules now only allow `in-progress -> completed` (no `open -> completed`, no way back to `open`), but that transition is still client-written.
-4. Poster cannot set `paymentStatus` directly (`poster cannot set paymentStatus directly`, slice 4).
-5. A poster-fabricated completion cannot unlock rating (`a poster-fabricated completion cannot unlock rating`, slice 5). Ratings are only partially mitigated until slice 5: the poster can still accept someone and then set `status: 'completed'` themselves.
-6. Poster cannot cancel an in-progress job while escrow is held (`poster cannot cancel an in-progress job while escrow is held`, slice 6). `in-progress -> cancelled` stays allowed so paid jobs can still be cancelled, but it is a direct client write: the poster penalty in `posterCancelJob` can be skipped by writing the status directly, and the held escrow is neither refunded nor released server-side.
+1. Poster cannot mark a job completed directly (`poster cannot mark a job completed directly`, slice 5). Narrowed: the rules now only allow `in-progress -> completed` (no `open -> completed`, no way back to `open`), but that transition is still client-written.
+2. A poster-fabricated completion cannot unlock rating (`a poster-fabricated completion cannot unlock rating`, slice 5). Ratings are only partially mitigated until slice 5: the poster can still accept someone and then set `status: 'completed'` themselves.
+3. Poster cannot cancel an in-progress job while escrow is held (`poster cannot cancel an in-progress job while escrow is held`, slice 6). `in-progress -> cancelled` stays allowed so paid jobs can still be cancelled, but it is a direct client write: the poster penalty in `posterCancelJob` can be skipped by writing the status directly, and the held escrow is neither refunded nor released server-side. Since slice 4 the escrow is created and released server-side, but a cancel leaves it held: slice 6's cancelJob decides the refund.
 
 When you fix one, turn its `it.fails` into a normal `it` **and** add a sanity `assertSucceeds` for the allowed case in the same setup, so a broken fixture (which also makes the call fail) cannot make the test pass.
 
@@ -17,7 +14,6 @@ When you fix one, turn its `it.fails` into a normal `it` **and** add a sanity `a
 
 Add a failing (`it.fails('KNOWN HOLE …')`) test for each before fixing it.
 
-- **payments.update** — the payer can set any `status` and `amount`.
 - **workHistory.create** — open to any signed-in user (forged work history).
 - **users read** — every signed-in user can read every profile (PII exposure).
 - **No `storage.rules`** — Firebase Storage has no rules file in the repo.
@@ -57,3 +53,5 @@ It needs `unijob-web/scripts/service-account.json` (gitignored, same as `seed.mj
 Run it in a maintenance window (no one applying or accepting). New deterministic docs are written with `create()`, so a doc that appears after the snapshot makes the batch fail instead of being overwritten; a failed batch means "re-run". Migrated docs are rebuilt from the `applications.create` allowlist (other keys dropped) and must pass the same field checks (`applicantName` ≤100, `applicantPhoto` `''` or `https://` ≤2048, `message` ≤1000, `createdAt` a Firestore Timestamp, `updatedAt` a Timestamp when present). Legacy docs that conflict with an existing deterministic doc, fail validation, were written by the job poster, or are `accepted` without being in the job's `assignedTo` are listed as CONFLICT / INVALID and left untouched for manual review. Already-canonical docs that fail validation (including the jobId/uid id checks), and docs whose id has the `{jobId}_{uid}` shape of an existing job without matching their own data, are listed as INVALID, never modified, not used for the `applicants` backfill, and block legacy docs from migrating onto that id. At most 200 uids are added to one job's `applicants`; the rest are listed as CONFLICT. The last line prints counts: migrated / conflicts / invalid / backfilled jobs.
 
 **Legacy job completions.** Completions now live at `jobCompletions/{jobId}` (one per job) and `getJobCompletion` reads that id with a `get` (list is denied). Legacy completion docs with a random id are invisible to the client and can no longer be updated by it (the rules require `jobId == completionId`). Before deploying, either migrate each in-progress job's legacy completion to `jobCompletions/{jobId}` (keeping `workerConfirmed` / `posterConfirmed` / `status` / `completedAt`; if a job has several, keep the most advanced one and list the rest for review) or accept that those jobs restart the two-step confirmation. Completed jobs need no migration. `scripts/migrate-applications.mjs` does not handle completions yet.
+
+**Legacy payments.** Before slice 4 the client created payments with random ids (`addDoc`), and could release them itself. Since slice 4 the server only creates, releases and disputes `payments/{jobId}_{payeeId}`. Legacy random-id payments stay readable for payer and payee (`getPaymentForJob` falls back to `where('jobId')` + `where('payerId'|'payeeId')`), but they are never released, refunded or disputable server-side. Before deploying, list every `payments` doc whose id is not `{jobId}_{payeeId}` (and those created between the functions deploy and the hosting deploy, when old tabs could still create them) for manual review. A job may then have both a legacy and a server payment; the client shows the server one.

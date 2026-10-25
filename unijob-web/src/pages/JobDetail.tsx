@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { getJobById, applyForJob, getJobsByUser, hasAppliedToJob, ALREADY_APPLIED_MESSAGE } from '@/services/job.service';
-import { getPaymentByJob } from '@/services/payment.service';
+import { getPaymentForJob } from '@/services/payment.service';
 import Avatar from '@/components/Avatar';
 import { getUserById } from '@/services/user.service';
 import { toggleBookmark, getBookmarkedJobIds } from '@/services/bookmark.service';
@@ -57,9 +57,19 @@ export default function JobDetail() {
           getJobsByUser(data.postedBy).then((jobs) => setPosterJobCount(jobs.length));
         }
       });
-      getPaymentByJob(id).then(setPayment).catch(() => {});
     }
   }, [id]);
+
+  const paymentJobId = job?.id;
+  const paymentPayee = job?.assignedTo?.[0];
+  useEffect(() => {
+    if (!paymentJobId || !userProfile?.uid) return;
+    // chỉ người đăng hoặc người được giao mới đọc được ký quỹ
+    if (userProfile.uid !== job?.postedBy && userProfile.uid !== paymentPayee) return;
+    getPaymentForJob({ id: paymentJobId, assignedTo: paymentPayee ? [paymentPayee] : [] }, userProfile.uid)
+      .then(setPayment)
+      .catch(() => {});
+  }, [paymentJobId, paymentPayee, userProfile?.uid, job?.postedBy]);
 
   useEffect(() => {
     if (!userProfile?.uid || !id) return;

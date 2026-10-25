@@ -299,8 +299,102 @@ describe('jobs', () => {
       await assertFails(setStatus('job1', 'weird'));
     });
   });
-  it.fails('KNOWN HOLE (fix in slice 4): poster cannot set paymentStatus directly', async () => {
-    await assertFails(updateDoc(doc(as('poster'), 'jobs/job1'), { paymentStatus: 'released' }));
+  it('poster can change payment and paymentType only while the job is open', async () => {
+    await seedJob('ipay', { status: 'in-progress', assignedTo: ['carol'], payment: 100000, paymentType: 'fixed' });
+    const ip = doc(as('poster'), 'jobs/ipay');
+    await assertFails(updateDoc(ip, { payment: 1 }));
+    await assertFails(updateDoc(ip, { paymentType: 'hourly' }));
+    await assertFails(updateDoc(ip, { payment: 1, paymentType: 'hourly', updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(ip, { title: 'Mới', updatedAt: serverTimestamp() }));
+    // not together with the assignment (the price must not change in the accept batch)
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'jobs/swap'), { title: 'x', postedBy: 'poster', applicants: ['alice'], assignedTo: [], status: 'open', payment: 100000, paymentType: 'fixed' });
+      await setDoc(doc(ctx.firestore(), 'applications/swap_alice'), { jobId: 'swap', applicantId: 'alice', status: 'pending' });
+    });
+    const pdb = as('poster');
+    const swap = writeBatch(pdb);
+    swap.update(doc(pdb, 'applications/swap_alice'), { status: 'accepted', updatedAt: serverTimestamp() });
+    swap.update(doc(pdb, 'jobs/swap'), { assignedTo: ['alice'], status: 'in-progress', payment: 1, updatedAt: serverTimestamp() });
+    await assertFails(swap.commit());
+    await assertFails(updateDoc(doc(pdb, 'jobs/swap'), { payment: 1, status: 'cancelled', updatedAt: serverTimestamp() }));
+    const ok = writeBatch(pdb);
+    ok.update(doc(pdb, 'applications/swap_alice'), { status: 'accepted', updatedAt: serverTimestamp() });
+    ok.update(doc(pdb, 'jobs/swap'), { assignedTo: ['alice'], status: 'in-progress', updatedAt: serverTimestamp() });
+    await assertSucceeds(ok.commit());
+    await seedJob('opay', { status: 'open', applicants: [], payment: 100000, paymentType: 'fixed' });
+    await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/opay'), { payment: 150000, paymentType: 'hourly', updatedAt: serverTimestamp() }));
+  });
+  describe('price bait', () => {
+    const seedBait = async (id: string, extra: Record<string, unknown>) => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), `jobs/${id}`), {
+          title: 'x', postedBy: 'poster', applicants: ['alice'], assignedTo: [], status: 'open', payment: 100000, paymentType: 'fixed', ...extra,
+        });
+        await setDoc(doc(ctx.firestore(), `applications/${id}_alice`), { jobId: id, applicantId: 'alice', status: 'pending' });
+      });
+    };
+    it('with applicants: lowering the price is denied, then the accept batch has nothing to exploit', async () => {
+      await seedBait('b1', {});
+      const db = as('poster');
+      await assertFails(updateDoc(doc(db, 'jobs/b1'), { payment: 1, updatedAt: serverTimestamp() }));
+      const ok = writeBatch(db);
+      ok.update(doc(db, 'applications/b1_alice'), { status: 'accepted', updatedAt: serverTimestamp() });
+      ok.update(doc(db, 'jobs/b1'), { assignedTo: ['alice'], status: 'in-progress', updatedAt: serverTimestamp() });
+      await assertSucceeds(ok.commit());
+    });
+    it('with applicants: a single batch that lowers the price and accepts is denied', async () => {
+      await seedBait('b2', {});
+      const db = as('poster');
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'jobs/b2'), { payment: 1, updatedAt: serverTimestamp() });
+      batch.update(doc(db, 'applications/b2_alice'), { status: 'accepted', updatedAt: serverTimestamp() });
+      batch.update(doc(db, 'jobs/b2'), { assignedTo: ['alice'], status: 'in-progress', updatedAt: serverTimestamp() });
+      await assertFails(batch.commit());
+    });
+    it('with applicants: switching paymentType is denied, raising the price is allowed', async () => {
+      await seedBait('b3', {});
+      const j = doc(as('poster'), 'jobs/b3');
+      await assertFails(updateDoc(j, { paymentType: 'volunteer', updatedAt: serverTimestamp() }));
+      await assertFails(updateDoc(j, { paymentType: 'volunteer', payment: 0, updatedAt: serverTimestamp() }));
+      await assertSucceeds(updateDoc(j, { payment: 150000, updatedAt: serverTimestamp() }));
+      await assertSucceeds(updateDoc(j, { payment: 150000, title: 'Mới', updatedAt: serverTimestamp() }));
+    });
+    it('without applicants: lowering the price and switching type are allowed', async () => {
+      await seedBait('b4', { applicants: [] });
+      const j = doc(as('poster'), 'jobs/b4');
+      await assertSucceeds(updateDoc(j, { payment: 1, updatedAt: serverTimestamp() }));
+      await assertSucceeds(updateDoc(j, { paymentType: 'volunteer', updatedAt: serverTimestamp() }));
+    });
+  });
+  describe('job delete', () => {
+    it.each([
+      ['open', {}, true],
+      ['cancelled', {}, true],
+      ['cancelled', { paymentStatus: 'released' }, true],
+      ['in-progress', { assignedTo: ['carol'] }, false],
+      ['completed', { assignedTo: ['carol'] }, false],
+      ['cancelled', { paymentStatus: 'held' }, false],
+      ['cancelled', { paymentStatus: 'disputed' }, false],
+    ])('poster deleting a %s job %j -> %s', async (status, extra, allowed) => {
+      await seedJob('del', { status, ...extra });
+      const op = deleteDoc(doc(as('poster'), 'jobs/del'));
+      await (allowed ? assertSucceeds(op) : assertFails(op));
+    });
+    it('a non-owner cannot delete an open job', async () => {
+      await seedJob('del2', { status: 'open' });
+      await assertFails(deleteDoc(doc(as('carol'), 'jobs/del2')));
+    });
+  });
+  it('poster cannot set paymentStatus directly (only the server escrow writes it)', async () => {
+    await seedJob('ps', { status: 'in-progress', assignedTo: ['carol'], paymentStatus: 'held' });
+    const j = doc(as('poster'), 'jobs/ps');
+    await assertFails(updateDoc(j, { paymentStatus: 'released' }));
+    await assertFails(updateDoc(j, { paymentStatus: 'refunded', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(j, { paymentStatus: deleteField() }));
+    await assertFails(updateDoc(doc(as('poster'), 'jobs/job1'), { paymentStatus: 'held' }));
+    await assertFails(updateDoc(doc(as('carol'), 'jobs/ps'), { paymentStatus: 'released' }));
+    // sanity: other poster edits on the same job still work while the server-set paymentStatus stays
+    await assertSucceeds(updateDoc(j, { title: 'Mới', updatedAt: serverTimestamp() }));
   });
   it('job create accepts deadline null (no deadline) or a future timestamp, and a payload without the key', async () => {
     await assertSucceeds(setDoc(doc(as('alice'), 'jobs/d1'), newJob('alice', { deadline: null })));
@@ -355,7 +449,7 @@ describe('jobs', () => {
     await assertFails(setDoc(doc(as('alice'), 'jobs/d5'), newJob('alice', { deadline: 1_760_000_000_000 })));
     await assertFails(setDoc(doc(as('alice'), 'jobs/d6'), newJob('alice', { deadline: { seconds: 1 } })));
   });
-  it('job create rejects paymentStatus and unknown keys', async () => {
+  it('job create rejects paymentStatus (server-only) and unknown keys', async () => {
     await assertFails(setDoc(doc(as('alice'), 'jobs/p1'), newJob('alice', { paymentStatus: 'held' })));
     await assertFails(setDoc(doc(as('alice'), 'jobs/p2'), newJob('alice', { extra: 1 })));
   });
@@ -620,22 +714,63 @@ describe('applications', () => {
 });
 
 describe('payments', () => {
+  // Since slice 4 only the server writes payments (escrow triggers, disputePayment callable).
+  const pay = (uid: string, id = 'pay1') => doc(as(uid), `payments/${id}`);
+  const forged = { jobId: 'job1', payerId: 'poster', payeeId: 'mallory', amount: 9_999_999, status: 'released' };
+
   it('a third party cannot read a payment', async () => {
-    await assertFails(getDoc(doc(as('mallory'), 'payments/pay1')));
+    await assertFails(getDoc(pay('mallory')));
   });
   it('payer and payee can read the payment', async () => {
-    await assertSucceeds(getDoc(doc(as('poster'), 'payments/pay1')));
-    await assertSucceeds(getDoc(doc(as('worker'), 'payments/pay1')));
+    await assertSucceeds(getDoc(pay('poster')));
+    await assertSucceeds(getDoc(pay('worker')));
   });
-  it.fails('KNOWN HOLE (fix in B): the payee cannot release escrow to themselves', async () => {
-    await assertFails(updateDoc(doc(as('worker'), 'payments/pay1'), { status: 'released' }));
+  it('the payee cannot release escrow to themselves', async () => {
+    await assertSucceeds(getDoc(pay('worker'))); // sanity: worker is the payee of pay1
+    await assertFails(updateDoc(pay('worker'), { status: 'released' }));
+    await assertFails(updateDoc(pay('worker'), { status: 'released', releasedAt: serverTimestamp() }));
   });
-  it.fails('KNOWN HOLE (fix in B): clients cannot create payments for other people', async () => {
+  it('clients cannot create payments for other people', async () => {
+    await assertFails(setDoc(pay('mallory', 'forged'), forged));
+    await assertFails(setDoc(pay('mallory', 'job1_mallory'), { ...forged, status: 'held' }));
+    // sanity: the same document written server-side is valid and readable by its payee
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'payments/job1_mallory'), { ...forged, status: 'held', source: 'server' }),
+    );
+    await assertSucceeds(getDoc(pay('mallory', 'job1_mallory')));
+  });
+  it('the payload the old web client sent (createPayment) is denied, even for the payer', async () => {
     await assertFails(
-      setDoc(doc(as('mallory'), 'payments/forged'), {
-        jobId: 'job1', payerId: 'poster', payeeId: 'mallory', amount: 9_999_999, status: 'released',
+      setDoc(pay('poster', 'job1_carol'), {
+        jobId: 'job1', jobTitle: 'Nhập liệu', payerId: 'poster', payeeId: 'carol', amount: 100_000,
+        platformFee: 5_000, netAmount: 95_000, status: 'held', method: 'platform_escrow', note: '',
+        createdAt: serverTimestamp(), heldAt: serverTimestamp(), releasedAt: null,
       }),
     );
+  });
+  it('the payer cannot change status or amount', async () => {
+    await assertSucceeds(getDoc(pay('poster'))); // sanity
+    await assertFails(updateDoc(pay('poster'), { status: 'refunded' }));
+    await assertFails(updateDoc(pay('poster'), { status: 'released' }));
+    await assertFails(updateDoc(pay('poster'), { amount: 1 }));
+  });
+  it('neither side can mark a payment disputed directly (only the disputePayment callable)', async () => {
+    await assertFails(updateDoc(pay('worker'), { status: 'disputed' }));
+    await assertFails(updateDoc(pay('poster'), { status: 'disputed', disputeReason: 'Không làm đúng yêu cầu' }));
+  });
+  it('nobody deletes a payment', async () => {
+    await assertSucceeds(getDoc(pay('poster'))); // sanity
+    for (const uid of ['poster', 'worker', 'mallory']) await assertFails(deleteDoc(pay(uid)));
+  });
+  it('payer and payee can list their own payments (getPaymentsByUser, legacy fallback in getPaymentForJob)', async () => {
+    const col = (uid: string) => collection(as(uid), 'payments');
+    await assertSucceeds(getDocs(query(col('poster'), where('payerId', '==', 'poster'))));
+    await assertSucceeds(getDocs(query(col('poster'), where('jobId', '==', 'job1'), where('payerId', '==', 'poster'))));
+    await assertSucceeds(getDocs(query(col('worker'), where('jobId', '==', 'job1'), where('payeeId', '==', 'worker'))));
+  });
+  it('a jobId-only query is denied (rules are not filters), and a missing payment reads as denied', async () => {
+    await assertFails(getDocs(query(collection(as('poster'), 'payments'), where('jobId', '==', 'job1'))));
+    await assertFails(getDoc(pay('poster', 'job1_nobody')));
   });
 });
 

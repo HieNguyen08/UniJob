@@ -1,6 +1,5 @@
 import {
   collection,
-  addDoc,
   query,
   where,
   orderBy,
@@ -10,28 +9,12 @@ import {
   doc,
   writeBatch,
   getDocs,
-  serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Notification, NotificationType } from '@/types/notification';
+import type { Notification } from '@/types/notification';
 
+// Thông báo do Cloud Functions tạo (rules cấm client tạo). Client chỉ đọc và đánh dấu đã đọc.
 const notificationsCollection = collection(db, 'notifications');
-
-export async function createNotification(
-  userId: string,
-  type: NotificationType,
-  message: string,
-  extras?: { jobId?: string; jobTitle?: string; fromName?: string }
-): Promise<void> {
-  await addDoc(notificationsCollection, {
-    userId,
-    type,
-    message,
-    read: false,
-    createdAt: serverTimestamp(),
-    ...(extras ?? {}),
-  });
-}
 
 export function subscribeToNotifications(
   userId: string,

@@ -18,6 +18,7 @@
 - Ứng tuyển giờ lưu người ứng tuyển vào job, nên không ứng tuyển trùng được nữa. Chấp nhận ứng viên giờ gán người làm và chuyển job sang "đang làm". Cả hai thao tác ghi nguyên tử.
 
 ### Security
+- Client không còn tự tạo thông báo cho người khác (rules chặn `notifications.create`). Lời mời gửi qua callable `sendJobInvite`. Mỗi job chỉ có một doc hoàn thành (`jobCompletions/{jobId}`), chỉ người đăng và người làm đọc/sửa được và chỉ khi job đang làm. Client không ghi được `cancelReason`, không sửa `createdAt`, `updatedAt` phải là giờ server. Hạn chót lưu `null` (không có hạn) hoặc cuối ngày theo giờ Việt Nam và phải ở tương lai. Trước khi deploy cần chạy migrate đơn ứng tuyển và xử lý doc hoàn thành cũ (xem `docs/backlog/security-holes.md`).
 - Siết Firestore rules cho jobs, applications, notifications, ratings: không tạo job dưới tên người khác, không sửa danh sách ứng viên của người khác, mỗi người một đơn cho mỗi job, không tự chấp nhận đơn của mình, chỉ đánh giá sau khi hoàn thành và giữa người đăng với người làm. Trước khi deploy rules cần chạy `unijob-web/scripts/migrate-applications.mjs`.
 - Siết chuyển trạng thái job của người đăng (không mở lại job về "open", chỉ chuyển sang "đang làm" khi giao việc, chỉ duyệt đơn khi job còn "open") và làm cứng script migrate đơn ứng tuyển cũ (chỉ giữ các trường hợp lệ, kiểm tra như rules, không tự ứng tuyển, chỉ chuyển đơn `accepted` khi người đó được giao việc).
 - Thêm npm override `@grpc/grpc-js` `^1.14.5`: firebase đang ghim `~1.9` (có lỗ hổng mức high). Gỡ override khi firebase cập nhật.

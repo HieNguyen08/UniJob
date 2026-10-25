@@ -7,6 +7,7 @@ import SuggestedJobs from '@/components/job/SuggestedJobs';
 import { getJobs } from '@/services/job.service';
 import type { Job } from '@/types';
 import { formatCurrency } from '@/lib/utils';
+import { NO_DEADLINE_LABEL } from '@/lib/deadline';
 import { useJobStore } from '@/store/jobStore';
 
 export default function Home() {
@@ -40,7 +41,8 @@ export default function Home() {
   const urgentSorted = useMemo(() => {
     // Prefer jobs with nearest deadline first.
     const copy = [...urgentJobs];
-    copy.sort((a, b) => (a.deadline?.toMillis?.() ?? 0) - (b.deadline?.toMillis?.() ?? 0));
+    // jobs without a deadline go last
+    copy.sort((a, b) => (a.deadline?.toMillis?.() ?? Infinity) - (b.deadline?.toMillis?.() ?? Infinity));
     return copy;
   }, [urgentJobs]);
 
@@ -55,8 +57,8 @@ export default function Home() {
     navigate('/jobs');
   };
 
-  const formatRemaining = (deadline?: Timestamp): string => {
-    if (!deadline) return 'Còn thời gian';
+  const formatRemaining = (deadline?: Timestamp | null): string => {
+    if (!deadline?.toDate) return NO_DEADLINE_LABEL;
     const diffMs = deadline.toDate().getTime() - Date.now();
     if (diffMs <= 0) return 'Hết hạn';
     const totalMinutes = Math.floor(diffMs / 60_000);

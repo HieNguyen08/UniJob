@@ -5,6 +5,7 @@ import { getJobById } from '@/services/job.service';
 import { getJobCompletion, confirmCompletion } from '@/services/rating.service';
 import { getUserById } from '@/services/user.service';
 import type { Job, JobCompletion } from '@/types';
+import { formatDeadline } from '@/lib/deadline';
 import type { User } from '@/types/user';
 import toast from 'react-hot-toast';
 import './my-job-acceptance.css';
@@ -195,7 +196,7 @@ export default function MyJobAcceptance() {
               </div>
               <div>
                 <p>Hạn chót</p>
-                <strong>{formatDate(job.deadline)}</strong>
+                <strong>{formatDeadline(job.deadline)}</strong>
               </div>
               <div>
                 <p>Sinh viên</p>

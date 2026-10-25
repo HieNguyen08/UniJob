@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/admin.js', () => ({ db: { fake: 'db' } }));
 vi.mock('../../../src/handlers/jobs.js', () => ({ handleJobUpdated: vi.fn(async () => 0) }));
@@ -7,6 +7,8 @@ import { handleJobUpdated } from '../../../src/handlers/jobs.js';
 import { onJobUpdated } from '../../../src/triggers/jobs.js';
 
 const snap = (data: Record<string, unknown>) => ({ data: () => data });
+
+beforeEach(() => vi.clearAllMocks());
 
 describe('onJobUpdated', () => {
   it('is bound to jobs/{jobId} updates on the named database in asia-southeast1', () => {

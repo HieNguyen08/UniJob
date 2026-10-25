@@ -30,6 +30,7 @@ const iconByType: Record<Notification['type'], string> = {
   deadline_expired: '⏰',
   completion_requested: '📋',
   job_invite: '💌',
+  payment_disputed: '⚠️',
 };
 
 export default function NotificationBell() {

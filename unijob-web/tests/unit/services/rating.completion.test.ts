@@ -16,7 +16,9 @@ vi.mock('@/lib/firebase', () => ({ db: {} }));
 vi.mock('@/services/workHistory.service', () => ({ recordWorkHistory: vi.fn() }));
 vi.mock('@/services/job.service', () => ({ getJobById: vi.fn(), updateJob: vi.fn() }));
 vi.mock('@/services/notification.service', () => ({ createNotification: vi.fn() }));
-vi.mock('@/services/payment.service', () => ({ getPaymentByJob: vi.fn(), releasePayment: vi.fn() }));
+vi.mock('@/services/payment.service', () => {
+  throw new Error('rating.service must not import payment.service (the server releases the escrow)');
+});
 
 import { addDoc, getDoc, getDocs, query, setDoc } from 'firebase/firestore';
 import { createJobCompletion, getJobCompletion } from '@/services/rating.service';

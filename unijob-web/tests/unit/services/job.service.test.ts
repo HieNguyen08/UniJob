@@ -26,10 +26,11 @@ vi.mock('firebase/firestore', () => ({
   arrayUnion: vi.fn((...v: unknown[]) => ({ _union: v })),
 }));
 vi.mock('@/lib/firebase', () => ({ db: {} }));
-vi.mock('@/services/payment.service', () => ({ createPayment: vi.fn() }));
+vi.mock('@/services/payment.service', () => {
+  throw new Error('job.service must not import payment.service (the server creates the escrow)');
+});
 
 import { addDoc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { createPayment } from '@/services/payment.service';
 import { acceptApplication, applyForJob, hasAppliedToJob, updateApplicationStatus } from '@/services/job.service';
 
 const snap = (exists: boolean, data: Record<string, unknown> = {}) => ({ exists: () => exists, data: () => data });
@@ -105,14 +106,13 @@ describe('acceptApplication', () => {
     });
     expect(batchOps.commit).toHaveBeenCalledTimes(1);
     expect(updateDoc).not.toHaveBeenCalled();
-    expect(createPayment).toHaveBeenCalledWith('j1', 'T', 'p', 'u1', 5, 'platform_escrow');
+    expect(getDoc).not.toHaveBeenCalled(); // no job/application reads for a client escrow
     expect(addDoc).not.toHaveBeenCalled();
   });
 
   it('surfaces a commit failure and runs no side effects', async () => {
     batchOps.commit.mockRejectedValue(new Error('denied'));
     await expect(acceptApplication('j1', 'j1_u1', 'u1')).rejects.toThrow('denied');
-    expect(createPayment).not.toHaveBeenCalled();
     expect(getDoc).not.toHaveBeenCalled();
   });
 
@@ -142,26 +142,17 @@ describe('acceptApplication', () => {
       expect(updateDoc).not.toHaveBeenCalled();
     });
 
-    it('creates the escrow for the accepted application only, after commit; rejections have no side effects', async () => {
-      const order: string[] = [];
-      batchOps.commit.mockImplementation(async () => {
-        order.push('commit');
-      });
-      vi.mocked(createPayment).mockImplementation((async (jobId: string, _t: string, _payer: string, payee: string) => {
-        order.push(`payment:${jobId}:${payee}`);
-      }) as never);
+    it('runs nothing after the commit (the server holds the escrow when the job moves to in-progress)', async () => {
       await acceptApplication('j1', 'j1_u1', 'u1', ['j1_u2', 'j1_u3']);
-      expect(order).toEqual(['commit', 'payment:j1:u1']);
-      const reads = vi.mocked(getDoc).mock.calls.map((c) => (c[0] as unknown as { _path: string })._path);
-      expect(reads).not.toContain('applications/j1_u2');
-      expect(reads).not.toContain('applications/j1_u3');
+      expect(batchOps.commit).toHaveBeenCalledTimes(1);
+      expect(getDoc).not.toHaveBeenCalled();
+      expect(updateDoc).not.toHaveBeenCalled();
       expect(addDoc).not.toHaveBeenCalled();
     });
 
     it('runs no side effects when the commit fails', async () => {
       batchOps.commit.mockRejectedValue(new Error('denied'));
       await expect(acceptApplication('j1', 'j1_u1', 'u1', ['j1_u2'])).rejects.toThrow('denied');
-      expect(createPayment).not.toHaveBeenCalled();
       expect(getDoc).not.toHaveBeenCalled();
     });
 
@@ -183,39 +174,11 @@ describe('acceptApplication', () => {
 });
 
 describe('updateApplicationStatus', () => {
-  it('rejecting only updates the application (no reads, no notification, no payment)', async () => {
-    await updateApplicationStatus('j1_u1', 'rejected');
-    expect(callFor(vi.mocked(updateDoc), 'applications/j1_u1')?.[1]).toEqual({ status: 'rejected', updatedAt: 'SERVER_TS' });
+  it.each(['accepted', 'rejected'] as const)('%s only updates the application (no reads, no payment write)', async (status) => {
+    await updateApplicationStatus('j1_u1', status);
+    expect(callFor(vi.mocked(updateDoc), 'applications/j1_u1')?.[1]).toEqual({ status, updatedAt: 'SERVER_TS' });
+    expect(updateDoc).toHaveBeenCalledTimes(1);
     expect(getDoc).not.toHaveBeenCalled();
     expect(addDoc).not.toHaveBeenCalled();
-    expect(createPayment).not.toHaveBeenCalled();
-  });
-
-  it('accepting creates the escrow payment', async () => {
-    vi.mocked(getDoc).mockImplementation((async (ref: { _path: string }) =>
-      ref._path === 'applications/j1_u1'
-        ? snap(true, { jobId: 'j1', applicantId: 'u1' })
-        : snap(true, { title: 'T', postedBy: 'p', paymentType: 'fixed', payment: 5 })) as never);
-    await updateApplicationStatus('j1_u1', 'accepted');
-    expect(createPayment).toHaveBeenCalledWith('j1', 'T', 'p', 'u1', 5, 'platform_escrow');
-  });
-
-  it('volunteer jobs and missing jobs get no payment; a payment failure is swallowed', async () => {
-    vi.mocked(getDoc).mockImplementation((async (ref: { _path: string }) =>
-      ref._path === 'applications/j1_u1' ? snap(true, { jobId: 'j1', applicantId: 'u1' }) : snap(true, { paymentType: 'volunteer' })) as never);
-    await updateApplicationStatus('j1_u1', 'accepted');
-    expect(createPayment).not.toHaveBeenCalled();
-
-    vi.mocked(getDoc).mockImplementation((async (ref: { _path: string }) =>
-      ref._path === 'applications/j1_u1' ? snap(true, { jobId: 'j1', applicantId: 'u1' }) : snap(false)) as never);
-    await updateApplicationStatus('j1_u1', 'accepted');
-    expect(createPayment).not.toHaveBeenCalled();
-
-    vi.mocked(getDoc).mockImplementation((async (ref: { _path: string }) =>
-      ref._path === 'applications/j1_u1'
-        ? snap(true, { jobId: 'j1', applicantId: 'u1' })
-        : snap(true, { title: 'T', postedBy: 'p', paymentType: 'fixed', payment: 5 })) as never);
-    vi.mocked(createPayment).mockRejectedValueOnce(new Error('denied'));
-    await expect(updateApplicationStatus('j1_u1', 'accepted')).resolves.toBeUndefined();
   });
 });

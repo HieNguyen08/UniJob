@@ -9,7 +9,6 @@
   "unijob-web/src/services/gamification.service.ts",
   "unijob-web/src/services/job.service.ts",
   "unijob-web/src/services/notification.service.ts",
-  "unijob-web/src/services/payment.service.ts",
   "unijob-web/src/services/rating.service.ts",
   "unijob-web/src/services/storage.service.ts",
   "unijob-web/src/services/suggest.service.ts",

@@ -164,7 +164,7 @@ Keep `clients can never set source on create`, `clients cannot set source even t
 
 - [ ] **Step 2: Run the rules tests to verify the new expectations fail**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npm run test:rules`
+Run: `cd unijob-web && npm run test:rules`
 Expected: FAIL in exactly the four changed tests (creates still succeed).
 
 - [ ] **Step 3: Change the rule**
@@ -183,7 +183,7 @@ Leave `allow update` and `allow delete` unchanged.
 
 - [ ] **Step 4: Run the rules tests to verify they pass**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npm run test:rules`
+Run: `cd unijob-web && npm run test:rules`
 Expected: PASS; the remaining `it.fails('KNOWN HOLE ...')` tests still pass as expected failures.
 
 - [ ] **Step 5: Update the docs**
@@ -203,7 +203,7 @@ Expected: PASS; the remaining `it.fails('KNOWN HOLE ...')` tests still pass as e
 
 - [ ] **Step 6: Local CI**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
+Run: `cd . && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
 Expected: all gates PASS (rules-tests in full).
 
 - [ ] **Step 7: Commit**
@@ -313,7 +313,7 @@ describe('updateApplicationStatus', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx vitest run --project unit tests/unit/services/job.service.test.ts`
+Run: `cd unijob-web && npx vitest run --project unit tests/unit/services/job.service.test.ts`
 Expected: FAIL (the service still reads the job and writes notifications; `addDoc` is called through the real `notification.service` or rejections still read applications).
 
 - [ ] **Step 3: Implement**
@@ -356,12 +356,12 @@ async function createEscrowForAccepted(applicationId: string): Promise<void> {
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx vitest run --project unit tests/unit/services/job.service.test.ts && npx tsc -b`
+Run: `cd unijob-web && npx vitest run --project unit tests/unit/services/job.service.test.ts && npx tsc -b`
 Expected: PASS.
 
 - [ ] **Step 5: Local CI**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick`
+Run: `cd . && node scripts/ci-local.mjs --quick`
 Expected: all gates PASS.
 
 - [ ] **Step 6: Commit**
@@ -515,7 +515,7 @@ describe('confirmCompletion', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx vitest run --project unit tests/unit/services/cancel.service.test.ts tests/unit/services/rating.service.test.ts`
+Run: `cd unijob-web && npx vitest run --project unit tests/unit/services/cancel.service.test.ts tests/unit/services/rating.service.test.ts`
 Expected: FAIL with "must not import notification.service".
 
 - [ ] **Step 3: Implement**
@@ -531,12 +531,12 @@ Expected: FAIL with "must not import notification.service".
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx vitest run --project unit tests/unit/services/cancel.service.test.ts tests/unit/services/rating.service.test.ts && npx tsc -b`
+Run: `cd unijob-web && npx vitest run --project unit tests/unit/services/cancel.service.test.ts tests/unit/services/rating.service.test.ts && npx tsc -b`
 Expected: PASS.
 
 - [ ] **Step 5: Local CI**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick`
+Run: `cd . && node scripts/ci-local.mjs --quick`
 Expected: all gates PASS.
 
 - [ ] **Step 6: Commit**
@@ -562,7 +562,7 @@ git commit -m "refactor(services): stop sending cancel and completion notificati
 
 - [ ] **Step 1: Confirm the only caller**
 
-Run the Grep tool for `cleanup.service|cleanupExpiredJobs` in `C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web/src` and `unijob-web/tests`.
+Run the Grep tool for `cleanup.service|cleanupExpiredJobs` in `unijob-web/src` and `unijob-web/tests`.
 Expected: only `src/App.tsx` and `src/services/cleanup.service.ts`.
 
 - [ ] **Step 2: Remove**
@@ -573,12 +573,12 @@ Expected: only `src/App.tsx` and `src/services/cleanup.service.ts`.
 
 - [ ] **Step 3: Verify**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx tsc -b && npx eslint src/App.tsx && node -e "JSON.parse(require('fs').readFileSync('../ci/coverage-legacy.json','utf8'))"`
+Run: `cd unijob-web && npx tsc -b && npx eslint src/App.tsx && node -e "JSON.parse(require('fs').readFileSync('../ci/coverage-legacy.json','utf8'))"`
 Expected: clean (no unused `isAuthenticated`/`useRef` warnings, JSON parses).
 
 - [ ] **Step 4: Local CI**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick`
+Run: `cd . && node scripts/ci-local.mjs --quick`
 Expected: all gates PASS.
 
 - [ ] **Step 5: Commit**
@@ -668,7 +668,7 @@ describe('inviteErrorMessage', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx vitest run --project unit tests/unit/services/invite.service.test.ts`
+Run: `cd unijob-web && npx vitest run --project unit tests/unit/services/invite.service.test.ts`
 Expected: FAIL, cannot resolve `@/services/invite.service`.
 
 - [ ] **Step 3: Implement**
@@ -740,12 +740,12 @@ export function inviteErrorMessage(err: unknown): string {
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx vitest run --project unit tests/unit/services/invite.service.test.ts && npx tsc -b && npx eslint src/pages/CreateJob.tsx src/services/invite.service.ts`
+Run: `cd unijob-web && npx vitest run --project unit tests/unit/services/invite.service.test.ts && npx tsc -b && npx eslint src/pages/CreateJob.tsx src/services/invite.service.ts`
 Expected: PASS, clean.
 
 - [ ] **Step 5: Local CI (full: checks the bundle budget with the new lazy chunk)**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
+Run: `cd . && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
 Expected: all gates PASS, including `bundle-budget` (entry chunk unchanged within budget) and coverage (`invite.service.ts` at 70% or more).
 
 - [ ] **Step 6: Commit**
@@ -833,7 +833,7 @@ describe('no client code writes notifications', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx vitest run --project unit tests/unit/services/notification.service.test.ts`
+Run: `cd unijob-web && npx vitest run --project unit tests/unit/services/notification.service.test.ts`
 Expected: FAIL: exports include `createNotification`, and `notification.service.ts` matches `createNotification` and `addDoc`. (If a Task 2 to 5 change is missing, the per-file test names the file.)
 
 - [ ] **Step 3: Implement**
@@ -842,12 +842,12 @@ In `unijob-web/src/services/notification.service.ts`: delete the `createNotifica
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers/unijob-web && npx vitest run --project unit && npx tsc -b`
+Run: `cd unijob-web && npx vitest run --project unit && npx tsc -b`
 Expected: PASS (whole unit project), typecheck clean.
 
 - [ ] **Step 5: Local CI (full: whole branch before push)**
 
-Run: `cd C:/Users/Acer/Downloads/UniJob/.worktrees/notif-triggers && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
+Run: `cd . && node scripts/ci-local.mjs --quick && node scripts/ci-local.mjs --full`
 Expected: all gates PASS (rules-tests, functions-tests with emulator, coverage, build, bundle-budget).
 
 - [ ] **Step 6: Commit**

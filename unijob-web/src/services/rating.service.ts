@@ -13,7 +13,6 @@ import { db } from '@/lib/firebase';
 import type { Rating, JobCompletion } from '@/types';
 import { recordWorkHistory } from '@/services/workHistory.service';
 import { getJobById, updateJob } from '@/services/job.service';
-import { getPaymentByJob, releasePayment } from '@/services/payment.service';
 
 const ratingsCollection = collection(db, 'ratings');
 
@@ -121,13 +120,7 @@ export async function confirmCompletion(
       await recordWorkHistory(job.postedBy, job.assignedTo[0], job.id, job.title, job.category);
       await updateJob(job.id, { status: 'completed' });
 
-      // Tự động giải phóng tiền ký quỹ cho worker
-      try {
-        const payment = await getPaymentByJob(job.id);
-        if (payment && (payment.status === 'held' || payment.status === 'pending')) {
-          await releasePayment(payment.id);
-        }
-      } catch { /* non-critical */ }
+      // Tiền ký quỹ do Cloud Function onJobUpdated giải ngân khi job chuyển sang 'completed'.
     }
   }
 }

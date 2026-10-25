@@ -1,7 +1,15 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
-import { getPaymentByJob } from '@/services/payment.service';
+import { getPaymentForJob } from '@/services/payment.service';
+import {
+  DISPUTE_REASON_MAX,
+  canDisputePayment,
+  disputeErrorMessage,
+  disputePayment,
+  validateDisputeReason,
+} from '@/services/dispute.service';
+import toast from 'react-hot-toast';
 import { getJobById } from '@/services/job.service';
 import type { Payment } from '@/types';
 import type { Job } from '@/types';
@@ -70,16 +78,48 @@ export default function Payment() {
   const [payment, setPayment] = useState<Payment | null>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [showDispute, setShowDispute] = useState(false);
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const uid = userProfile?.uid ?? '';
+  const loadPayment = useCallback(async () => {
+    if (!jobId) return;
+    try {
+      setLoadError(false);
+      const j = await getJobById(jobId);
+      setJob(j);
+      setPayment(j ? await getPaymentForJob(j, uid) : null);
+    } catch {
+      setPayment(null);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [jobId, uid]);
 
   useEffect(() => {
-    if (!jobId) return;
-    Promise.all([getPaymentByJob(jobId), getJobById(jobId)])
-      .then(([p, j]) => {
-        setPayment(p);
-        setJob(j);
-      })
-      .finally(() => setLoading(false));
-  }, [jobId]);
+    void loadPayment();
+  }, [loadPayment]);
+
+  const reasonError = validateDisputeReason(reason);
+
+  const handleDispute = async () => {
+    if (!job || reasonError !== null) return;
+    setSubmitting(true);
+    try {
+      await disputePayment(job.id, reason);
+      toast.success('Đã gửi báo cáo tranh chấp. Bên kia sẽ được thông báo.');
+      setShowDispute(false);
+      setReason('');
+      await loadPayment();
+    } catch (err) {
+      toast.error(disputeErrorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -90,13 +130,32 @@ export default function Payment() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-gray-300" />
+        <p className="mb-4 text-sm text-[var(--color-muted-foreground)]">Không tải được thông tin thanh toán.</p>
+        <button
+          type="button"
+          onClick={() => {
+            setLoading(true);
+            void loadPayment();
+          }}
+          className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm"
+        >
+          Thử lại
+        </button>
+      </div>
+    );
+  }
+
   if (!payment || !job) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
         <Banknote className="mx-auto mb-4 h-12 w-12 text-gray-300" />
         <h2 className="mb-2 text-xl font-bold">Chưa có thông tin thanh toán</h2>
         <p className="mb-6 text-sm text-[var(--color-muted-foreground)]">
-          Bản ghi thanh toán sẽ được tạo khi người đăng chấp nhận ứng viên.
+          Bản ghi ký quỹ sẽ được tạo khi công việc chuyển sang 'đang làm' (có thể mất vài giây).
         </p>
         <Link to={`/jobs/${jobId}`} className="text-sm text-[var(--color-primary)] hover:underline">
           ← Quay lại chi tiết công việc
@@ -137,6 +196,9 @@ export default function Payment() {
         <div>
           <p className="font-semibold">{statusInfo.label}</p>
           <p className="mt-0.5 text-sm">{statusInfo.description}</p>
+          {payment.status === 'disputed' && payment.disputeReason && (
+            <p className="mt-1 text-sm">Lý do: {payment.disputeReason}</p>
+          )}
         </div>
       </div>
 
@@ -182,6 +244,65 @@ export default function Payment() {
         </div>
       )}
 
+      {canDisputePayment(payment, userProfile?.uid) && (
+        <div className="mb-4">
+          {!showDispute ? (
+            <button
+              type="button"
+              onClick={() => setShowDispute(true)}
+              className="flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Báo tranh chấp
+            </button>
+          ) : (
+            <div className="rounded-xl border border-red-200 bg-white p-4">
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                maxLength={DISPUTE_REASON_MAX + 50}
+                rows={4}
+                placeholder="Mô tả vấn đề (10–500 ký tự)…"
+                className="w-full rounded-lg border border-[var(--color-border)] p-3 text-sm"
+              />
+              <div className="mt-1 flex justify-between text-xs">
+                <span className="text-red-600">{reason !== '' && reasonError ? reasonError : ''}</span>
+                <span className="text-[var(--color-muted-foreground)]">{Array.from(reason.trim()).length}/500</span>
+              </div>
+              <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
+                Bên kia sẽ nhận được thông báo. Khoản ký quỹ sẽ được tạm giữ cho đến khi được xử lý.
+              </p>
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDispute(false);
+                    setReason('');
+                  }}
+                  className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting || reasonError !== null}
+                  onClick={() => void handleDispute()}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  Gửi báo cáo
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {payment.source !== 'server' && (
+        <p className="mb-4 text-sm text-[var(--color-muted-foreground)]">
+          Bản ghi cũ, chưa được hệ thống xác nhận. Giao dịch tạo trước khi nâng cấp hệ thống — vui lòng liên hệ quản trị viên nếu có tranh chấp.
+        </p>
+      )}
+
       {/* Timeline */}
       <div className="rounded-2xl border border-[var(--color-border)] bg-white p-6">
         <div className="mb-4 flex items-center gap-2 text-[var(--color-muted-foreground)]">
@@ -204,6 +325,12 @@ export default function Payment() {
             <div className="flex justify-between">
               <span className="text-[var(--color-muted-foreground)]">Tiền giải ngân</span>
               <span className="text-green-600 font-medium">{formatTs(payment.releasedAt)}</span>
+            </div>
+          )}
+          {payment.disputedAt && (
+            <div className="flex justify-between">
+              <span className="text-[var(--color-muted-foreground)]">Báo tranh chấp</span>
+              <span>{formatTs(payment.disputedAt)}</span>
             </div>
           )}
           {payment.refundedAt && (

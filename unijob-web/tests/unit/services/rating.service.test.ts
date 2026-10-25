@@ -15,7 +15,9 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('@/lib/firebase', () => ({ db: {} }));
 vi.mock('@/services/workHistory.service', () => ({ recordWorkHistory: vi.fn() }));
 vi.mock('@/services/job.service', () => ({ getJobById: vi.fn(), updateJob: vi.fn() }));
-vi.mock('@/services/payment.service', () => ({ getPaymentByJob: vi.fn(), releasePayment: vi.fn() }));
+vi.mock('@/services/payment.service', () => {
+  throw new Error('rating.service must not import payment.service (the server releases the escrow)');
+});
 vi.mock('@/services/notification.service', () => {
   throw new Error('rating.service must not import notification.service');
 });
@@ -23,7 +25,6 @@ vi.mock('@/services/notification.service', () => {
 import { addDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { confirmCompletion } from '@/services/rating.service';
 import { getJobById, updateJob } from '@/services/job.service';
-import { getPaymentByJob, releasePayment } from '@/services/payment.service';
 import { recordWorkHistory } from '@/services/workHistory.service';
 
 const completion = (over: Record<string, unknown> = {}) => ({
@@ -42,15 +43,15 @@ describe('confirmCompletion', () => {
     expect(addDoc).not.toHaveBeenCalled();
   });
 
-  it('poster last: confirms, records history, completes the job, releases a held payment, writes no notification', async () => {
+  it('poster last: confirms, records history, completes the job, writes no payment and no notification', async () => {
     vi.mocked(getDoc).mockResolvedValue(completion({ workerConfirmed: true }) as never);
     vi.mocked(getJobById).mockResolvedValue({ id: 'j1', title: 'T', category: 'it', postedBy: 'p', assignedTo: ['w'] } as never);
-    vi.mocked(getPaymentByJob).mockResolvedValue({ id: 'pay1', status: 'held' } as never);
     await confirmCompletion('c1', 'poster');
     expect(updateDoc).toHaveBeenCalledWith({ _path: 'jobCompletions/c1' }, { posterConfirmed: true, status: 'confirmed', completedAt: 'SERVER_TS' });
     expect(recordWorkHistory).toHaveBeenCalledWith('p', 'w', 'j1', 'T', 'it');
-    expect(updateJob).toHaveBeenCalledWith('j1', { status: 'completed' });
-    expect(releasePayment).toHaveBeenCalledWith('pay1');
+    expect(updateJob).toHaveBeenCalledTimes(1);
+    expect(updateJob).toHaveBeenCalledWith('j1', { status: 'completed' }); // no paymentStatus: the server releases on completed
+    expect(updateDoc).toHaveBeenCalledTimes(1);
     expect(addDoc).not.toHaveBeenCalled();
   });
 

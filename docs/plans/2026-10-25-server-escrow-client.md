@@ -38,10 +38,10 @@ All `Run:` lines are relative to the worktree root.
 
 ## Deploy order (goes in the PR body)
 
-1. 4a first: `cd unijob-web && npx firebase deploy --only functions` (escrow triggers + `disputePayment`).
-2. Right after: this PR, `npm run build` then `npx firebase deploy --only hosting,firestore:rules`.
-
-Functions first. Deploying these rules before 4a would break nothing on accept (the old client `createPayment` would just be denied), but nobody would create or release escrow until the functions are live. Between steps 1 and 2 the old client may still create a random-id payment next to the server's `{jobId}_{payeeId}` one on accept, and may release its own random-id payment on completion; the server never touches random-id payments. After step 2, old tabs get `permission-denied` on `createPayment`/`releasePayment`/`updateJob(paymentStatus)`. Both call sites already swallow those errors, so accept and confirm still succeed. List legacy random-id payments (any `payments` doc whose id is not `{jobId}_{payeeId}`) for manual review (see backlog).
+1. 4b rules first: `cd unijob-web && npx firebase deploy --only firestore:rules`.
+2. Then 4a functions: `npx firebase deploy --only functions` (escrow triggers + `disputePayment`).
+3. Last, 4b hosting: `npm run build` then `npx firebase deploy --only hosting`.
+Rules first, hosting last (updated in Task 6; supersedes the earlier functions-first order).
 
 ## Decisions
 

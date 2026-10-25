@@ -1,10 +1,9 @@
 import app from '@/lib/firebase';
+import { callableErrorMessage, type UserFacingCode } from '@/lib/callableError';
 import type { SendJobInviteResult } from '@/types';
 
 const FUNCTIONS_REGION = 'asia-southeast1';
 export const INVITE_FALLBACK_ERROR = 'Không thể gửi lời mời, thử lại';
-
-type UserFacingCode = 'invalid-argument' | 'not-found' | 'permission-denied' | 'failed-precondition' | 'unauthenticated';
 
 /**
  * Local Vietnamese text per user-facing callable code. Used when the error does not carry a known
@@ -50,11 +49,9 @@ export async function sendJobInvite(jobId: string, workerId: string): Promise<Se
  * otherwise the local Vietnamese text for the code, otherwise the generic fallback.
  */
 export function inviteErrorMessage(err: unknown): string {
-  if (typeof err !== 'object' || err === null) return INVITE_FALLBACK_ERROR;
-  const { code, message } = err as { code?: unknown; message?: unknown };
-  if (typeof code !== 'string' || !code.startsWith('functions/')) return INVITE_FALLBACK_ERROR;
-  const short = code.slice('functions/'.length);
-  if (!Object.hasOwn(INVITE_CODE_MESSAGES, short)) return INVITE_FALLBACK_ERROR;
-  if (typeof message === 'string' && INVITE_SERVER_MESSAGES.has(message)) return message;
-  return INVITE_CODE_MESSAGES[short as UserFacingCode];
+  return callableErrorMessage(err, {
+    codeMessages: INVITE_CODE_MESSAGES,
+    serverMessages: INVITE_SERVER_MESSAGES,
+    fallback: INVITE_FALLBACK_ERROR,
+  });
 }

@@ -10,6 +10,7 @@ import {
 } from '@/services/job.service';
 import { getJobCompletion, createJobCompletion, confirmCompletion } from '@/services/rating.service';
 import { workerCancelJob, posterCancelJob, type CancelReason } from '@/services/cancel.service';
+import { formatDeadline } from '@/lib/deadline';
 
 import toast from 'react-hot-toast';
 import {
@@ -287,9 +288,7 @@ export default function MyJobs() {
             else if (completion && completion.workerConfirmed && !completion.posterConfirmed)
               status = 'pending';
 
-            const deadline = job.deadline?.toDate
-              ? job.deadline.toDate().toLocaleDateString('vi-VN')
-              : 'N/A';
+            const deadline = formatDeadline(job.deadline);
 
             return {
               id: job.id,

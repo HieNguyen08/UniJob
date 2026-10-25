@@ -1,6 +1,5 @@
 import {
   collection,
-  addDoc,
   setDoc,
   getDocs,
   query,
@@ -14,11 +13,9 @@ import { db } from '@/lib/firebase';
 import type { Rating, JobCompletion } from '@/types';
 import { recordWorkHistory } from '@/services/workHistory.service';
 import { getJobById, updateJob } from '@/services/job.service';
-import { createNotification } from '@/services/notification.service';
 import { getPaymentByJob, releasePayment } from '@/services/payment.service';
 
 const ratingsCollection = collection(db, 'ratings');
-const completionsCollection = collection(db, 'jobCompletions');
 
 /**
  * Submit a rating
@@ -73,17 +70,21 @@ export async function getRatingsByUser(userId: string): Promise<Rating[]> {
 }
 
 /**
- * Create job completion record (2-step confirmation)
+ * Create the job's completion record (2-step confirmation). Each job has exactly one, at
+ * jobCompletions/{jobId} (enforced by the rules); an existing record is reused, never reset.
  */
 export async function createJobCompletion(jobId: string): Promise<string> {
-  const docRef = await addDoc(completionsCollection, {
+  const completionRef = doc(db, 'jobCompletions', jobId);
+  const existing = await getDoc(completionRef);
+  if (existing.exists()) return jobId;
+  await setDoc(completionRef, {
     jobId,
     workerConfirmed: false,
     posterConfirmed: false,
     completedAt: null,
     status: 'pending',
   });
-  return docRef.id;
+  return jobId;
 }
 
 /**
@@ -93,6 +94,7 @@ export async function confirmCompletion(
   completionId: string,
   role: 'worker' | 'poster'
 ): Promise<void> {
+  // Thông báo (completion_requested, job_completed) do Cloud Functions gửi.
   const completionRef = doc(db, 'jobCompletions', completionId);
   const compSnap = await getDoc(completionRef);
   if (!compSnap.exists()) return;
@@ -112,21 +114,6 @@ export async function confirmCompletion(
 
   await updateDoc(completionRef, updates);
 
-  // Notify poster when worker submits completion
-  if (role === 'worker' && !isBothConfirmed) {
-    try {
-      const job = await getJobById(compData.jobId);
-      if (job?.postedBy) {
-        await createNotification(
-          job.postedBy,
-          'completion_requested',
-          `📋 Người làm đã báo cáo hoàn thành "${job.title}". Vui lòng kiểm tra và xác nhận.`,
-          { jobId: compData.jobId, jobTitle: job.title }
-        );
-      }
-    } catch { /* non-critical */ }
-  }
-
   if (isBothConfirmed) {
     // Lưu work history
     const job = await getJobById(compData.jobId);
@@ -141,33 +128,22 @@ export async function confirmCompletion(
           await releasePayment(payment.id);
         }
       } catch { /* non-critical */ }
-
-      // Notify both parties
-      try {
-        await createNotification(
-          job.assignedTo[0],
-          'job_completed',
-          `🎉 Công việc "${job.title}" đã hoàn thành! Hãy để lại đánh giá.`,
-          { jobId: job.id, jobTitle: job.title }
-        );
-        await createNotification(
-          job.postedBy,
-          'job_completed',
-          `✅ Công việc "${job.title}" đã được xác nhận hoàn thành.`,
-          { jobId: job.id, jobTitle: job.title }
-        );
-      } catch { /* non-critical */ }
     }
   }
 }
 
 /**
- * Get completion record for a job
+ * Get the completion record for a job (jobCompletions/{jobId}). Only the poster and the assigned
+ * worker may read it; for anyone else the rules deny the get, which means "no completion for you".
  */
 export async function getJobCompletion(jobId: string): Promise<JobCompletion | null> {
-  const q = query(completionsCollection, where('jobId', '==', jobId));
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-  const docSnap = snapshot.docs[0];
+  let docSnap;
+  try {
+    docSnap = await getDoc(doc(db, 'jobCompletions', jobId));
+  } catch (err) {
+    if ((err as { code?: unknown }).code === 'permission-denied') return null;
+    throw err;
+  }
+  if (!docSnap.exists()) return null;
   return { id: docSnap.id, ...docSnap.data() } as JobCompletion;
 }

@@ -21,3 +21,8 @@ export interface Notification {
   read: boolean;
   createdAt: Timestamp;
 }
+
+/** Response of the sendJobInvite callable (unijob-web/functions/src/handlers/invites.ts). */
+export interface SendJobInviteResult {
+  sent: boolean;
+}

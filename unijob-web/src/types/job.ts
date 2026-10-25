@@ -18,7 +18,7 @@ export interface Job {
   payment: number;
   paymentType: PaymentType;
   duration: string;
-  deadline: Timestamp;
+  deadline: Timestamp | null; // null = không có hạn chót
   maxApplicants: number;
   status: JobStatus;
   postedBy: string;

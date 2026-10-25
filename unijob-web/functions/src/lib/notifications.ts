@@ -44,9 +44,9 @@ export function assertValidSourceId(sourceId: string): void {
  * Creates notifications/{type}_{sourceId} marked `source: 'server'`. Returns false (no write) if the
  * server already delivered that event, so retried or duplicated triggers are no-ops.
  *
- * Clients can create notifications/{anyId} (until the rules are tightened), so a document that exists
- * without `source: 'server'` was squatted by a client: it is replaced, not treated as a duplicate.
- * The rules forbid clients from setting `source`.
+ * Before slice 3 clients could create notifications/{anyId}, so a legacy document may exist at this
+ * id without `source: 'server'`: it is replaced, not treated as a duplicate. Clients can no longer
+ * create notifications, and the rules forbid them from setting `source`.
  */
 export async function writeNotification(db: Firestore, input: NotificationInput): Promise<boolean> {
   assertValidSourceId(input.sourceId);

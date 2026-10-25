@@ -9,6 +9,7 @@ import { toggleBookmark, getBookmarkedJobIds } from '@/services/bookmark.service
 import type { Job, User, Payment } from '@/types';
 import { JOB_CATEGORIES, PAYMENT_TYPES } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
+import { formatDeadline } from '@/lib/deadline';
 import {
   ArrowLeft,
   Zap,
@@ -469,17 +470,13 @@ export default function JobDetail() {
           <div className="rounded-2xl border border-[var(--color-border)] bg-white p-5">
             <h3 className="mb-3 text-sm font-semibold">Chi tiết</h3>
             <div className="space-y-3 text-sm">
-              {job.deadline && (
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-4 w-4 shrink-0 text-red-400" />
-                  <div>
-                    <p className="text-xs text-[var(--color-muted-foreground)]">Hạn nộp hồ sơ</p>
-                    <p className="font-medium">
-                      {format(job.deadline.toDate(), 'dd/MM/yyyy', { locale: vi })}
-                    </p>
-                  </div>
+              <div className="flex items-center gap-3">
+                <Calendar className="h-4 w-4 shrink-0 text-red-400" />
+                <div>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">Hạn nộp hồ sơ</p>
+                  <p className="font-medium">{formatDeadline(job.deadline)}</p>
                 </div>
-              )}
+              </div>
               <div className="flex items-center gap-3">
                 <Users className="h-4 w-4 shrink-0 text-indigo-400" />
                 <div>

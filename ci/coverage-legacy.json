@@ -5,7 +5,6 @@
   "unijob-web/src/services/auth.service.ts",
   "unijob-web/src/services/bookmark.service.ts",
   "unijob-web/src/services/cancel.service.ts",
-  "unijob-web/src/services/cleanup.service.ts",
   "unijob-web/src/services/cv.service.ts",
   "unijob-web/src/services/gamification.service.ts",
   "unijob-web/src/services/job.service.ts",

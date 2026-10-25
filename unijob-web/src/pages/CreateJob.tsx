@@ -4,9 +4,9 @@ import { useAuthStore } from '@/store/authStore';
 import { createJob } from '@/services/job.service';
 import { uploadJobAttachments, validateFile } from '@/services/storage.service';
 import { getSmartMatchedWorkers, type SmartMatchWorker } from '@/services/workHistory.service';
-import { createNotification } from '@/services/notification.service';
+import { inviteErrorMessage, sendJobInvite } from '@/services/invite.service';
 import { JOB_CATEGORIES, FACULTIES } from '@/lib/constants';
-import { Timestamp } from 'firebase/firestore';
+import { PAST_DEADLINE_ERROR, createJobErrorMessage, deadlineFromDateInput, isPastDateInput, todayVN } from '@/lib/deadline';
 import { ArrowLeft, CheckCircle2, Lightbulb, Paperclip, X, FileText, Star, Send, Check } from 'lucide-react';
 import type { JobLocation } from '@/types/job';
 import Avatar from '@/components/Avatar';
@@ -90,6 +90,10 @@ export default function CreateJob() {
       toast.error('Vui lòng điền đầy đủ tiêu đề và mô tả');
       return;
     }
+    if (isPastDateInput(form.deadline)) {
+      toast.error(PAST_DEADLINE_ERROR);
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -103,7 +107,7 @@ export default function CreateJob() {
         payment: form.isVolunteer ? 0 : form.payment,
         paymentType: form.isVolunteer ? 'volunteer' : form.paymentType,
         duration: form.duration,
-        deadline: form.deadline ? Timestamp.fromDate(new Date(form.deadline)) : Timestamp.now(),
+        deadline: deadlineFromDateInput(form.deadline),
         maxApplicants: form.maxApplicants,
         isUrgent: form.isUrgent,
         isAnonymous: form.isAnonymous,
@@ -135,7 +139,7 @@ export default function CreateJob() {
         }
       }
     } catch (error) {
-      toast.error('Lỗi khi đăng việc');
+      toast.error(createJobErrorMessage(error, form.deadline));
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -145,16 +149,12 @@ export default function CreateJob() {
   const handleSendInvite = async (worker: SmartMatchWorker) => {
     if (!smartMatchModal) return;
     try {
-      await createNotification(
-        worker.uid,
-        'job_invite',
-        `${userProfile?.displayName} mời bạn ứng tuyển "${smartMatchModal.jobTitle}"`,
-        { jobId: smartMatchModal.jobId, jobTitle: smartMatchModal.jobTitle, fromName: userProfile?.displayName }
-      );
+      const { sent } = await sendJobInvite(smartMatchModal.jobId, worker.uid);
       setInvitedIds((prev) => new Set(prev).add(worker.uid));
-      toast.success(`Đã gửi lời mời đến ${worker.displayName}!`);
-    } catch {
-      toast.error('Không thể gửi lời mời, thử lại');
+      if (sent) toast.success(`Đã gửi lời mời đến ${worker.displayName}!`);
+      else toast(`Bạn đã mời ${worker.displayName} rồi.`);
+    } catch (err) {
+      toast.error(inviteErrorMessage(err));
     }
   };
 
@@ -522,6 +522,7 @@ export default function CreateJob() {
                   <input
                     type="date"
                     name="deadline"
+                    min={todayVN()}
                     value={form.deadline}
                     onChange={handleChange}
                     className="w-full rounded-xl border border-[var(--color-border)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]"

@@ -11,6 +11,7 @@
 - Khung Cloud Functions (`unijob-web/functions`, Node 22, region `asia-southeast1`, database `kirigitejkf8095h`): helper xác thực/thành viên, ghi thông báo idempotent phía server, công thức phí nền tảng dùng chung, callable `ping`; CI chạy typecheck và test functions trên emulator.
 - Thông báo phía server: trigger Firestore gửi thông báo khi có đơn ứng tuyển mới, đơn được chấp nhận/từ chối, người làm báo hoàn thành, job bị hủy hoặc hoàn thành; hàm định kỳ (30 phút, giờ Việt Nam) đóng job quá hạn sau khi hết ngày hạn chót; callable `sendJobInvite` cho lời mời. Tên người gửi lấy từ tài khoản Google HCMUT đã xác minh, liên kết trong tiêu đề/tên bị thay bằng "[liên kết]".
 - Ký quỹ phía server: khi job chuyển từ "open" sang "đang làm" (người đăng chấp nhận ứng viên), Cloud Function tạo bản ghi ký quỹ `payments/{jobId}_{người làm}` (chỉ là sổ ghi, chưa chuyển tiền thật) và giải ngân khi job hoàn thành. Người đăng hoặc người làm có thể "Báo tranh chấp" trên trang thanh toán (callable `disputePayment`, lý do 10–500 ký tự); bên kia nhận thông báo.
+- Xác nhận hoàn thành phía server: người làm "Báo hoàn thành" và người đăng "Xác nhận" qua callable `confirmCompletion`. Khi cả hai đã xác nhận, server chuyển job sang "đã hoàn thành", ghi lịch sử làm việc và giải ngân ký quỹ. Người làm xác nhận sau cùng giờ cũng hoàn tất được job.
 
 ### Changed
 - Nâng Vite lên 8.3 (bản stable), vá các lỗ hổng high/critical từ `npm audit`, dọn lỗi ESLint.
@@ -19,6 +20,7 @@
 - Ứng tuyển giờ lưu người ứng tuyển vào job, nên không ứng tuyển trùng được nữa. Chấp nhận ứng viên giờ gán người làm và chuyển job sang "đang làm". Cả hai thao tác ghi nguyên tử.
 
 ### Security
+- Client không còn tạo/sửa `jobCompletions`, ghi `workHistory` hay tự chuyển job sang "đã hoàn thành" (rules chặn), nên người đăng không tự mở khoá đánh giá được nữa. Deploy functions trước, rồi rules và hosting cùng lúc.
 - Client không còn tạo, giải ngân, hoàn tiền hay đánh dấu tranh chấp thanh toán (rules chặn mọi ghi vào `payments` và `jobs.paymentStatus`). Trang thanh toán đọc theo id của server; giao dịch cũ (id ngẫu nhiên) vẫn xem được nhưng cần quản trị viên rà soát. Deploy rules trước, rồi functions, rồi hosting.
 - Client không còn tự tạo thông báo cho người khác (rules chặn `notifications.create`). Lời mời gửi qua callable `sendJobInvite`. Mỗi job chỉ có một doc hoàn thành (`jobCompletions/{jobId}`), chỉ người đăng và người làm đọc/sửa được và chỉ khi job đang làm. Client không ghi được `cancelReason`, không sửa `createdAt`, `updatedAt` phải là giờ server. Hạn chót lưu `null` (không có hạn) hoặc cuối ngày theo giờ Việt Nam và phải ở tương lai. Trước khi deploy cần chạy migrate đơn ứng tuyển và xử lý doc hoàn thành cũ (xem `docs/backlog/security-holes.md`).
 - Siết Firestore rules cho jobs, applications, notifications, ratings: không tạo job dưới tên người khác, không sửa danh sách ứng viên của người khác, mỗi người một đơn cho mỗi job, không tự chấp nhận đơn của mình, chỉ đánh giá sau khi hoàn thành và giữa người đăng với người làm. Trước khi deploy rules cần chạy `unijob-web/scripts/migrate-applications.mjs`.

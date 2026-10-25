@@ -10,9 +10,8 @@ import {
   getDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { isServerRecord } from '@/lib/completion';
 import type { Rating, JobCompletion } from '@/types';
-import { recordWorkHistory } from '@/services/workHistory.service';
-import { getJobById, updateJob } from '@/services/job.service';
 
 const ratingsCollection = collection(db, 'ratings');
 
@@ -68,63 +67,7 @@ export async function getRatingsByUser(userId: string): Promise<Rating[]> {
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Rating[];
 }
 
-/**
- * Create the job's completion record (2-step confirmation). Each job has exactly one, at
- * jobCompletions/{jobId} (enforced by the rules); an existing record is reused, never reset.
- */
-export async function createJobCompletion(jobId: string): Promise<string> {
-  const completionRef = doc(db, 'jobCompletions', jobId);
-  const existing = await getDoc(completionRef);
-  if (existing.exists()) return jobId;
-  await setDoc(completionRef, {
-    jobId,
-    workerConfirmed: false,
-    posterConfirmed: false,
-    completedAt: null,
-    status: 'pending',
-  });
-  return jobId;
-}
-
-/**
- * Confirm job completion (worker or poster)
- */
-export async function confirmCompletion(
-  completionId: string,
-  role: 'worker' | 'poster'
-): Promise<void> {
-  // Thông báo (completion_requested, job_completed) do Cloud Functions gửi.
-  const completionRef = doc(db, 'jobCompletions', completionId);
-  const compSnap = await getDoc(completionRef);
-  if (!compSnap.exists()) return;
-
-  const compData = compSnap.data() as JobCompletion;
-  const field = role === 'worker' ? 'workerConfirmed' : 'posterConfirmed';
-
-  const isBothConfirmed = role === 'worker'
-    ? compData.posterConfirmed
-    : compData.workerConfirmed;
-
-  const updates: Record<string, unknown> = { [field]: true };
-  if (isBothConfirmed) {
-    updates.status = 'confirmed';
-    updates.completedAt = serverTimestamp();
-  }
-
-  await updateDoc(completionRef, updates);
-
-  if (isBothConfirmed) {
-    // Lưu work history
-    const job = await getJobById(compData.jobId);
-    if (job && job.assignedTo && job.assignedTo.length > 0) {
-      await recordWorkHistory(job.postedBy, job.assignedTo[0], job.id, job.title, job.category);
-      await updateJob(job.id, { status: 'completed' });
-
-      // Tiền ký quỹ do Cloud Function onJobUpdated giải ngân khi job chuyển sang 'completed'.
-    }
-  }
-}
-
+// Xác nhận hoàn thành do callable confirmCompletion (completion.service) ghi; client chỉ đọc.
 /**
  * Get the completion record for a job (jobCompletions/{jobId}). Only the poster and the assigned
  * worker may read it; for anyone else the rules deny the get, which means "no completion for you".
@@ -138,5 +81,8 @@ export async function getJobCompletion(jobId: string): Promise<JobCompletion | n
     throw err;
   }
   if (!docSnap.exists()) return null;
+  // The server treats docs without its version marker (legacy / client-written) as absent; so does the UI.
+  const data = docSnap.data();
+  if (!isServerRecord(data) || data.jobId !== docSnap.id) return null;
   return { id: docSnap.id, ...docSnap.data() } as JobCompletion;
 }

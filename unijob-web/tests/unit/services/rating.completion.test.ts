@@ -13,15 +13,19 @@ vi.mock('firebase/firestore', () => ({
   serverTimestamp: vi.fn(() => 'SERVER_TS'),
 }));
 vi.mock('@/lib/firebase', () => ({ db: {} }));
-vi.mock('@/services/workHistory.service', () => ({ recordWorkHistory: vi.fn() }));
-vi.mock('@/services/job.service', () => ({ getJobById: vi.fn(), updateJob: vi.fn() }));
+vi.mock('@/services/workHistory.service', () => {
+  throw new Error('rating.service must not import workHistory.service (the server writes work history)');
+});
+vi.mock('@/services/job.service', () => {
+  throw new Error('rating.service must not import job.service (the server completes the job)');
+});
 vi.mock('@/services/notification.service', () => ({ createNotification: vi.fn() }));
 vi.mock('@/services/payment.service', () => {
   throw new Error('rating.service must not import payment.service (the server releases the escrow)');
 });
 
-import { addDoc, getDoc, getDocs, query, setDoc } from 'firebase/firestore';
-import { createJobCompletion, getJobCompletion } from '@/services/rating.service';
+import { getDoc, getDocs, query } from 'firebase/firestore';
+import { getJobCompletion } from '@/services/rating.service';
 
 const snap = (exists: boolean, data: Record<string, unknown> = {}, id = 'job1') => ({
   id,
@@ -34,35 +38,9 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('createJobCompletion', () => {
-  it('creates the single completion at jobCompletions/{jobId} with the pending shape the rules require', async () => {
-    vi.mocked(getDoc).mockResolvedValue(snap(false) as never);
-    vi.mocked(setDoc).mockResolvedValue(undefined);
-
-    const id = await createJobCompletion('job1');
-
-    expect(id).toBe('job1');
-    expect(setDoc).toHaveBeenCalledTimes(1);
-    const [ref, data] = vi.mocked(setDoc).mock.calls[0];
-    expect(pathOf(ref)).toBe('jobCompletions/job1');
-    expect(data).toEqual({ jobId: 'job1', workerConfirmed: false, posterConfirmed: false, completedAt: null, status: 'pending' });
-    expect(addDoc).not.toHaveBeenCalled();
-  });
-
-  it('reuses an existing completion for the job instead of overwriting it', async () => {
-    vi.mocked(getDoc).mockResolvedValue(snap(true, { jobId: 'job1', posterConfirmed: true }) as never);
-
-    const id = await createJobCompletion('job1');
-
-    expect(id).toBe('job1');
-    expect(pathOf(vi.mocked(getDoc).mock.calls[0][0])).toBe('jobCompletions/job1');
-    expect(setDoc).not.toHaveBeenCalled();
-  });
-});
-
 describe('getJobCompletion', () => {
   it('reads jobCompletions/{jobId} with a get, never a list query', async () => {
-    const data = { jobId: 'job1', workerConfirmed: true, posterConfirmed: false, completedAt: null, status: 'pending' };
+    const data = { jobId: 'job1', workerConfirmed: true, posterConfirmed: false, completedAt: null, status: 'pending', source: 'server', serverVersion: 'completion-v1' };
     vi.mocked(getDoc).mockResolvedValue(snap(true, data) as never);
 
     const completion = await getJobCompletion('job1');
@@ -71,6 +49,21 @@ describe('getJobCompletion', () => {
     expect(completion).toEqual({ id: 'job1', ...data });
     expect(getDocs).not.toHaveBeenCalled();
     expect(query).not.toHaveBeenCalled();
+  });
+
+  it('returns null for a legacy completion without source server (the server ignores it too)', async () => {
+    vi.mocked(getDoc).mockResolvedValue(snap(true, { jobId: 'job1', workerConfirmed: true, posterConfirmed: true, status: 'confirmed' }) as never);
+    await expect(getJobCompletion('job1')).resolves.toBeNull();
+  });
+
+  it('returns null for a source-only doc without the version marker', async () => {
+    vi.mocked(getDoc).mockResolvedValue(snap(true, { jobId: 'job1', source: 'server', status: 'confirmed' }) as never);
+    await expect(getJobCompletion('job1')).resolves.toBeNull();
+  });
+
+  it('returns null when the doc jobId does not match its id', async () => {
+    vi.mocked(getDoc).mockResolvedValue(snap(true, { jobId: 'other', source: 'server', serverVersion: 'completion-v1' }) as never);
+    await expect(getJobCompletion('job1')).resolves.toBeNull();
   });
 
   it('returns null when the job has no completion yet', async () => {

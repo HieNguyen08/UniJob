@@ -8,7 +8,13 @@ import {
   getJobById,
   getApplicationsByJob,
 } from '@/services/job.service';
-import { getJobCompletion, createJobCompletion, confirmCompletion } from '@/services/rating.service';
+import { getJobCompletion } from '@/services/rating.service';
+import {
+  confirmCompletion,
+  completionErrorMessage,
+  completionSuccessMessage,
+  isCompletionPreconditionFailed,
+} from '@/services/completion.service';
 import { workerCancelJob, posterCancelJob, type CancelReason } from '@/services/cancel.service';
 import { formatDeadline } from '@/lib/deadline';
 
@@ -97,20 +103,17 @@ function ReportModal({ job, onClose, onSubmitted }: {
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const completion = await getJobCompletion(job.id);
-      let completionId: string;
-      if (completion) {
-        completionId = completion.id;
-      } else {
-        completionId = await createJobCompletion(job.id);
-      }
-      await confirmCompletion(completionId, 'worker');
-      toast.success('Đã gửi báo cáo hoàn thành! Chờ người đăng xác nhận.');
+      const result = await confirmCompletion(job.id);
+      toast.success(completionSuccessMessage(result, 'worker'));
       onSubmitted();
       onClose();
     } catch (err) {
       console.error(err);
-      toast.error('Có lỗi xảy ra, vui lòng thử lại.');
+      toast.error(completionErrorMessage(err));
+      if (isCompletionPreconditionFailed(err)) {
+        onSubmitted(); // job cancelled/completed elsewhere: refresh the list and close
+        onClose();
+      }
     } finally {
       setSubmitting(false);
     }

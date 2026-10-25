@@ -46,7 +46,7 @@ Deploying the rules before the functions would break completion for everyone: th
 1. **The callable wrapper lives in a new `completion.service.ts`, not in `rating.service.ts`.** The new file falls under the 70% gate, and `rating.service.ts` keeps only ratings and the `getJobCompletion` read.
 2. **`completionSuccessMessage(result, role)` is in the service.** The pages stay thin and the copy for `pending` vs `confirmed` is unit-tested.
 3. **The poster calls the callable with `job.id`, not `completion.id`.** They are the same id since slice 3, and the callable takes `jobId`.
-4. **Legacy `workHistory` docs (random ids, no `source`) stay readable and untouched.** Reads in `workHistory.service.ts` do not change. A job with a legacy entry is already completed, so it never gets a server entry as well.
+4. **Legacy `workHistory` docs (random ids, no `source`) are ignored by the client reads and never rewritten.** `workHistory.service.ts` reads keep only docs with `source === 'server'` (legacy docs could be forged under the old create rule). A legacy entry does not prove the job was completed through the server flow, so do not assume it; the job may still get a server entry. Likewise `getJobCompletion` returns null for a completion without `source: 'server'`, matching the server.
 
 ## File Structure
 

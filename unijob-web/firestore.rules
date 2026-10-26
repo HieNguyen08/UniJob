@@ -10,31 +10,77 @@ service cloud.firestore {
       return isAuth() && request.auth.uid == userId;
     }
 
-    // USERS: chỉ đọc public info, chỉ chủ tài khoản mới sửa được
+    // USERS: ai đăng nhập cũng đọc; chủ tài khoản sửa hồ sơ. Uy tín, điểm phạt, bộ đếm job (và xp/level/badges/role) chỉ server ghi.
     match /users/{userId} {
+      function createDefaultsOk(d) {
+        return d.get('ratingScore', 0) == 0
+          && d.get('ratingAverage', 0) == 0
+          && d.get('totalRatings', 0) == 0
+          && d.get('penaltyPoints', 0) == 0
+          && d.get('activeJobCount', 0) == 0
+          && d.get('completedJobs', 0) == 0
+          && d.get('maxJobLimit', 2) == 2
+          && !d.keys().hasAny(['xp', 'level', 'badges', 'role']);
+      }
       allow read: if isAuth();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      // trường hồ sơ người dùng được tự ghi (allowlist); mọi trường khác do server ghi
+      function profileUserKeys() {
+        return ['displayName', 'photoURL', 'faculty', 'department', 'studentId', 'phone', 'bio', 'skills',
+          'bookmarks', 'isAnonymous'];
+      }
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(profileUserKeys().concat(
+          ['email', 'uid', 'createdAt', 'updatedAt', 'ratingScore', 'totalRatings', 'activeJobCount', 'maxJobLimit']))
+        && request.resource.data.get('uid', userId) == userId
+        && createDefaultsOk(request.resource.data);
+      // một lần hoàn tất hồ sơ stub do server tạo (uid + trường server): đăng nhập lần đầu của chủ tài khoản
+      function stubCompletionOk() {
+        let d = request.resource.data;
+        return resource.data.get('stub', false) == true
+          && d.diff(resource.data).affectedKeys().hasOnly(
+            profileUserKeys().concat(['email', 'createdAt', 'maxJobLimit', 'stub', 'updatedAt']))
+          && d.get('email', '') == request.auth.token.email
+          && d.get('maxJobLimit', 0) == 2
+          && d.get('createdAt', null) == request.time
+          && d.get('stub', false) == false;
+      }
+      allow update: if isOwner(userId)
+        && (!('updatedAt' in request.resource.data.diff(resource.data).affectedKeys())
+          || request.resource.data.updatedAt == request.time)
+        && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileUserKeys().concat(['updatedAt']))
+          || stubCompletionOk());
       allow delete: if false;
     }
 
     // JOBS: ai đăng nhập cũng đọc được, chỉ người đăng mới sửa/xóa
     match /jobs/{jobId} {
-      // chuyển trạng thái của người đăng: open -> in-progress (chỉ trong cùng lần ghi giao việc),
-      // open/in-progress -> cancelled. 'completed' chỉ server ghi (callable confirmCompletion). paymentStatus chỉ server ghi.
-      // Không bao giờ quay lại 'open'.
+      // chuyển trạng thái của người đăng: open -> in-progress (chỉ trong cùng lần ghi giao việc), open -> cancelled.
+      // Hủy job đang làm chỉ qua callable cancelJob (phạt, hoàn ký quỹ). 'completed' chỉ server ghi. paymentStatus chỉ server ghi.
+      // Không bao giờ quay lại 'open' (người làm hủy: server mở lại job).
       function posterStatusChangeOk() {
         let from = resource.data.status;
         let to = request.resource.data.status;
         return (from == 'open' && to == 'in-progress'
             && 'assignedTo' in request.resource.data.diff(resource.data).affectedKeys()
             && request.resource.data.assignedTo.size() == 1)
-          || (from in ['open', 'in-progress'] && to == 'cancelled');
+          || (from == 'open' && to == 'cancelled'
+            && !('assignedTo' in request.resource.data.diff(resource.data).affectedKeys()));
       }
       // hạn chót: null (không có hạn) hoặc timestamp trong tương lai; scheduler server hủy job open quá hạn
       function deadlineOk(data) {
         return data.get('deadline', null) == null
           || (data.deadline is timestamp && data.deadline > request.time);
+      }
+      // job không còn 'open' (hoặc đang rời 'open'): poster chỉ được gia hạn (null hoặc muộn hơn), vì điểm phạt khi người làm hủy tính từ hạn chót
+      // đã có người ứng tuyển cũng chỉ được gia hạn (chống rút ngắn hạn ngay trước khi giao việc để ép điểm phạt tối đa)
+      function deadlineChangeOk() {
+        let nw = request.resource.data.get('deadline', null);
+        let old = resource.data.get('deadline', null);
+        return deadlineOk(request.resource.data)
+          && ((resource.data.status == 'open' && request.resource.data.status == 'open'
+              && resource.data.get('applicants', []).size() == 0)
+            || nw == null
+            || (old != null && nw > old));
       }
       // đơn được giao phải thuộc đúng job này, đúng người được giao và đã được chấp nhận
       function assignedAppOk(app) {
@@ -64,9 +110,9 @@ service cloud.firestore {
           // updatedAt (nếu đổi) phải là thời điểm server
           && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['updatedAt'])
             || request.resource.data.updatedAt == request.time)
-          // đổi hạn chót: chỉ thành null hoặc thời điểm trong tương lai
+          // đổi hạn chót: chỉ thành null hoặc thời điểm trong tương lai; job không còn 'open' chỉ được gia hạn
           && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['deadline'])
-            || deadlineOk(request.resource.data))
+            || deadlineChangeOk())
           // payment/paymentType chỉ sửa khi job còn 'open' và không đổi cùng lúc với status/assignedTo (không đổi giá ngay trước khi giao việc)
           && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['payment', 'paymentType'])
             || (resource.data.status == 'open'
@@ -75,8 +121,8 @@ service cloud.firestore {
               && (resource.data.applicants.size() == 0
                 || (request.resource.data.get('paymentType', null) == resource.data.get('paymentType', null)
                   && request.resource.data.get('payment', 0) >= resource.data.get('payment', 0)))))
-          // cancelReason chỉ server ghi (job hết hạn: 'expired' tắt thông báo "người đăng đã huỷ")
-          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cancelReason'])
+          // cancelReason, cancelledBy, cancelledAt chỉ server ghi (job hết hạn: 'expired' tắt thông báo "người đăng đã huỷ")
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['cancelReason', 'cancelledBy', 'cancelledAt'])
           && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
             || posterStatusChangeOk())
           // giao việc: chỉ khi job còn 'open', tối đa 1 người, phải có đơn đã được chấp nhận của job này
@@ -171,6 +217,8 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.jobId is string
         && get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.status == 'completed'
+        // chỉ đánh giá job đã hoàn thành qua server (lịch sử làm việc do callable confirmCompletion ghi)
+        && get(/databases/$(database)/documents/workHistory/$(request.resource.data.jobId + '_' + get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.assignedTo[0])).data.serverVersion == 'completion-v1'
         && (
           (request.resource.data.type == 'poster-to-worker'
             && get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.postedBy == request.auth.uid

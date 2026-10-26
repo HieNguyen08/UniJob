@@ -7,6 +7,8 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
+  arrayRemove,
+  arrayUnion,
   writeBatch,
   collection,
   deleteDoc,
@@ -77,6 +79,120 @@ describe('users', () => {
   });
   it("a user cannot update someone else's profile", async () => {
     await assertFails(updateDoc(doc(as('alice'), 'users/bob'), { displayName: 'pwned' }));
+  });
+  // Since slice 6 the server (Cloud Functions) owns reputation and job counters on users/{uid}.
+  const SERVER_OWNED = ['ratingScore', 'ratingAverage', 'totalRatings', 'penaltyPoints', 'activeJobCount', 'completedJobs', 'maxJobLimit', 'xp', 'level', 'badges', 'role', 'uid'];
+  // exact shape of signInWithGoogle (auth.service.ts)
+  const signIn = (uid: string) => ({
+    uid, email: `${uid}@hcmut.edu.vn`, displayName: uid, photoURL: '', faculty: '', department: '', studentId: '',
+    phone: '', bio: '', skills: [], bookmarks: [], ratingScore: 0, totalRatings: 0, activeJobCount: 0, maxJobLimit: 2,
+    isAnonymous: false, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+  });
+  const seedReputation = () =>
+    env.withSecurityRulesDisabled((ctx) =>
+      updateDoc(doc(ctx.firestore(), 'users/alice'), {
+        ratingScore: 3.2, ratingAverage: 4.2, totalRatings: 5, penaltyPoints: 10, activeJobCount: 1, completedJobs: 4, maxJobLimit: 2,
+      }),
+    );
+
+  it('the first sign-in payload (signInWithGoogle) is allowed, also without the default fields', async () => {
+    await assertSucceeds(setDoc(doc(as('newbie'), 'users/newbie'), signIn('newbie')));
+    const bare: Record<string, unknown> = signIn('newbie2');
+    for (const k of ['ratingScore', 'totalRatings', 'activeJobCount', 'maxJobLimit']) delete bare[k];
+    await assertSucceeds(setDoc(doc(as('newbie2'), 'users/newbie2'), bare));
+  });
+  it('a user cannot create a profile for someone else or with a foreign uid', async () => {
+    await assertFails(setDoc(doc(as('alice'), 'users/eve'), signIn('eve')));
+    await assertFails(setDoc(doc(as('newbie'), 'users/newbie'), { ...signIn('newbie'), uid: 'bob' }));
+  });
+  it.each([
+    ['ratingScore', 5], ['ratingAverage', 5], ['totalRatings', 10], ['penaltyPoints', -20], ['activeJobCount', -5],
+    ['completedJobs', 50], ['maxJobLimit', 99], ['ratingScore', '0'],
+    ['xp', 0], ['level', 1], ['badges', []], ['role', 'admin'],
+  ])('first sign-in cannot seed %s = %j', async (field, value) => {
+    await assertFails(setDoc(doc(as('newbie'), 'users/newbie'), { ...signIn('newbie'), [field]: value }));
+    await assertSucceeds(setDoc(doc(as('newbie'), 'users/newbie'), signIn('newbie'))); // sanity: same doc, defaults
+  });
+  it.each(SERVER_OWNED)('the owner cannot change %s on their own profile', async (field) => {
+    await seedReputation();
+    const value = field === 'badges' ? ['fake'] : field === 'role' || field === 'uid' ? 'admin' : 0;
+    await assertFails(updateDoc(doc(as('alice'), 'users/alice'), { [field]: value }));
+    await assertFails(updateDoc(doc(as('alice'), 'users/alice'), { bio: 'x', [field]: value, updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(as('alice'), 'users/alice'), { bio: 'x', updatedAt: serverTimestamp() })); // sanity
+  });
+  it('the owner cannot reset penalties by deleting the field or overwriting the profile', async () => {
+    await seedReputation();
+    const ref = doc(as('alice'), 'users/alice');
+    await assertFails(updateDoc(ref, { penaltyPoints: deleteField() }));
+    await assertFails(updateDoc(ref, { ratingScore: deleteField(), totalRatings: deleteField() }));
+    await assertFails(setDoc(ref, signIn('alice'))); // setDoc on an existing doc is an update that drops penaltyPoints
+    await assertSucceeds(getDoc(ref)); // sanity
+  });
+  describe('server profile stub completion', () => {
+    const asEmail = (uid: string, email: string) => env.authenticatedContext(uid, { email }).firestore();
+    const seedStub = (uid: string, extra: Record<string, unknown> = {}) =>
+      env.withSecurityRulesDisabled((ctx) =>
+        setDoc(doc(ctx.firestore(), `users/${uid}`), { uid, stub: true, ratingScore: 3, totalRatings: 2, penaltyPoints: 10, ...extra }));
+    const completion = (uid: string) => ({
+      email: `${uid}@hcmut.edu.vn`, displayName: uid, photoURL: '', faculty: '', department: '', studentId: '', phone: '', bio: '',
+      skills: [], bookmarks: [], isAnonymous: false, maxJobLimit: 2, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      stub: deleteField(),
+    });
+    it('a stub owner completes the profile once, with their token email', async () => {
+      await seedStub('stubby');
+      await assertSucceeds(updateDoc(doc(asEmail('stubby', 'stubby@hcmut.edu.vn'), 'users/stubby'), completion('stubby')));
+      // done: the stub flag is gone, so the path is closed (and the normal allowlist forbids createdAt/email)
+      await assertFails(updateDoc(doc(asEmail('stubby', 'stubby@hcmut.edu.vn'), 'users/stubby'), { email: 'x@hcmut.edu.vn', createdAt: serverTimestamp() }));
+    });
+    it('stub: false also counts as completed', async () => {
+      await seedStub('stubby');
+      await assertSucceeds(updateDoc(doc(asEmail('stubby', 'stubby@hcmut.edu.vn'), 'users/stubby'), { ...completion('stubby'), stub: false }));
+    });
+    it('denies a mismatched email, a foreign maxJobLimit, a client createdAt and keeping the stub flag', async () => {
+      await seedStub('stubby');
+      const ref = doc(asEmail('stubby', 'stubby@hcmut.edu.vn'), 'users/stubby');
+      await assertFails(updateDoc(ref, { ...completion('stubby'), email: 'other@hcmut.edu.vn' }));
+      await assertFails(updateDoc(ref, { ...completion('stubby'), maxJobLimit: 99 }));
+      await assertFails(updateDoc(ref, { ...completion('stubby'), createdAt: Timestamp.fromMillis(1) }));
+      await assertFails(updateDoc(ref, { ...completion('stubby'), stub: true }));
+    });
+    it('denies touching server-owned fields or unknown keys on the stub path', async () => {
+      await seedStub('stubby');
+      const ref = doc(asEmail('stubby', 'stubby@hcmut.edu.vn'), 'users/stubby');
+      await assertFails(updateDoc(ref, { ...completion('stubby'), penaltyPoints: 0 }));
+      await assertFails(updateDoc(ref, { ...completion('stubby'), ratingScore: 5 }));
+      await assertFails(updateDoc(ref, { ...completion('stubby'), isAdmin: true }));
+      await assertFails(updateDoc(ref, { ...completion('stubby'), uid: 'bob' }));
+    });
+    it('a non-stub profile cannot use the path, and nobody completes someone else’s stub', async () => {
+      const ref = doc(asEmail('alice', 'alice@hcmut.edu.vn'), 'users/alice');
+      await assertFails(updateDoc(ref, { email: 'alice@hcmut.edu.vn', createdAt: serverTimestamp(), maxJobLimit: 2, updatedAt: serverTimestamp() }));
+      await seedStub('stubby');
+      await assertFails(updateDoc(doc(asEmail('alice', 'stubby@hcmut.edu.vn'), 'users/stubby'), completion('stubby')));
+    });
+  });
+  it('unknown keys are denied on create and update (allowlist)', async () => {
+    await assertFails(setDoc(doc(as('newbie'), 'users/newbie'), { ...signIn('newbie'), isAdmin: true }));
+    await assertFails(setDoc(doc(as('newbie'), 'users/newbie'), { ...signIn('newbie'), ratingAverage: 0 })); // not part of the sign-in payload
+    await assertSucceeds(setDoc(doc(as('newbie'), 'users/newbie'), signIn('newbie'))); // sanity
+    await assertFails(updateDoc(doc(as('alice'), 'users/alice'), { isAdmin: true }));
+    await assertFails(updateDoc(doc(as('alice'), 'users/alice'), { bio: 'x', isAdmin: true, updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(as('alice'), 'users/alice'), { email: 'x@hcmut.edu.vn' }));
+    await assertSucceeds(updateDoc(doc(as('alice'), 'users/alice'), { bio: 'x', isAnonymous: true, updatedAt: serverTimestamp() })); // sanity
+  });
+  it('updatedAt on a profile update must be the server time', async () => {
+    await assertFails(updateDoc(doc(as('alice'), 'users/alice'), { bio: 'x', updatedAt: Timestamp.fromMillis(1) }));
+    await assertSucceeds(updateDoc(doc(as('alice'), 'users/alice'), { bio: 'x', updatedAt: serverTimestamp() }));
+  });
+  it('profile edit (Profile.handleSave) and bookmarks still work on a profile with server fields', async () => {
+    await seedReputation();
+    const ref = doc(as('alice'), 'users/alice');
+    await assertSucceeds(updateDoc(ref, {
+      displayName: 'Alice N', faculty: 'CSE', department: 'KHMT', studentId: '2212345', phone: '0901', bio: 'hi',
+      skills: ['react', 'figma'], updatedAt: serverTimestamp(),
+    }));
+    await assertSucceeds(updateDoc(ref, { bookmarks: arrayUnion('job1') }));
+    await assertSucceeds(updateDoc(ref, { bookmarks: arrayRemove('job1') }));
   });
 });
 
@@ -225,7 +341,7 @@ describe('jobs', () => {
     // sanity: other poster edits on the same in-progress job still work
     await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/ipj'), { title: 'Mới', updatedAt: serverTimestamp() }));
   });
-  it.fails('KNOWN HOLE (fix in slice 6): poster cannot cancel an in-progress job while escrow is held', async () => {
+  it('poster cannot cancel an in-progress job while escrow is held (only the cancelJob callable)', async () => {
     await seedJob('paid', { status: 'in-progress', assignedTo: ['carol'], paymentStatus: 'held' });
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'payments/paidpay'), {
@@ -233,6 +349,11 @@ describe('jobs', () => {
       });
     });
     await assertFails(updateDoc(doc(as('poster'), 'jobs/paid'), { status: 'cancelled', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(as('poster'), 'jobs/paid'), { status: 'cancelled' }));
+    // sanity: the same poster still cancels an open job in the same setup, and still edits the in-progress one
+    await seedJob('paidopen', { status: 'open' });
+    await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/paidopen'), { status: 'cancelled', updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/paid'), { title: 'Mới', updatedAt: serverTimestamp() }));
   });
   describe('poster status transitions', () => {
     const setStatus = (id: string, status: string) =>
@@ -254,9 +375,10 @@ describe('jobs', () => {
       await seedJob('exp', { status: 'open' });
       await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/exp'), { status: 'cancelled', updatedAt: serverTimestamp() })); // updateJob shape
     });
-    it('in-progress -> cancelled is allowed', async () => {
+    it('in-progress -> cancelled is denied (only the cancelJob callable)', async () => {
       await seedJob('ipj', { status: 'in-progress', assignedTo: ['carol'] });
-      await assertSucceeds(setStatus('ipj', 'cancelled'));
+      await assertFails(setStatus('ipj', 'cancelled'));
+      await assertSucceeds(setStatus('job1', 'cancelled')); // sanity
     });
     it('only the server sets cancelReason: a poster cancel with it is denied, without it allowed', async () => {
       // the server expiry job writes cancelReason 'expired', which suppresses the "cancelled by poster" notification
@@ -273,6 +395,64 @@ describe('jobs', () => {
       await assertFails(updateDoc(doc(as('poster'), 'jobs/crx'), { cancelReason: deleteField() }));
       // sanity: other poster edits on that job still work
       await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/crx'), { title: 'Mới' }));
+    });
+    it('only the server sets cancelledBy', async () => {
+      await seedJob('cb', { status: 'open' });
+      await assertFails(updateDoc(doc(as('poster'), 'jobs/cb'), { status: 'cancelled', cancelledBy: 'worker' }));
+      await assertFails(updateDoc(doc(as('poster'), 'jobs/cb'), { cancelledBy: 'poster' }));
+      await seedJob('cbx', { status: 'cancelled', cancelledBy: 'poster' });
+      await assertFails(updateDoc(doc(as('poster'), 'jobs/cbx'), { cancelledBy: deleteField() }));
+      await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/cbx'), { title: 'Mới' })); // sanity
+      await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/cb'), { status: 'cancelled' })); // sanity
+    });
+    it('only the server sets cancelledAt', async () => {
+      await seedJob('ca', { status: 'open' });
+      await assertFails(updateDoc(doc(as('poster'), 'jobs/ca'), { status: 'cancelled', cancelledAt: serverTimestamp() }));
+      await assertFails(updateDoc(doc(as('poster'), 'jobs/ca'), { cancelledAt: serverTimestamp() }));
+      await assertFails(setDoc(doc(as('poster'), 'jobs/ca-new'), newJob('poster', { cancelledAt: serverTimestamp() })));
+      await seedJob('cax', { status: 'cancelled', cancelledAt: inPast() });
+      await assertFails(updateDoc(doc(as('poster'), 'jobs/cax'), { cancelledAt: deleteField() }));
+      await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/cax'), { title: 'Mới' })); // sanity
+      await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/ca'), { status: 'cancelled' })); // sanity
+    });
+    it('open -> cancelled cannot change assignedTo in the same write', async () => {
+      await seedJob('oc', { status: 'open' });
+      await assertFails(updateDoc(doc(as('poster'), 'jobs/oc'), { status: 'cancelled', assignedTo: ['carol'] }));
+      await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/oc'), { status: 'cancelled' })); // sanity
+    });
+    it('once the job is not open the poster may only extend the deadline (the penalty is computed from it)', async () => {
+      const soon = Timestamp.fromMillis(Date.now() + 3_600_000);
+      const later = Timestamp.fromMillis(Date.now() + 2 * 86_400_000);
+      await seedJob('dl', { status: 'in-progress', assignedTo: ['carol'], deadline: inFuture() });
+      const ref = doc(as('poster'), 'jobs/dl');
+      await assertFails(updateDoc(ref, { deadline: soon })); // shorten -> inflates the worker's penalty
+      await assertFails(updateDoc(ref, { deadline: Timestamp.fromMillis(Date.now() + 1000) }));
+      await assertSucceeds(updateDoc(ref, { deadline: later })); // extend
+      await assertSucceeds(updateDoc(ref, { deadline: null })); // remove the deadline
+      await seedJob('dl0', { status: 'in-progress', assignedTo: ['carol'], deadline: null });
+      await assertFails(updateDoc(doc(as('poster'), 'jobs/dl0'), { deadline: later })); // old null: only null
+      await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/dl0'), { title: 'Mới' })); // sanity
+      // while open the deadline can still be shortened (to a future time)
+      await seedJob('dlo', { status: 'open', applicants: [], deadline: inFuture() });
+      await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/dlo'), { deadline: soon }));
+    });
+    it('with applicants the poster cannot shorten the deadline even while open (forced max cancel penalty)', async () => {
+      const soon = Timestamp.fromMillis(Date.now() + 3_600_000);
+      const later = Timestamp.fromMillis(Date.now() + 2 * 86_400_000);
+      await seedJob('dlap', { status: 'open', applicants: ['carol'], deadline: inFuture() });
+      await assertFails(updateDoc(doc(as('poster'), 'jobs/dlap'), { deadline: soon }));
+      await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/dlap'), { deadline: later })); // extend
+      await seedJob('dlap0', { status: 'open', applicants: ['carol'], deadline: null });
+      await assertFails(updateDoc(doc(as('poster'), 'jobs/dlap0'), { deadline: soon })); // old null: only null
+      await seedJob('dlna', { status: 'open', applicants: [], deadline: inFuture() });
+      await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/dlna'), { deadline: soon })); // sanity: no applicants yet
+    });
+    it('assigning a worker cannot shorten the deadline in the same write', async () => {
+      await seedJob('dla', { status: 'open', deadline: inFuture() });
+      await env.withSecurityRulesDisabled((ctx) =>
+        setDoc(doc(ctx.firestore(), 'applications/dla_carol'), { jobId: 'dla', applicantId: 'carol', status: 'accepted' }));
+      await assertFails(updateDoc(doc(as('poster'), 'jobs/dla'), { assignedTo: ['carol'], status: 'in-progress', deadline: Timestamp.fromMillis(Date.now() + 1000) }));
+      await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/dla'), { assignedTo: ['carol'], status: 'in-progress' })); // sanity
     });
     it('open -> in-progress without assigning in the same write is denied', async () => {
       await assertFails(setStatus('job1', 'in-progress'));
@@ -418,6 +598,7 @@ describe('jobs', () => {
     await assertSucceeds(setDoc(doc(as('alice'), 'jobs/c4'), newJob('alice')));
   });
   it('the poster can move the deadline to the future or clear it, never into the past or to a non-timestamp', async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'jobs/job1'), { applicants: [] })); // with applicants only extending is allowed
     const j = doc(as('poster'), 'jobs/job1');
     await assertSucceeds(updateDoc(j, { deadline: inFuture() }));
     await assertSucceeds(updateDoc(j, { deadline: null }));
@@ -443,7 +624,7 @@ describe('jobs', () => {
     await assertFails(updateDoc(j, { title: 'Mới', updatedAt: 'hôm nay' }));
     await assertSucceeds(updateDoc(j, { title: 'Mới', updatedAt: serverTimestamp() }));
   });
-  it('existing client poster writes still pass (updateJob attachments, posterCancelJob)', async () => {
+  it('existing client poster writes still pass (updateJob attachments, open cancel)', async () => {
     const j = doc(as('poster'), 'jobs/job1');
     await assertSucceeds(updateDoc(j, { attachments: ['https://example.com/a.pdf'], updatedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(j, { status: 'cancelled', updatedAt: serverTimestamp() }));
@@ -974,6 +1155,15 @@ describe('ratings', () => {
         assignedTo: ['worker'],
         status: 'completed',
       });
+      await setDoc(doc(db, 'workHistory/rjob_worker'), { jobId: 'rjob', userId: 'worker', source: 'server', serverVersion: 'completion-v1' });
+      // completed under the old rules by the client: no server work history
+      await setDoc(doc(db, 'jobs/legacyjob'), {
+        title: 'Cu',
+        postedBy: 'poster',
+        applicants: ['worker'],
+        assignedTo: ['worker'],
+        status: 'completed',
+      });
       await setDoc(doc(db, 'jobs/ipjob'), {
         title: 'Dang lam',
         postedBy: 'poster',
@@ -986,6 +1176,18 @@ describe('ratings', () => {
 
   it('poster rates worker with the correct id', async () => {
     await assertSucceeds(rate('poster', rid));
+  });
+  it('denies rating a completed job without server work history (completed by the client under old rules)', async () => {
+    await assertFails(rate('poster', 'legacyjob_poster_worker', { jobId: 'legacyjob' }));
+    await assertFails(
+      rate('worker', 'legacyjob_worker_poster', { jobId: 'legacyjob', fromUserId: 'worker', toUserId: 'poster', type: 'worker-to-poster' }),
+    );
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'workHistory/legacyjob_worker'), { serverVersion: 'old' }));
+    await assertFails(rate('poster', 'legacyjob_poster_worker', { jobId: 'legacyjob' })); // wrong version
+    await env.withSecurityRulesDisabled((ctx) =>
+      setDoc(doc(ctx.firestore(), 'workHistory/legacyjob_worker'), { serverVersion: 'completion-v1' }));
+    await assertSucceeds(rate('poster', 'legacyjob_poster_worker', { jobId: 'legacyjob' })); // sanity
   });
   it('worker rates poster', async () => {
     await assertSucceeds(
@@ -1053,8 +1255,11 @@ describe('ratings', () => {
     );
     await assertFails(updateDoc(doc(as('poster'), 'jobs/job1'), { status: 'completed' }));
     await assertFails(rate('poster', 'job1_poster_carol', { jobId: 'job1', toUserId: 'carol' }));
-    // sanity: once the server completes the job, the same rating is allowed
-    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'jobs/job1'), { status: 'completed' }));
+    // sanity: once the server completes the job (status + work history), the same rating is allowed
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'jobs/job1'), { status: 'completed' });
+      await setDoc(doc(ctx.firestore(), 'workHistory/job1_carol'), { serverVersion: 'completion-v1' });
+    });
     await assertSucceeds(rate('poster', 'job1_poster_carol', { jobId: 'job1', toUserId: 'carol' }));
   });
   it('denies rating before the job is completed', async () => {

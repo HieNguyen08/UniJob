@@ -4,7 +4,7 @@ import {
   onAuthStateChanged,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteField, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from '@/lib/firebase';
 import type { User } from '@/types';
 
@@ -43,6 +43,26 @@ export async function signInWithGoogle(): Promise<FirebaseUser> {
       ...newUser,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+    });
+  } else if (userSnap.data()?.stub === true) {
+    // The server created a stub (uid + server fields) before the first sign-in: complete it once with
+    // profile fields only; the rules allow exactly this and never let the client touch server-owned fields.
+    await updateDoc(userRef, {
+      email: user.email || '',
+      displayName: user.displayName || '',
+      photoURL: user.photoURL || '',
+      faculty: '',
+      department: '',
+      studentId: '',
+      phone: '',
+      bio: '',
+      skills: [],
+      bookmarks: [],
+      isAnonymous: false,
+      maxJobLimit: 2,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      stub: deleteField(),
     });
   }
 

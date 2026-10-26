@@ -68,7 +68,8 @@ export type HoldEscrowResult = 'created' | 'exists' | 'skipped';
 
 /**
  * A job going open -> in-progress with one assignee whose application is accepted holds the job's payment
- * in escrow (a ledger record, no money moves). An existing server record for the same parties is kept as is.
+ * in escrow (a ledger record, no money moves). An existing server record for the same parties is kept as is,
+ * except a `refunded` one (the worker cancelled through cancelJob and is assigned again): it is held afresh.
  */
 export async function handleEscrowOnAssign(
   db: Firestore,
@@ -93,13 +94,18 @@ export async function handleEscrowOnAssign(
       logger.info('escrow: no payment, the application is not accepted', { jobId, payeeId: c.payeeId });
       return 'skipped';
     }
-    if (paymentMatchesHeld(paySnap.data(), plan.payment)) {
+    const refunded = paySnap.get('status') === 'refunded';
+    if (paymentMatchesHeld(paySnap.data(), plan.payment) && !refunded) {
       if (paySnap.get('amount') !== plan.payment.amount) {
         logger.warn('escrow: held payment amount differs from the job', { jobId, paymentId: payRef.id });
       }
       return 'exists';
     }
-    if (paySnap.exists) logger.warn('escrow: replacing a non-matching payment doc', { paymentId: payRef.id });
+    if (refunded && paymentMatchesHeld(paySnap.data(), plan.payment)) {
+      logger.info('escrow: re-holding a refunded payment', { jobId, paymentId: payRef.id });
+    } else if (paySnap.exists) {
+      logger.warn('escrow: replacing a non-matching payment doc', { paymentId: payRef.id });
+    }
     tx.set(payRef, { ...plan.payment, createdAt: FieldValue.serverTimestamp(), heldAt: FieldValue.serverTimestamp(), releasedAt: null });
     tx.update(jobRef, { paymentStatus: 'held' });
     return 'created';
@@ -110,7 +116,7 @@ export type ReleaseEscrowResult = 'released' | 'skipped';
 
 /**
  * A job moving to `completed` releases the held server payment of its first valid assignee.
- * Cancellation never refunds here: held escrow stays `held` until slice 6's cancelJob (KNOWN HOLE 6).
+ * Cancellation never refunds here: the cancelJob callable refunds held escrow in its own transaction.
  */
 export async function handleEscrowOnJobUpdate(
   db: Firestore,

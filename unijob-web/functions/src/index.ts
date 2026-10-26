@@ -7,3 +7,6 @@ export { sendJobInvite } from './callables/sendJobInvite.js';
 export { disputePayment } from './callables/disputePayment.js';
 export { onJobEscrow } from './triggers/escrow.js';
 export { confirmCompletion } from './callables/confirmCompletion.js';
+export { cancelJob } from './callables/cancelJob.js';
+export { onJobCounters } from './triggers/counters.js';
+export { onRatingCreated } from './triggers/ratings.js';

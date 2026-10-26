@@ -6,7 +6,7 @@ type Endpoint = { region?: string[]; eventTrigger?: { eventFilters?: Record<stri
 describe('functions entry point', () => {
   it('exports exactly the deployable functions', () => {
     expect(Object.keys(functions).sort()).toEqual(
-      ['confirmCompletion', 'disputePayment', 'expireJobs', 'onApplicationCreated', 'onApplicationUpdated', 'onJobCompletionWritten', 'onJobEscrow', 'onJobUpdated', 'ping', 'sendJobInvite'].sort(),
+      ['cancelJob', 'confirmCompletion', 'disputePayment', 'expireJobs', 'onApplicationCreated', 'onApplicationUpdated', 'onJobCompletionWritten', 'onJobCounters', 'onJobEscrow', 'onJobUpdated', 'onRatingCreated', 'ping', 'sendJobInvite'].sort(),
     );
   });
 

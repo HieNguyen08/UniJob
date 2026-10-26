@@ -18,8 +18,10 @@
 
 ### Fixed
 - Ứng tuyển giờ lưu người ứng tuyển vào job, nên không ứng tuyển trùng được nữa. Chấp nhận ứng viên giờ gán người làm và chuyển job sang "đang làm". Cả hai thao tác ghi nguyên tử.
+- Người làm hủy việc giờ hoạt động (trước đây bị rules chặn): server mở lại job để tìm người khác, trừ điểm uy tín theo thời gian còn lại đến hạn chót và báo cho người đăng. Điểm trung bình đánh giá giờ được server cập nhật sau mỗi đánh giá.
 
 ### Security
+- Client không còn tự ghi điểm uy tín, số đánh giá, điểm phạt, số job đang làm/đã hoàn thành, giới hạn nhận việc, xp/level/huy hiệu/role trên hồ sơ (rules chặn, kể cả khi tạo hồ sơ lần đầu). Người đăng không tự hủy job đang làm được nữa: mọi lần hủy đi qua callable `cancelJob` (phạt, hoàn ký quỹ, chặn hủy khi người làm đã báo hoàn thành). Deploy functions trước, rồi rules và hosting cùng lúc.
 - Client không còn tạo/sửa `jobCompletions`, ghi `workHistory` hay tự chuyển job sang "đã hoàn thành" (rules chặn), nên người đăng không tự mở khoá đánh giá được nữa. Deploy functions trước, rồi rules và hosting cùng lúc.
 - Client không còn tạo, giải ngân, hoàn tiền hay đánh dấu tranh chấp thanh toán (rules chặn mọi ghi vào `payments` và `jobs.paymentStatus`). Trang thanh toán đọc theo id của server; giao dịch cũ (id ngẫu nhiên) vẫn xem được nhưng cần quản trị viên rà soát. Deploy rules trước, rồi functions, rồi hosting.
 - Client không còn tự tạo thông báo cho người khác (rules chặn `notifications.create`). Lời mời gửi qua callable `sendJobInvite`. Mỗi job chỉ có một doc hoàn thành (`jobCompletions/{jobId}`), chỉ người đăng và người làm đọc/sửa được và chỉ khi job đang làm. Client không ghi được `cancelReason`, không sửa `createdAt`, `updatedAt` phải là giờ server. Hạn chót lưu `null` (không có hạn) hoặc cuối ngày theo giờ Việt Nam và phải ở tương lai. Trước khi deploy cần chạy migrate đơn ứng tuyển và xử lý doc hoàn thành cũ (xem `docs/backlog/security-holes.md`).

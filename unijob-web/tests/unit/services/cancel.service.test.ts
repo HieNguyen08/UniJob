@@ -1,52 +1,118 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/services/user.service', () => ({ getUserById: vi.fn(), updateUserProfile: vi.fn() }));
-vi.mock('@/services/job.service', () => ({ getJobById: vi.fn(), updateJob: vi.fn(), updateApplicationStatus: vi.fn() }));
+const callable = vi.hoisted(() => vi.fn());
+vi.mock('firebase/functions', () => ({
+  getFunctions: vi.fn(() => 'FUNCTIONS'),
+  httpsCallable: vi.fn(() => callable),
+}));
+vi.mock('@/lib/firebase', () => ({ default: 'APP', db: {} }));
+vi.mock('@/services/user.service', () => {
+  throw new Error('cancel.service must not import user.service (the server applies penalties)');
+});
+vi.mock('@/services/job.service', () => {
+  throw new Error('cancel.service must not import job.service (the server changes job and application status)');
+});
 vi.mock('@/services/notification.service', () => {
   throw new Error('cancel.service must not import notification.service');
 });
 
-import { posterCancelJob, workerCancelJob } from '@/services/cancel.service';
-import { getJobById, updateApplicationStatus, updateJob } from '@/services/job.service';
-import { getUserById, updateUserProfile } from '@/services/user.service';
-
-const inHours = (h: number) => ({ toDate: () => new Date(Date.now() + h * 3_600_000) });
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import * as service from '@/services/cancel.service';
+import {
+  CANCEL_CODE_MESSAGES,
+  CANCEL_FALLBACK_ERROR,
+  CANCEL_REASONS,
+  CANCEL_SERVER_MESSAGES,
+  cancelErrorMessage,
+  cancelJob,
+  cancelSuccessMessage,
+  isCancelPreconditionFailed,
+} from '@/services/cancel.service';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getUserById).mockResolvedValue({ ratingScore: 4.5, activeJobCount: 2 } as never);
 });
 
-describe('posterCancelJob', () => {
-  it('cancels without penalty when no worker is assigned, and reads no job for a notification', async () => {
-    await expect(posterCancelJob('j1', 'poster', false)).resolves.toEqual({ penaltyPoints: 0, message: 'Đã hủy việc thành công.' });
-    expect(updateJob).toHaveBeenCalledWith('j1', { status: 'cancelled' });
-    expect(updateUserProfile).not.toHaveBeenCalled();
-    expect(getJobById).not.toHaveBeenCalled();
-  });
-  it('applies the 5-point penalty when a worker is assigned', async () => {
-    const res = await posterCancelJob('j1', 'poster', true);
-    expect(res.penaltyPoints).toBe(5);
-    expect(updateUserProfile).toHaveBeenCalledWith('poster', { ratingScore: 4 });
-    expect(updateJob).toHaveBeenCalledWith('j1', { status: 'cancelled' });
+describe('cancel.service exports', () => {
+  it('has no client cancel writers (the cancelJob callable owns them)', () => {
+    expect(Object.keys(service).sort()).toEqual([
+      'CANCEL_CODE_MESSAGES', 'CANCEL_FALLBACK_ERROR', 'CANCEL_REASONS', 'CANCEL_SERVER_MESSAGES',
+      'cancelErrorMessage', 'cancelJob', 'cancelSuccessMessage', 'isCancelPreconditionFailed',
+    ]);
   });
 });
 
-describe('workerCancelJob', () => {
+describe('cancelJob', () => {
+  it('calls cancelJob in asia-southeast1 with only jobId and reason and returns the server result', async () => {
+    callable.mockResolvedValue({ data: { penaltyPoints: 10, status: 'open' } });
+    await expect(cancelJob('j1', 'Khác')).resolves.toEqual({ penaltyPoints: 10, status: 'open' });
+    expect(getFunctions).toHaveBeenCalledWith('APP', 'asia-southeast1');
+    expect(httpsCallable).toHaveBeenCalledWith('FUNCTIONS', 'cancelJob');
+    expect(callable).toHaveBeenCalledWith({ jobId: 'j1', reason: 'Khác' });
+  });
+  it('propagates callable errors', async () => {
+    callable.mockRejectedValue(Object.assign(new Error('x'), { code: 'functions/failed-precondition' }));
+    await expect(cancelJob('j1', 'Khác')).rejects.toMatchObject({ code: 'functions/failed-precondition' });
+  });
+  it('offers exactly the four reasons the server accepts', () => {
+    expect(CANCEL_REASONS).toEqual(['Không thể hoàn thành đúng deadline', 'Yêu cầu công việc thay đổi quá nhiều', 'Lý do cá nhân khẩn cấp', 'Khác']);
+  });
+});
+
+describe('cancelSuccessMessage', () => {
   it.each([
-    [6, 20],
-    [18, 10],
-    [72, 5],
-  ])('%dh before the deadline costs %d points', async (hours, points) => {
-    const res = await workerCancelJob('j1', 'j1_w', 'w', 'Khác', inHours(hours));
-    expect(res.penaltyPoints).toBe(points);
+    [{ status: 'open', penaltyPoints: 20 }, 'Hủy sát giờ — bạn bị trừ 20 điểm uy tín.'],
+    [{ status: 'open', penaltyPoints: 10 }, 'Đã hủy — bạn bị trừ 10 điểm uy tín.'],
+    [{ status: 'open', penaltyPoints: 5 }, 'Đã hủy — bạn bị trừ 5 điểm uy tín.'],
+    [{ status: 'cancelled', penaltyPoints: 5 }, 'Đã hủy việc — bạn bị trừ 5 điểm uy tín vì đã có người nhận việc.'],
+    [{ status: 'cancelled', penaltyPoints: 0 }, 'Đã hủy việc thành công.'],
+    [{ status: 'open', penaltyPoints: 0 }, 'Đã hủy việc thành công.'],
+  ] as const)('%j -> %s (penalty from the server)', (result, text) => {
+    expect(cancelSuccessMessage(result)).toBe(text);
   });
-  it('without a deadline costs 5, rejects the application, reopens the job, sends nothing', async () => {
-    const res = await workerCancelJob('j1', 'j1_w', 'w', 'Khác', null);
-    expect(res).toEqual({ penaltyPoints: 5, message: 'Đã hủy — bạn bị trừ 5 điểm uy tín.' });
-    expect(updateUserProfile).toHaveBeenCalledWith('w', { ratingScore: 4, activeJobCount: 1 });
-    expect(updateApplicationStatus).toHaveBeenCalledWith('j1_w', 'rejected');
-    expect(updateJob).toHaveBeenCalledWith('j1', { status: 'open' });
-    expect(getJobById).not.toHaveBeenCalled();
+});
+
+describe('cancelErrorMessage', () => {
+  it('passes every known server message through', () => {
+    for (const m of [
+      'Yêu cầu không hợp lệ.',
+      'Lý do hủy không hợp lệ.',
+      'Vui lòng chọn lý do hủy công việc.',
+      'Không thể hủy công việc ở trạng thái hiện tại.',
+      'Công việc này đã bị hủy.',
+      'Người làm đã báo hoàn thành. Hãy xác nhận hoặc báo tranh chấp.',
+      'Bạn đã báo hoàn thành công việc này nên không thể hủy.',
+      'Thanh toán ký quỹ đang bị tranh chấp nên không thể hủy công việc.',
+      'Không tìm thấy công việc.',
+      'Bạn cần đăng nhập để thực hiện thao tác này.',
+      'Bạn không có quyền thực hiện thao tác này với công việc này.',
+      'Bạn cần đăng nhập bằng email @hcmut.edu.vn đã xác minh để thực hiện thao tác này.',
+    ]) expect(CANCEL_SERVER_MESSAGES.has(m)).toBe(true);
+    for (const message of CANCEL_SERVER_MESSAGES) {
+      expect(cancelErrorMessage({ code: 'functions/failed-precondition', message })).toBe(message);
+    }
+  });
+  it.each([
+    [{ code: 'functions/not-found', message: 'not-found' }, 'not-found'], // callable not deployed / wrong region
+    [{ code: 'functions/failed-precondition', message: 'FAILED_PRECONDITION' }, 'failed-precondition'],
+    [{ code: 'functions/permission-denied', message: 'Thông điệp lạ' }, 'permission-denied'],
+  ] as const)('uses the local Vietnamese text for %j', (err, code) => {
+    expect(cancelErrorMessage(err)).toBe(CANCEL_CODE_MESSAGES[code]);
+  });
+  it('has Vietnamese text for every user-facing code and falls back otherwise', () => {
+    expect(Object.keys(CANCEL_CODE_MESSAGES).sort()).toEqual(
+      ['failed-precondition', 'invalid-argument', 'not-found', 'permission-denied', 'unauthenticated'],
+    );
+    for (const m of Object.values(CANCEL_CODE_MESSAGES)) expect(m).toMatch(/[ạ-ỹđ]/);
+    expect(cancelErrorMessage({ code: 'functions/internal', message: 'internal' })).toBe(CANCEL_FALLBACK_ERROR);
+    expect(cancelErrorMessage(new Error('network'))).toBe(CANCEL_FALLBACK_ERROR);
+  });
+});
+
+describe('isCancelPreconditionFailed', () => {
+  it('is true only for functions/failed-precondition', () => {
+    expect(isCancelPreconditionFailed({ code: 'functions/failed-precondition', message: 'x' })).toBe(true);
+    expect(isCancelPreconditionFailed({ code: 'functions/permission-denied' })).toBe(false);
+    expect(isCancelPreconditionFailed(null)).toBe(false);
   });
 });

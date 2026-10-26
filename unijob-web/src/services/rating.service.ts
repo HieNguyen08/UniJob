@@ -6,7 +6,6 @@ import {
   where,
   serverTimestamp,
   doc,
-  updateDoc,
   getDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -38,22 +37,7 @@ export async function submitRating(
     createdAt: serverTimestamp(),
   });
 
-  // Update user's average rating. Slice 6 moves this aggregate server-side;
-  // until then the users rule may deny it, which must not fail the saved rating.
-  // Note: getRatingsByUser already includes the newly added doc above
-  try {
-    const userRatings = await getRatingsByUser(toUserId);
-    const totalScore = userRatings.reduce((sum, r) => sum + r.score, 0);
-    const avgRating = totalScore / userRatings.length;
-
-    const userRef = doc(db, 'users', toUserId);
-    await updateDoc(userRef, {
-      ratingScore: Math.round(avgRating * 10) / 10,
-      totalRatings: userRatings.length,
-    });
-  } catch (err) {
-    console.warn('Không cập nhật được điểm trung bình (sẽ do server xử lý):', err);
-  }
+  // Điểm trung bình và số đánh giá do trigger onRatingCreated (server) cập nhật.
 
   return docRef.id;
 }

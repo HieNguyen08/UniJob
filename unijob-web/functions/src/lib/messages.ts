@@ -85,5 +85,7 @@ export const messages = {
   jobExpiredWorker: (title: string) => `⏰ Công việc "${t(title)}" đã hết hạn và được đóng tự động.`,
   paymentDisputed: (title: string) =>
     `⚠️ Thanh toán ký quỹ cho "${t(title)}" đang bị tranh chấp. Tiền sẽ được giữ lại cho đến khi xử lý xong.`,
+  workerCancelled: (title: string) =>
+    `⚠️ Người làm đã hủy nhận công việc "${t(title)}". Công việc đã được mở lại để tìm người khác.`,
   jobInvite: (fromName: string, title: string) => `${n(fromName)} mời bạn ứng tuyển "${t(title)}"`,
 } as const;

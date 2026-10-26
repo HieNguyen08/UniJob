@@ -19,4 +19,5 @@ export type NotificationType =
   | 'deadline_expired'
   | 'completion_requested'
   | 'job_invite'
-  | 'payment_disputed';
+  | 'payment_disputed'
+  | 'worker_cancelled'; // web gets it in slice 6b (Decision 8 of docs/plans/2026-10-25-server-reputation.md)

@@ -59,7 +59,7 @@ All `Run:` lines are relative to the worktree root (the directory that contains 
    - `activeJobCount`: the number of jobs the user is currently the worker on (`in-progress`).
    - `completedJobs`: the number of completed jobs as the worker.
 
-   A valid rating has `toUserId === uid`, `fromUserId !== uid`, and `score` an integer from 1 to 5. These are the rules' create checks, re-checked because legacy docs predate them.
+   A valid rating has `toUserId === uid`, `fromUserId !== uid`, a `type` of `poster-to-worker` or `worker-to-poster`, `score` an integer from 1 to 5, and a doc id exactly `${jobId}_${fromUserId}_${toUserId}`. It is counted once per that key. These are the rules' create checks, re-checked because legacy and random-id docs predate them. `aggregateRatings` takes `{ id, data }` pairs and also returns `excluded` (the other ratings addressed to the user).
 
    A legacy profile without a numeric `ratingAverage` uses `ratingScore` as the base when it is a number in [0, 5], else 0 (`currentAverage`). This only matters between the 6a deploy and the Task 7 backfill.
 
@@ -109,9 +109,10 @@ All `Run:` lines are relative to the worktree root (the directory that contains 
        - < 12 h → 20 (a passed deadline included)
        - < 24 h → 10
        - otherwise, or with no or invalid deadline → 5
+       - The deadline day follows the expiry scheduler: `lib/deadline.ts` (moved from `handlers/expireJobs.ts`) gives `vnDayEndMillis` (23:59:59.999 +07:00) and `isLegacyNoDeadline`. A legacy no-deadline job (deadline = creation time) counts as no deadline; any other deadline counts to the end of its Vietnam day, so a legacy `YYYY-MM-DD` deadline (00:00 UTC) is not read as already near.
      - After the commit: `worker_cancelled` to the poster, sourceId `${jobId}_${workerId}`, message `messages.workerCancelled(title)`. A failed notification is logged, never thrown (as in `disputePayment`).
    - **Penalty write:** read `users/{penalisedUid}` in the transaction. `penaltyPoints = current + points`, and `ratingScore` is recomputed with `currentAverage`.
-     - Missing profile → `logger.warn`, no user write, and the response `penaltyPoints` is 0 (the applied penalty).
+     - Missing profile → `logger.warn` and a profile stub (`profileStub`, `set(..., { merge: true })`, only when the doc does not exist): `uid`, `stub: true` and the server fields (`penaltyPoints` and `ratingScore` as computed, the rest 0). A missing doc cannot launder a penalty, so the response `penaltyPoints` is the applied penalty. `onRatingCreated` and `onJobCounters` write the same stub instead of skipping a missing profile. `stub: true` is never added to an existing profile. The stub has no email or name: the 6b sign-in completes a stub once and then removes the marker.
      - The reason is never stored; it is logged with `logger.info`.
    - `activeJobCount` is never touched here (Decision 3 owns it).
 6. **Escrow re-hold.** `handleEscrowOnAssign` keeps returning `'exists'` for a matching server payment, except when its status is `refunded`. A refunded payment is overwritten by a fresh held record (`'created'`), so a worker who cancelled and is later re-assigned to the same job gets escrow held again. `released` and `disputed` stay `'exists'`.
@@ -134,9 +135,11 @@ All `Run:` lines are relative to the worktree root (the directory that contains 
       - `activeJobCount`: in-progress jobs whose `assignedTo[0]` is the user (and not the poster).
       - `completedJobs`: completed jobs with the same rule.
       - `ratingScore`: `reputationScore(ratingAverage, penaltyPoints)`.
-    - It also sets `jobCounters/{jobId}` for every in-progress or completed job, so the trigger's later reconcile matches the backfilled counts.
+    - It also sets `jobCounters/{jobId}` for every in-progress or completed job whose stored marker differs from `markerFor(job)` (it reads `jobCounters` and skips equal ones), so the trigger's later reconcile matches the backfilled counts.
+    - `aggregateRatings` only counts ratings with the `${jobId}_${from}_${to}` id and a valid type and score; the run prints how many ratings it excluded.
+    - Non-number stored values are treated as invalid (kept out of `before`, printed as `invalid <JSON>`), and every value read from Firestore is printed with `JSON.stringify`.
     - Only docs whose values differ are written, in batches of at most 400 writes. Ratings for users without a profile are ignored, and no profile is created.
-    - It is idempotent: a second run plans nothing.
+    - Run it in a quiet window (nobody rating, assigning or completing jobs). After `--apply`, a mandatory second dry-run must plan nothing (`users=0 markers=0`); anything left means data moved meanwhile.
     - It cannot recover penalties forged downward between the 6a and 6b deploys. Deploying both in one window keeps that gap minutes long.
 11. **Deploy order** (README, Task 8), one window:
     1. 6a `--only functions`.

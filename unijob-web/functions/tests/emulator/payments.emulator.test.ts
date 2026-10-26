@@ -55,6 +55,25 @@ describe('escrow hold on assignment (emulator)', () => {
     expect(((await paymentOf(jobId, worker)).get('heldAt') as Timestamp).isEqual(heldAt)).toBe(true);
   });
 
+  it('a refunded server payment for the same payee is held again on re-assignment', async () => {
+    const { worker, jobId, before, after } = await assignedJob();
+    await handleEscrowOnAssign(db, jobId, before, after);
+    await db.doc(`payments/${jobId}_${worker}`).update({ status: 'refunded', refundedAt: Timestamp.now() });
+    await expect(handleEscrowOnAssign(db, jobId, before, after)).resolves.toBe('created');
+    const pay = (await paymentOf(jobId, worker)).data();
+    expect(pay).toMatchObject({ status: 'held', releasedAt: null });
+    expect(pay?.refundedAt).toBeUndefined();
+    expect((await jobOf(jobId))?.paymentStatus).toBe('held');
+  });
+
+  it.each(['released', 'disputed'])('a %s server payment is kept (exists)', async (status) => {
+    const { worker, jobId, before, after } = await assignedJob();
+    await handleEscrowOnAssign(db, jobId, before, after);
+    await db.doc(`payments/${jobId}_${worker}`).update({ status });
+    await expect(handleEscrowOnAssign(db, jobId, before, after)).resolves.toBe('exists');
+    expect((await paymentOf(jobId, worker)).get('status')).toBe(status);
+  });
+
   it('handleEscrow runs the hold for open -> in-progress', async () => {
     const { worker, jobId, before, after } = await assignedJob();
     await expect(handleEscrow(db, jobId, before, after)).resolves.toBe('created');

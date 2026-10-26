@@ -92,3 +92,9 @@ it('paymentDisputed', () => {
     '⚠️ Thanh toán ký quỹ cho "Nhập liệu" đang bị tranh chấp. Tiền sẽ được giữ lại cho đến khi xử lý xong.',
   );
 });
+
+describe('workerCancelled', () => {
+  it('names the job and says it was reopened', () => {
+    expect(messages.workerCancelled('Xem www.evil.com')).toBe('⚠️ Người làm đã hủy nhận công việc "Xem [liên kết]". Công việc đã được mở lại để tìm người khác.');
+  });
+});

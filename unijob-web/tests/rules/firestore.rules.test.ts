@@ -223,7 +223,7 @@ describe('jobs', () => {
     ...extra,
   });
   const fbUrl = (jobId: string, n: number | string = 0) =>
-    `https://firebasestorage.googleapis.com/v0/b/unijob-ad6eb.appspot.com/o/jobs%2F${jobId}%2Fattachments%2F1761400000000_f${n}.pdf?alt=media&token=0a1b2c3d-4e5f-6789-abcd-ef0123456789`;
+    `https://firebasestorage.googleapis.com/v0/b/unijob-ad6eb.appspot.com/o/jobs%2F${jobId}%2Fattachments%2F1761400000000_f${n}.pdf?alt=media&token=00000000-0000-0000-0000-000000000000`;
   const urlsFor = (jobId: string, n: number) => Array.from({ length: n }, (_, i) => fbUrl(jobId, i));
   const inFuture = () => Timestamp.fromMillis(Date.now() + 86_400_000);
   const inPast = () => Timestamp.fromMillis(Date.now() - 60_000);
@@ -656,7 +656,7 @@ describe('jobs', () => {
         'javascript:alert(1)',
         'https://example.com/a.pdf',
         g.replace('https://', 'http://'),
-        g.replace('alt=media&token=0a1b2c3d-4e5f-6789-abcd-ef0123456789', 'alt=media&token=zzz'),
+        g.replace('alt=media&token=00000000-0000-0000-0000-000000000000', 'alt=media&token=zzz'),
         g.replace(`jobs%2F${id}`, `jobs%2F${id}x`),
       ];
     };

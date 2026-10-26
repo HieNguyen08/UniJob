@@ -14,7 +14,9 @@ Add a failing (`it.fails('KNOWN HOLE …')`) test for each before fixing it.
 
 - **users read** — every signed-in user can read every profile (PII exposure).
 - **workHistory read** — every signed-in user can read every `workHistory` doc (the collaboration graph, which de-anonymises anonymous posters). Track and fix together with **users read**.
-- **No `storage.rules`** — Firebase Storage has no rules file in the repo.
+- **Download URLs are bearer links** — Storage `get` needs sign-in, but a `getDownloadURL` link (with its token) works for anyone who has it, and `jobs.attachments` stores those links, readable by every signed-in user. Acceptable for job attachments; revisit before storing private files (CVs, IDs).
+- **Storage quota / abuse** — a poster can upload up to 10 MB files repeatedly under any open job of their own (the rules bound size, type and name, not count or total volume), and each file stays reachable through its bearer download URL. Needs a server sweep of orphan or excess files, App Check enforcement on Storage and a billing budget alert.
+- **Orphan attachments** — files stay in Storage when the job doc update fails after upload, when the poster removes the job, or when the 10-file cap trips; deleting a job does not delete its files (and after the job is gone nobody can, per the rules). Needs a server cleanup (job delete trigger or scheduled sweep).
 - **Legacy job docs without an `applicants` field** — non-poster applies are rejected (the jobs rule errors on a missing field). Needs a data check/migration before deploy.
 - **Legacy applications with random ids** — cannot be assigned (the jobs rule looks up `applications/{jobId}_{uid}`). Migrate them to `{jobId}_{uid}` ids before deploy.
 - **Job invite spam** — `sendJobInvite` allows one invite per (job, worker) but has no per-poster rate limit across many jobs or workers. Still missing: a per-poster rate limit and a daily invite cap (e.g. a server-side counter doc per poster per day, checked in the callable).

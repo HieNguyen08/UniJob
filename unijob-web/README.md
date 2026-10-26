@@ -120,6 +120,8 @@ VITE_FIREBASE_APP_ID=1:123456789:web:abc123
    - **Authentication** -> Sign-in method -> Google (enable)
    - **Cloud Firestore** → Create database
    - **Storage** → Get started
+     - Deploy rules: `npx firebase deploy --only storage`. Lần đầu Firebase sẽ hỏi cấp quyền cho service agent của Storage đọc Firestore (rules dùng `firestore.get` trên database `kirigitejkf8095h`): chọn đồng ý, nếu không mọi lượt tải tệp đính kèm đều bị từ chối.
+     - `firestore.rules` ghim URL tệp đính kèm vào bucket `unijob-ad6eb` (`unijob-ad6eb.firebasestorage.app` hoặc `unijob-ad6eb.appspot.com`). Dùng project/bucket khác thì phải sửa literal này trong hàm `attachmentUrlOk` (và `VITE_FIREBASE_STORAGE_BUCKET` phải khớp, nếu không trang job không hiện liên kết tải xuống).
 
 ---
 

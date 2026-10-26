@@ -88,6 +88,22 @@ service cloud.firestore {
           && app.jobId == jobId
           && app.applicantId == request.resource.data.assignedTo[0];
       }
+      // tệp đính kèm: tối đa 10 URL tải xuống, mỗi URL phải trỏ vào thư mục storage của chính job này
+      // (khớp MAX_ATTACHMENTS ở storage.service.ts) và bucket của dự án unijob-ad6eb (đổi project/bucket thì phải sửa literal này). Chuỗi regex nối jobId nên không dùng cho id có ký tự regex.
+      function attachmentUrlOk(u, id) {
+        return u is string
+          && u.matches('^https://firebasestorage\\.googleapis\\.com/v0/b/unijob-ad6eb\\.(firebasestorage\\.app|appspot\\.com)/o/jobs%2F' + id
+            + '%2Fattachments%2F[^/?#]+\\?alt=media&token=[0-9a-f-]+$');
+      }
+      function attachmentsOk(data, id) {
+        let a = data.get('attachments', []);
+        return a is list && a.size() <= 10
+          && (a.size() <= 0 || attachmentUrlOk(a[0], id)) && (a.size() <= 1 || attachmentUrlOk(a[1], id))
+          && (a.size() <= 2 || attachmentUrlOk(a[2], id)) && (a.size() <= 3 || attachmentUrlOk(a[3], id))
+          && (a.size() <= 4 || attachmentUrlOk(a[4], id)) && (a.size() <= 5 || attachmentUrlOk(a[5], id))
+          && (a.size() <= 6 || attachmentUrlOk(a[6], id)) && (a.size() <= 7 || attachmentUrlOk(a[7], id))
+          && (a.size() <= 8 || attachmentUrlOk(a[8], id)) && (a.size() <= 9 || attachmentUrlOk(a[9], id));
+      }
       allow read: if isAuth();
       allow create: if isAuth()
         && request.resource.data.keys().hasOnly([
@@ -100,13 +116,17 @@ service cloud.firestore {
         && request.resource.data.applicants == []
         && request.resource.data.assignedTo == []
         && request.resource.data.createdAt == request.time
-        && deadlineOk(request.resource.data);
+        && deadlineOk(request.resource.data)
+        && attachmentsOk(request.resource.data, jobId);
       allow update: if isAuth() && (
         // người đăng: sửa mọi thứ trừ postedBy
         (resource.data.postedBy == request.auth.uid
           && request.resource.data.postedBy == resource.data.postedBy
           // poster không sửa danh sách applicants, không đổi createdAt; paymentStatus chỉ server ghi (ký quỹ)
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['applicants', 'createdAt', 'paymentStatus'])
+          // attachments (nếu đổi) phải đúng dạng; job cũ có nhiều hơn 10 vẫn sửa được các trường khác
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['attachments'])
+            || attachmentsOk(request.resource.data, jobId))
           // updatedAt (nếu đổi) phải là thời điểm server
           && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['updatedAt'])
             || request.resource.data.updatedAt == request.time)

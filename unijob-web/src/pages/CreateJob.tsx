@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { createJob } from '@/services/job.service';
-import { uploadJobAttachments, validateFile } from '@/services/storage.service';
+import { ATTACHMENT_UPLOAD_ERROR, attachmentLimitError, deleteAttachments, uploadJobAttachments, validateFile } from '@/services/storage.service';
 import { getSmartMatchedWorkers, type SmartMatchWorker } from '@/services/workHistory.service';
 import { inviteErrorMessage, sendJobInvite } from '@/services/invite.service';
 import { JOB_CATEGORIES, FACULTIES } from '@/lib/constants';
@@ -75,6 +75,11 @@ export default function CreateJob() {
       const err = validateFile(f);
       if (err) errors.push(err);
       else if (!attachmentFiles.find((x) => x.name === f.name && x.size === f.size)) {
+        const limitErr = attachmentLimitError(attachmentFiles.length + valid.length, 1);
+        if (limitErr) {
+          errors.push(limitErr);
+          break;
+        }
         valid.push(f);
       }
     }
@@ -94,6 +99,8 @@ export default function CreateJob() {
       toast.error(PAST_DEADLINE_ERROR);
       return;
     }
+    const limitErr = attachmentLimitError(attachmentFiles.length, 0);
+    if (limitErr) { toast.error(limitErr); return; }
 
     setIsSubmitting(true);
     try {
@@ -120,9 +127,18 @@ export default function CreateJob() {
 
       // Upload attachments after job is created
       if (attachmentFiles.length > 0) {
-        const urls = await uploadJobAttachments(jobId, attachmentFiles);
-        const { updateJob } = await import('@/services/job.service');
-        await updateJob(jobId, { attachments: urls });
+        let urls: string[] = [];
+        try {
+          urls = await uploadJobAttachments(jobId, attachmentFiles);
+          const { updateJob } = await import('@/services/job.service');
+          await updateJob(jobId, { attachments: urls });
+        } catch (uploadError) {
+          console.error(uploadError);
+          await deleteAttachments(urls); // xoá tệp đã tải lên nếu bước cập nhật job lỗi
+          toast.error(ATTACHMENT_UPLOAD_ERROR);
+          navigate(`/jobs/${jobId}`);
+          return;
+        }
       }
 
       if (isDraft) {

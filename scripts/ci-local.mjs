@@ -122,7 +122,7 @@ if (mode === 'full') {
   });
 
   gate('rules-tests', () => {
-    const r = run('npx firebase emulators:exec --only firestore --project demo-unijob "npx vitest run --project rules"');
+    const r = run('npx firebase emulators:exec --only firestore,storage --project demo-unijob "npx vitest run --project rules"');
     return { ok: r.ok, summary: r.tail };
   });
 

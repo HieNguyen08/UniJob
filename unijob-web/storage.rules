@@ -1,0 +1,46 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Đọc job ở database có tên kirigitejkf8095h (không phải (default)).
+    function posterOf(jobId) {
+      let job = firestore.get(/databases/kirigitejkf8095h/documents/jobs/$(jobId));
+      return isAuth() && job != null && job.data.postedBy == request.auth.uid;
+    }
+
+    // Tệp đính kèm job: chỉ người đăng tải lên khi job còn 'open'; giới hạn khớp storage.service.ts (10MB, danh sách contentType).
+    // Không có match nào khác nên mọi đường dẫn còn lại bị từ chối.
+    match /jobs/{jobId}/attachments/{fileName} {
+      allow get: if isAuth();
+      allow list: if false;
+      allow create: if resource == null
+        && fileName.size() <= 200
+        // tên file: {13 chữ số}_{tên}.{đuôi cho phép}, khớp storage.service.ts (đuôi không phân biệt hoa thường)
+        && fileName.matches('(?i)^[0-9]{13}_[^/]+\\.(pdf|png|jpe?g|webp|gif|zip|docx?|xlsx?)$')
+        // không cho đặt header ghi đè cách trình duyệt hiển thị/giải nén tệp
+        && (request.resource.contentDisposition == null || request.resource.contentDisposition.matches('^inline.*'))
+        && (request.resource.contentEncoding == null || request.resource.contentEncoding == 'identity')
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType in [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/gif',
+          'application/pdf',
+          'application/zip',
+          'application/x-zip-compressed',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ]
+        && posterOf(jobId)
+        && firestore.get(/databases/kirigitejkf8095h/documents/jobs/$(jobId)).data.status == 'open';
+      allow update: if false;
+      allow delete: if posterOf(jobId);
+    }
+  }
+}

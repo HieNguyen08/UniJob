@@ -222,6 +222,9 @@ describe('jobs', () => {
     createdAt: serverTimestamp(),
     ...extra,
   });
+  const fbUrl = (jobId: string, n: number | string = 0) =>
+    `https://firebasestorage.googleapis.com/v0/b/unijob-ad6eb.appspot.com/o/jobs%2F${jobId}%2Fattachments%2F1761400000000_f${n}.pdf?alt=media&token=00000000-0000-0000-0000-000000000000`;
+  const urlsFor = (jobId: string, n: number) => Array.from({ length: n }, (_, i) => fbUrl(jobId, i));
   const inFuture = () => Timestamp.fromMillis(Date.now() + 86_400_000);
   const inPast = () => Timestamp.fromMillis(Date.now() - 60_000);
   it('job create must set postedBy to the caller', async () => {
@@ -626,8 +629,56 @@ describe('jobs', () => {
   });
   it('existing client poster writes still pass (updateJob attachments, open cancel)', async () => {
     const j = doc(as('poster'), 'jobs/job1');
-    await assertSucceeds(updateDoc(j, { attachments: ['https://example.com/a.pdf'], updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(j, { attachments: [fbUrl('job1')], updatedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(j, { status: 'cancelled', updatedAt: serverTimestamp() }));
+  });
+  it('attachments: a list of at most 10 strings on create', async () => {
+    await assertSucceeds(setDoc(doc(as('alice'), 'jobs/a10'), newJob('alice', { attachments: urlsFor('a10', 10) })));
+    await assertSucceeds(setDoc(doc(as('alice'), 'jobs/a0'), newJob('alice'))); // field absent
+    await assertFails(setDoc(doc(as('alice'), 'jobs/a11'), newJob('alice', { attachments: urlsFor('a11', 11) })));
+    await assertFails(setDoc(doc(as('alice'), 'jobs/anum'), newJob('alice', { attachments: [...urlsFor('anum', 9), 7] })));
+    await assertFails(setDoc(doc(as('alice'), 'jobs/astr'), newJob('alice', { attachments: fbUrl('astr') })));
+    await assertFails(setDoc(doc(as('alice'), 'jobs/amap'), newJob('alice', { attachments: [{ url: 'x' }] })));
+  });
+  it('attachments: every entry must be a download URL of its own job storage folder', async () => {
+    const good = fbUrl('u1');
+    await assertSucceeds(setDoc(doc(as('alice'), 'jobs/u1'), newJob('alice', { attachments: [good] })));
+    const newBucket = fbUrl('u2').replace('unijob-ad6eb.appspot.com', 'unijob-ad6eb.firebasestorage.app');
+    await assertSucceeds(setDoc(doc(as('alice'), 'jobs/u2'), newJob('alice', { attachments: [newBucket] })));
+    const bad = (id: string) => {
+      const g = fbUrl(id);
+      return [
+        g.replace('firebasestorage.googleapis.com', 'evil.example.com'),
+        g.replace('unijob-ad6eb.appspot.com', 'attacker-project.appspot.com'),
+        g.replace('unijob-ad6eb.appspot.com', 'unijob-ad6eb.evil.com'),
+        g.replace('unijob-ad6eb.appspot.com', 'unijob-ad6eb.appspot.com.evil.com'),
+        fbUrl('otherJob'),
+        'javascript:alert(1)',
+        'https://example.com/a.pdf',
+        g.replace('https://', 'http://'),
+        g.replace('alt=media&token=00000000-0000-0000-0000-000000000000', 'alt=media&token=zzz'),
+        g.replace(`jobs%2F${id}`, `jobs%2F${id}x`),
+      ];
+    };
+    for (let i = 0; i < bad('ub').length; i++) {
+      await assertFails(setDoc(doc(as('alice'), `jobs/ub${i}`), newJob('alice', { attachments: [bad(`ub${i}`)[i]] })));
+    }
+    // update path: same binding to the job id
+    const j = doc(as('poster'), 'jobs/job1');
+    await assertSucceeds(updateDoc(j, { attachments: [fbUrl('job1')], updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(j, { attachments: [fbUrl('u1')], updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(j, { attachments: ['javascript:alert(1)'], updatedAt: serverTimestamp() }));
+  });
+  it('attachments: the poster update (updateJob after upload) must keep the same shape', async () => {
+    const j = doc(as('poster'), 'jobs/job1');
+    await assertSucceeds(updateDoc(j, { attachments: urlsFor('job1', 10), updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(j, { attachments: urlsFor('job1', 11), updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(j, { attachments: [null], updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(j, { attachments: 'x', updatedAt: serverTimestamp() }));
+  });
+  it('a legacy job with more than 10 attachments can still be edited when attachments do not change', async () => {
+    await seedJob('legacyAtt', { attachments: Array.from({ length: 12 }, (_, i) => `u${i}`) });
+    await assertSucceeds(updateDoc(doc(as('poster'), 'jobs/legacyAtt'), { title: 'Mới', updatedAt: serverTimestamp() }));
   });
   it('job create rejects a deadline that is not a timestamp (string, number, map)', async () => {
     await assertFails(setDoc(doc(as('alice'), 'jobs/d4'), newJob('alice', { deadline: '2026-10-17' })));

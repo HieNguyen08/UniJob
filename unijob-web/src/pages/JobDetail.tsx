@@ -10,6 +10,7 @@ import type { Job, User, Payment } from '@/types';
 import { JOB_CATEGORIES, PAYMENT_TYPES } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
 import { formatDeadline } from '@/lib/deadline';
+import { attachmentName, isJobAttachmentUrl } from '@/lib/attachments';
 import {
   ArrowLeft,
   Zap,
@@ -258,7 +259,16 @@ export default function JobDetail() {
                 <h2 className="mb-2 text-base font-semibold">Tài liệu đính kèm</h2>
                 <ul className="space-y-2">
                   {job.attachments.map((url, i) => {
-                    const name = decodeURIComponent(url.split('%2F').pop()?.split('?')[0] ?? `file-${i + 1}`);
+                    const name = attachmentName(url, i);
+                    // Chỉ render liên kết khi URL thuộc thư mục đính kèm của chính job này; còn lại hiện chữ thường.
+                    if (!isJobAttachmentUrl(url, job.id)) {
+                      return (
+                        <li key={i} className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm text-[var(--color-muted-foreground)]">
+                          <Paperclip className="h-4 w-4 shrink-0" />
+                          <span className="flex-1 truncate">{name}</span>
+                        </li>
+                      );
+                    }
                     return (
                       <li key={i}>
                         <a

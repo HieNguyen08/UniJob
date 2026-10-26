@@ -4,7 +4,7 @@ Firestore/Storage holes found while building the agent pipeline. Fix them in sub
 
 ## Pinned by `it.fails('KNOWN HOLE …')` in `unijob-web/tests/rules/firestore.rules.test.ts`
 
-1. Poster cannot cancel an in-progress job while escrow is held (`poster cannot cancel an in-progress job while escrow is held`, slice 6). `in-progress -> cancelled` stays allowed so paid jobs can still be cancelled, but it is a direct client write: the poster penalty in `posterCancelJob` can be skipped by writing the status directly, and the held escrow is neither refunded nor released server-side. Since slice 4 the escrow is created and released server-side, but a cancel leaves it held: slice 6's cancelJob decides the refund. Since slice 6a the server path (`cancelJob`) refunds and penalises; 6b removes the direct client write.
+None open.
 
 When you fix one, turn its `it.fails` into a normal `it` **and** add a sanity `assertSucceeds` for the allowed case in the same setup, so a broken fixture (which also makes the call fail) cannot make the test pass.
 
@@ -26,6 +26,10 @@ Add a failing (`it.fails('KNOWN HOLE …')`) test for each before fixing it.
 - **cancelJob needs HCMUT accounts** — `requireVerifiedMember`; track with the `beforeUserCreated` item above.
 - **Completion needs HCMUT accounts on both sides** — `confirmCompletion` uses `requireVerifiedMember`, so a job with a non-HCMUT poster or worker can never complete. Track with the `beforeUserCreated` item above.
 - **Pre-deploy audit of `source: 'server'` payments** — before the slice 4 functions deploy, list and delete every `payments` doc with `source == 'server'` (clients could forge them under the old rules; the 4b rules close this).
+- **users identity fields** — owners can still set `email` freely when creating their profile and rewrite `displayName` and `photoURL` afterwards (since slice 6 `users` writes use a key allowlist; `email` is no longer updatable). Bind `email` to the auth token and track with the users PII split (next spec).
+- **maxJobLimit is not maintained** — locked at 2 for every user since slice 6 and not enforced anywhere (`canAcceptMoreJobs` has no caller). Decide server-side limits with the gamification spec.
+- **Server profile stubs** — when a rating or cancel touches a user without a `users` doc, 6a writes a server stub (`uid` + server fields). The client sign-in skips creating a profile when the doc exists, so that user's doc lacks `displayName`/`email`/`photoURL` until they edit the profile (and the first-sign-in payload is never written). Resolved in slice 6b review: 6a marks stubs `stub: true` and `signInWithGoogle` completes them once (rules `stubCompletionOk`).
+- **Legacy ratings on old completed jobs** — ratings created for jobs the client completed under the old rules (no server work history) stay in `ratings`, and since 6b the rules refuse new ones. The server aggregate counts only canonical, de-duplicated ratings; review the ratings the backfill excludes (see its output) before deleting or keeping them.
 
 ## Before the first money/reputation callable
 
@@ -55,5 +59,7 @@ Run it in a maintenance window (no one applying or accepting). New deterministic
 **Legacy work history.** `workHistory` docs without `source: 'server'` and `serverVersion: 'completion-v1'` (random ids from before slice 5, or forged under the old create rule) are ignored by the client from now on (`getWorkHistory`, `haveWorkedTogether`, `getSmartMatchedWorkers`). They are never rewritten; delete them if you want a clean collection.
 
 **Legacy payments.** Before slice 4 the client created payments with random ids (`addDoc`), and could release them itself. Since slice 4 the server only creates, releases and disputes `payments/{jobId}_{payeeId}`. Legacy random-id payments stay readable for payer and payee (`getPaymentForJob` falls back to `where('jobId')` + `where('payerId'|'payeeId')`), but they are never released, refunded or disputable server-side. Before deploying, list every `payments` doc whose id is not `{jobId}_{payeeId}` (and those created between the functions deploy and the hosting deploy, when old tabs could still create them) for manual review. A job may then have both a legacy and a server payment; the client shows the server one.
+
+**Legacy reputation.** Before slice 6 owners could write any field of their own profile, so stored `ratingScore`, `totalRatings`, `activeJobCount` and `maxJobLimit` may be forged, and the rating trigger only recomputes a user on their next rating. The backfill below fixes the reputation fields and counters; review users whose stored values differ, and reset `maxJobLimit` to 2 if needed.
 
 **Reputation backfill.** After the 6b rules are live, run `node scripts/recompute-reputation.mjs` (dry-run) in a quiet window (nobody rating, assigning or completing jobs), then `--apply`, then a second dry-run that must plan nothing. It fixes profile values forged under the old `users.update` rule and writes `jobCounters` markers for in-progress and completed jobs. It cannot recover cancel penalties lowered between the 6a and 6b deploys.

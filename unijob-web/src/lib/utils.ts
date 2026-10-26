@@ -37,16 +37,6 @@ export function getRatingStars(score: number): string {
 }
 
 /**
- * Get max job limit based on rating score
- */
-export function getMaxJobLimit(ratingScore: number): number {
-  if (ratingScore >= 4.5) return 5;
-  if (ratingScore >= 3.5) return 4;
-  if (ratingScore >= 2.5) return 3;
-  return 2; // Default for new users
-}
-
-/**
  * Validate HCMUT email
  */
 export function isValidSchoolEmail(email: string): boolean {

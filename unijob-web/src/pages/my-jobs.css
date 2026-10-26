@@ -212,6 +212,11 @@
   color: #16a34a;
 }
 
+.myjobs-badge-cancelled {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
 .myjobs-badge-finding {
   background: #e2e8f0;
   color: #475569;

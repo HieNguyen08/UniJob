@@ -15,7 +15,14 @@ import {
   completionSuccessMessage,
   isCompletionPreconditionFailed,
 } from '@/services/completion.service';
-import { workerCancelJob, posterCancelJob, type CancelReason } from '@/services/cancel.service';
+import {
+  cancelJob,
+  cancelErrorMessage,
+  cancelSuccessMessage,
+  isCancelPreconditionFailed,
+  CANCEL_REASONS,
+  type CancelReason,
+} from '@/services/cancel.service';
 import { formatDeadline } from '@/lib/deadline';
 
 import toast from 'react-hot-toast';
@@ -32,12 +39,10 @@ import {
 import './my-jobs.css';
 
 type WorkTab = 'received' | 'posted';
-type WorkStatus = 'in-progress' | 'pending' | 'completed' | 'finding';
+type WorkStatus = 'in-progress' | 'pending' | 'completed' | 'finding' | 'cancelled';
 
 type ReceivedJob = {
   id: string;
-  applicationId: string;
-  rawDeadline: { toDate: () => Date } | null;
   title: string;
   postedBy: string;
   deadlineLabel: string;
@@ -49,7 +54,6 @@ type ReceivedJob = {
 
 type PostedJob = {
   id: string;
-  hasAssignedWorker: boolean;
   title: string;
   subtitle: string;
   paymentLabel: string;
@@ -60,6 +64,10 @@ type PostedJob = {
 };
 
 const statusConfig: Record<WorkStatus, { label: string; className: string }> = {
+  cancelled: {
+    label: 'Đã hủy',
+    className: 'myjobs-badge-cancelled',
+  },
   'in-progress': {
     label: 'Đang thực hiện',
     className: 'myjobs-badge-in-progress',
@@ -180,21 +188,39 @@ function ReportModal({ job, onClose, onSubmitted }: {
 
 function CancelModal({
   jobTitle,
+  role,
   onClose,
   onNext,
 }: {
   jobTitle: string;
+  role: 'worker' | 'poster';
   onClose: () => void;
-  onNext: (reason: string) => void;
+  onNext: (reason: CancelReason) => Promise<void>;
 }) {
-  const [selectedReason, setSelectedReason] = useState('');
+  const [selectedReason, setSelectedReason] = useState<CancelReason | ''>('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const reasons = [
-    'Không thể hoàn thành đúng deadline',
-    'Yêu cầu công việc thay đổi quá nhiều',
-    'Lý do cá nhân khẩn cấp',
-    'Khác'
-  ];
+  const warnings =
+    role === 'worker'
+      ? [
+          'Hủy khi còn dưới 12 tiếng đến hạn chót: -20 điểm uy tín.',
+          'Còn dưới 24 tiếng: -10 điểm uy tín. Còn lâu hơn hoặc không có hạn chót: -5 điểm uy tín.',
+          'Không thể hủy sau khi bạn đã báo hoàn thành.',
+        ]
+      : [
+          'Hủy khi đã có người nhận việc: -5 điểm uy tín và hoàn lại tiền ký quỹ.',
+          'Không thể hủy sau khi người làm đã báo hoàn thành; hãy xác nhận hoặc báo tranh chấp.',
+        ];
+
+  const submit = async () => {
+    if (!selectedReason || submitting) return;
+    setSubmitting(true);
+    try {
+      await onNext(selectedReason);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="myjobs-modal-backdrop">
@@ -204,7 +230,7 @@ function CancelModal({
             <h2 className="myjobs-modal-title">Xác nhận hủy công việc</h2>
             <p className="myjobs-modal-subtitle">Vui lòng cho biết lý do bạn muốn hủy công việc này.</p>
           </div>
-          <button onClick={onClose} className="myjobs-icon-btn" type="button" aria-label="Close">
+          <button onClick={onClose} className="myjobs-icon-btn" type="button" aria-label="Close" disabled={submitting}>
             <X className="h-6 w-6" />
           </button>
         </div>
@@ -220,10 +246,10 @@ function CancelModal({
             <select
               className="myjobs-select"
               value={selectedReason}
-              onChange={(e) => setSelectedReason(e.target.value)}
+              onChange={(e) => setSelectedReason(e.target.value as CancelReason | '')}
             >
               <option value="">Chọn lý do hủy...</option>
-              {reasons.map((reason) => (
+              {CANCEL_REASONS.map((reason) => (
                 <option key={reason} value={reason}>{reason}</option>
               ))}
             </select>
@@ -235,25 +261,26 @@ function CancelModal({
               <h3 className="myjobs-alert-title">Cảnh báo vi phạm chính sách:</h3>
             </div>
             <ul className="myjobs-alert-list">
-              <li>Hủy sát giờ (dưới 12 tiếng): -20 điểm uy tín.</li>
-              <li>Tài khoản sẽ bị giới hạn đăng bài trong 3 ngày.</li>
+              {warnings.map((w) => (
+                <li key={w}>{w}</li>
+              ))}
             </ul>
           </section>
         </div>
 
         <div className="myjobs-cancel-actions">
-          <button onClick={onClose} className="myjobs-btn myjobs-btn-primary" type="button">
+          <button onClick={onClose} className="myjobs-btn myjobs-btn-primary" type="button" disabled={submitting}>
             Quay lại (Không hủy)
           </button>
           <button
-            onClick={() => onNext(selectedReason)}
+            onClick={submit}
             type="button"
-            disabled={!selectedReason}
+            disabled={!selectedReason || submitting}
             className={`myjobs-btn myjobs-btn-danger ${
-              !selectedReason ? 'myjobs-btn-danger-disabled' : ''
+              !selectedReason || submitting ? 'myjobs-btn-danger-disabled' : ''
             }`}
           >
-            Xác nhận Hủy
+            {submitting ? 'Đang hủy...' : 'Xác nhận Hủy'}
           </button>
         </div>
       </div>
@@ -269,7 +296,6 @@ export default function MyJobs() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<WorkTab>('received');
   const [reportJobTarget, setReportJobTarget] = useState<ReceivedJob | null>(null);
-  const [cancelStep, setCancelStep] = useState<0 | 1>(0);
   const [cancelJobTarget, setCancelJobTarget] = useState<{ type: 'worker' | 'poster', job: ReceivedJob | PostedJob } | null>(null);
 
   const loadJobs = async () => {
@@ -287,7 +313,8 @@ export default function MyJobs() {
 
             const completion = await getJobCompletion(job.id);
             let status: WorkStatus = 'in-progress';
-            if (job.status === 'completed') status = 'completed';
+            if (job.status === 'cancelled') status = 'cancelled';
+            else if (job.status === 'completed') status = 'completed';
             else if (completion && completion.workerConfirmed && !completion.posterConfirmed)
               status = 'pending';
 
@@ -295,8 +322,6 @@ export default function MyJobs() {
 
             return {
               id: job.id,
-              applicationId: app.id,
-              rawDeadline: job.deadline,
               title: job.title,
               postedBy: job.isAnonymous ? 'Ẩn danh' : job.postedByName,
               deadlineLabel: `Hạn chót: ${deadline}`,
@@ -323,7 +348,8 @@ export default function MyJobs() {
           const pendingApps = apps.filter((a) => a.status === 'pending');
 
           let status: WorkStatus = 'finding';
-          if (job.status === 'in-progress') status = 'in-progress';
+          if (job.status === 'cancelled') status = 'cancelled';
+          else if (job.status === 'in-progress') status = 'in-progress';
           else if (job.status === 'completed') status = 'completed';
           else if (job.assignedTo?.length > 0) status = 'pending';
 
@@ -333,7 +359,6 @@ export default function MyJobs() {
 
           return {
             id: job.id,
-            hasAssignedWorker: (job.assignedTo?.length ?? 0) > 0,
             title: job.title,
             subtitle: assignedName
               ? `Người làm: ${assignedName}`
@@ -342,11 +367,12 @@ export default function MyJobs() {
               ? new Intl.NumberFormat('vi-VN').format(job.payment) + 'đ'
               : 'Tình nguyện',
             status,
-            primaryActionLabel: status === 'finding'
+            primaryActionLabel: status === 'cancelled' ? ''
+              : status === 'finding'
               ? `Xem ${pendingApps.length} ứng viên`
               : status === 'pending' ? 'Kiểm tra & Thanh toán'
               : 'Nhắn tin',
-            secondaryActionLabel: status !== 'completed' ? 'Hủy công việc' : undefined,
+            secondaryActionLabel: status !== 'completed' && status !== 'cancelled' ? 'Hủy công việc' : undefined,
             notificationCount: pendingApps.length > 0 ? pendingApps.length : undefined,
           } as PostedJob;
         })
@@ -499,7 +525,6 @@ export default function MyJobs() {
                       <button
                         onClick={() => {
                           setCancelJobTarget({ type: 'worker', job });
-                          setCancelStep(1);
                         }}
                         className="myjobs-action-danger"
                         type="button"
@@ -523,6 +548,7 @@ export default function MyJobs() {
                       <span className={`myjobs-badge ${statusConfig[job.status].className}`}>
                         {statusConfig[job.status].label}
                       </span>
+                      {job.status !== 'cancelled' && (
                       <button
                         onClick={() => {
                           if (job.status === 'finding') {
@@ -545,6 +571,7 @@ export default function MyJobs() {
                           </span>
                         ) : null}
                       </button>
+                      )}
                     </div>
                   </div>
 
@@ -554,7 +581,6 @@ export default function MyJobs() {
                         onClick={() => {
                           if (job.secondaryActionLabel === 'Hủy công việc') {
                             setCancelJobTarget({ type: 'poster', job });
-                            setCancelStep(1);
                           }
                         }}
                         type="button"
@@ -581,41 +607,27 @@ export default function MyJobs() {
         />
       )}
       
-      {cancelStep === 1 && cancelJobTarget ? (
+      {cancelJobTarget ? (
         <CancelModal
           jobTitle={cancelJobTarget.job.title}
-          onClose={() => {
-            setCancelStep(0);
-            setCancelJobTarget(null);
-          }}
+          role={cancelJobTarget.type}
+          onClose={() => setCancelJobTarget(null)}
           onNext={async (reason) => {
+            // the in-flight target stays in the parent; close() ignores a target that is no longer the current one
+            const targetId = cancelJobTarget.job.id;
+            const close = () => setCancelJobTarget((cur) => (cur?.job.id === targetId ? null : cur));
             try {
-              if (cancelJobTarget.type === 'worker') {
-                const wJob = cancelJobTarget.job as ReceivedJob;
-                const result = await workerCancelJob(
-                  wJob.id,
-                  wJob.applicationId,
-                  userProfile!.uid,
-                  reason as CancelReason,
-                  wJob.rawDeadline
-                );
-                toast.success(result.message);
-              } else {
-                const pJob = cancelJobTarget.job as PostedJob;
-                const result = await posterCancelJob(
-                  pJob.id,
-                  userProfile!.uid,
-                  pJob.hasAssignedWorker
-                );
-                toast.success(result.message);
-              }
-              setCancelStep(0);
-              setCancelJobTarget(null);
-              // Tải lại jobs sau khi hủy
+              const result = await cancelJob(targetId, reason);
+              toast.success(cancelSuccessMessage(result));
+              close();
               loadJobs();
-            } catch (error) {
-              console.error(error);
-              toast.error('Có lỗi xảy ra khi hủy công việc.');
+            } catch (err) {
+              console.error(err);
+              toast.error(cancelErrorMessage(err));
+              if (isCancelPreconditionFailed(err)) {
+                close();
+                loadJobs();
+              }
             }
           }}
         />

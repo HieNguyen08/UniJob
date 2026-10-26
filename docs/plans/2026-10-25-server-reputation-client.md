@@ -727,3 +727,4 @@ git commit -m "refactor(reputation): drop client reputation and counter writes [
 - Names match 6a: callable `cancelJob`, region `asia-southeast1`, `{ jobId, reason }` → `{ penaltyPoints, status }`, the `cancelledBy` server field, and the `Người làm đã báo hoàn thành. Hãy xác nhận hoặc báo tranh chấp.` string.
 - After Task 1 no `it.fails('KNOWN HOLE …')` remains in `tests/rules`.
 - PR body: base branch `feat/server-reputation`, deploy order, old-tab behaviour.
+- 6a writes server profile stubs (`uid` + server fields) for missing `users` docs, and the client sign-in skips creation when a doc exists, so such a stub lacks `displayName`/`email` until the user edits the profile. Tracked in `docs/backlog/security-holes.md` (Server profile stubs).

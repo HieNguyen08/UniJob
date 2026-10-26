@@ -56,3 +56,15 @@ export interface Application {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
+
+export type CancelReason =
+  | 'Không thể hoàn thành đúng deadline'
+  | 'Yêu cầu công việc thay đổi quá nhiều'
+  | 'Lý do cá nhân khẩn cấp'
+  | 'Khác';
+
+/** Result of the cancelJob callable; penaltyPoints is computed by the server. */
+export interface CancelJobResult {
+  penaltyPoints: number;
+  status: 'cancelled' | 'open';
+}

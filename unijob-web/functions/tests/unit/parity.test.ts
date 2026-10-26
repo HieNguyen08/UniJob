@@ -13,14 +13,13 @@ describe('parity with the web app', () => {
     expect(calculatePlatformFee(amount)).toEqual(webFee(amount));
   });
 
-  // 6a adds 'worker_cancelled' server-side only; slice 6b adds it to the web union and restores strict equality.
-  it('NotificationType equals the web union plus worker_cancelled', () => {
-    expectTypeOf<NotificationType>().toEqualTypeOf<WebNotificationType | 'worker_cancelled'>();
+  it('NotificationType equals the web union', () => {
+    expectTypeOf<NotificationType>().toEqualTypeOf<WebNotificationType>();
   });
 
-  it('CANCEL_REASONS equals the CancelReason union in the web cancel service', () => {
+  it('CANCEL_REASONS equals the CancelReason union in the web types', () => {
     // Read as text: importing the service would pull Firebase and the '@/' alias into this package's typecheck.
-    const src = readFileSync(new URL('../../../src/services/cancel.service.ts', import.meta.url), 'utf8');
+    const src = readFileSync(new URL('../../../src/types/job.ts', import.meta.url), 'utf8');
     const union = /export type CancelReason =([^;]+);/.exec(src)?.[1] ?? '';
     const web = [...union.matchAll(/'([^']+)'/g)].map((m) => m[1]);
     expect(web.length).toBeGreaterThan(0);
